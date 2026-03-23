@@ -1,0 +1,7 @@
+node_modules/
+.next/
+out/
+.env
+.env.local
+npm-debug.log*
+recipe_app_backup.jsx
