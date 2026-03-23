@@ -243,11 +243,11 @@ export default function App() {
                 <div
                   key={r.id}
                   onClick={() => openRecipe(r)}
-                  style={{ background:"#fff", borderRadius:"14px", overflow:"hidden", boxShadow:"0 2px 10px rgba(0,0,0,0.07)", cursor:"pointer", border:"1px solid #F0ECE6", transition:"all 0.2s" }}
+                  style={{ background:"#EDEDED", borderRadius:"14px", overflow:"hidden", boxShadow:"0 2px 10px rgba(0,0,0,0.07)", cursor:"pointer", border:"1px solid #E0E0E0", transition:"all 0.2s" }}
                   onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-4px)";e.currentTarget.style.boxShadow="0 10px 28px rgba(0,0,0,0.14)";}}
                   onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 2px 10px rgba(0,0,0,0.07)";}}
                 >
-                  <div style={{ height: isMobile?"100px":"128px", background:r.image?"transparent":"#F7F3EE", display:"flex", alignItems:"center", justifyContent:"center", position:"relative", overflow:"hidden" }}>
+                  <div style={{ height: isMobile?"100px":"128px", background:r.image?"transparent":"#E5E5E5", display:"flex", alignItems:"center", justifyContent:"center", position:"relative", overflow:"hidden" }}>
                     {r.image
                       ? <img src={r.image} alt={r.name} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
                       : <div style={{ textAlign:"center", color:"#C0B8A8" }}>
