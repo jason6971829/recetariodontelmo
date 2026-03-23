@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { storageGet, storageSet } from "@/lib/storage";
-import { CATEGORIES, INITIAL_USERS, STORAGE_KEYS } from "@/lib/constants";
+import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb, getUsers, saveUsers as saveUsersDb, uploadImage, deleteImage } from "@/lib/storage";
+import { CATEGORIES, INITIAL_USERS } from "@/lib/constants";
 import { SEED_RECIPES } from "@/data/seed-recipes";
 import { RecipeDetail } from "@/components/RecipeDetail";
 import { RecipeForm } from "@/components/RecipeForm";
@@ -30,17 +30,16 @@ export default function App() {
 
   useEffect(() => {
     async function load() {
-      const sr = await storageGet(STORAGE_KEYS.recipes);
-      const su = await storageGet(STORAGE_KEYS.users);
+      const sr = await getRecipes();
+      const su = await getUsers();
       setRecipes(sr || SEED_RECIPES);
-      if (su) setUsers(su);
+      if (su && su.length > 0) setUsers(su);
       setLoading(false);
     }
     load();
   }, []);
 
-  const saveRecipes = async r => { setRecipes(r); await storageSet(STORAGE_KEYS.recipes, r); };
-  const saveUsers   = async u => { setUsers(u);   await storageSet(STORAGE_KEYS.users,   u); };
+  const saveUsers = async u => { setUsers(u); await saveUsersDb(u); };
 
   const handleLogin = () => {
     const u = users.find(u => u.username===loginForm.username && u.password===loginForm.password);
@@ -62,14 +61,28 @@ export default function App() {
 
   const handleCreate = () => { setEditingRecipe(null); setShowForm(true); };
   const handleEdit = r => { setEditingRecipe(r); setShowForm(true); setSelectedRecipe(null); };
-  const handleSaveRecipe = form => {
-    if (editingRecipe) saveRecipes(recipes.map(r => r.id===editingRecipe.id ? {...form,id:r.id} : r));
-    else saveRecipes([...recipes, {...form, id:Date.now()}]);
+  const handleSaveRecipe = async (form) => {
+    if (editingRecipe) {
+      // Si la imagen cambió y la anterior era una URL de Storage, eliminarla
+      if (editingRecipe.image && editingRecipe.image !== form.image && editingRecipe.image.includes("supabase")) {
+        await deleteImage(editingRecipe.image);
+      }
+      const updated = await upsertRecipe({ ...form, id: editingRecipe.id });
+      if (updated) setRecipes(recipes.map(r => r.id === editingRecipe.id ? updated : r));
+    } else {
+      const created = await insertRecipe(form);
+      if (created) setRecipes([...recipes, created]);
+    }
     setShowForm(false); setEditingRecipe(null);
   };
-  const handleDelete = r => {
+  const handleDelete = async (r) => {
     if (!window.confirm(`¿Eliminar "${r.name}"?`)) return;
-    saveRecipes(recipes.filter(x=>x.id!==r.id));
+    // Eliminar imagen del Storage si existe
+    if (r.image && r.image.includes("supabase")) {
+      await deleteImage(r.image);
+    }
+    const ok = await deleteRecipeDb(r.id);
+    if (ok) setRecipes(recipes.filter(x => x.id !== r.id));
     setSelectedRecipe(null);
   };
 

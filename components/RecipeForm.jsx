@@ -3,6 +3,7 @@ import { useState, useRef } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { VoiceTextarea } from "@/components/VoiceTextarea";
 import { CATEGORIES } from "@/lib/constants";
+import { uploadImage } from "@/lib/storage";
 
 export function RecipeForm({ initial, onSave, onCancel }) {
   const [form, setForm] = useState(initial || {
@@ -10,7 +11,10 @@ export function RecipeForm({ initial, onSave, onCancel }) {
     ingredients:[], preparation:"", recommendations:"", image:null, video:""
   });
   const [newIng, setNewIng] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState(initial?.image || null);
   const fileRef = useRef();
+  const pendingFileRef = useRef(null);
   const isMobile = useIsMobile();
 
   const set = (k, v) => setForm(f => ({...f, [k]:v}));
@@ -18,9 +22,25 @@ export function RecipeForm({ initial, onSave, onCancel }) {
   const removeIng = i => set("ingredients", form.ingredients.filter((_,idx)=>idx!==i));
   const handleImage = e => {
     const file = e.target.files[0]; if (!file) return;
-    const r = new FileReader(); r.onload = ev => set("image", ev.target.result); r.readAsDataURL(file);
+    pendingFileRef.current = file;
+    // Mostrar preview local inmediata
+    const r = new FileReader();
+    r.onload = ev => { setImagePreview(ev.target.result); };
+    r.readAsDataURL(file);
   };
-  const handleSave = () => { if (!form.name.trim()){alert("El nombre es obligatorio"); return;} onSave(form); };
+  const handleSave = async () => {
+    if (!form.name.trim()) { alert("El nombre es obligatorio"); return; }
+    setUploading(true);
+    let imageUrl = form.image;
+    // Si hay un archivo pendiente, subirlo a Supabase Storage
+    if (pendingFileRef.current) {
+      const url = await uploadImage(pendingFileRef.current);
+      if (url) imageUrl = url;
+      pendingFileRef.current = null;
+    }
+    onSave({ ...form, image: imageUrl });
+    setUploading(false);
+  };
 
   const inp = { width:"100%", padding:"10px 12px", border:"1.5px solid #E0D8CE", borderRadius:"8px", fontSize:"13px", outline:"none", boxSizing:"border-box", fontFamily:"inherit", background:"#fff" };
   const lbl = { fontSize:"11px", fontWeight:"700", color:"#1B3A5C", letterSpacing:"1.5px", display:"block", marginBottom:"5px" };
@@ -106,8 +126,8 @@ export function RecipeForm({ initial, onSave, onCancel }) {
             <div>
               <label style={lbl}>IMAGEN DE REFERENCIA</label>
               <div style={{ background:"#F7F3EE", borderRadius:"10px", border:"2px dashed #C0B8A8", minHeight:"110px", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", overflow:"hidden" }} onClick={()=>fileRef.current.click()}>
-                {form.image
-                  ? <img src={form.image} alt="" style={{ width:"100%", height:"110px", objectFit:"cover" }} />
+                {(imagePreview || form.image)
+                  ? <img src={imagePreview || form.image} alt="" style={{ width:"100%", height:"110px", objectFit:"cover" }} />
                   : <div style={{ textAlign:"center", color:"#C0B8A8", padding:"16px" }}>
                       <div style={{ fontSize:"28px" }}>📷</div>
                       <div style={{ fontSize:"12px", marginTop:"4px" }}>Toca para subir</div>
@@ -115,7 +135,7 @@ export function RecipeForm({ initial, onSave, onCancel }) {
                 }
               </div>
               <input ref={fileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleImage} />
-              {form.image && <button onClick={()=>set("image",null)} style={{ marginTop:"5px", fontSize:"12px", color:"#c0392b", background:"none", border:"none", cursor:"pointer" }}>× Quitar imagen</button>}
+              {(imagePreview || form.image) && <button onClick={()=>{set("image",null);setImagePreview(null);pendingFileRef.current=null;}} style={{ marginTop:"5px", fontSize:"12px", color:"#c0392b", background:"none", border:"none", cursor:"pointer" }}>× Quitar imagen</button>}
             </div>
             <div>
               <label style={lbl}>ENLACE VIDEO (YouTube)</label>
@@ -126,8 +146,8 @@ export function RecipeForm({ initial, onSave, onCancel }) {
         </div>
 
         <div style={{ padding:"14px 20px", borderTop:"1px solid #F0ECE6", display:"flex", gap:"10px", justifyContent:"flex-end", flexShrink:0 }}>
-          <button onClick={onCancel} style={{ background:"#F0ECE6", border:"none", borderRadius:"8px", padding:"10px 18px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b" }}>Cancelar</button>
-          <button onClick={handleSave} style={{ background:"#1B3A5C", border:"none", borderRadius:"8px", padding:"10px 22px", cursor:"pointer", fontWeight:"700", color:"#fff", fontSize:"14px" }}>💾 Guardar</button>
+          <button onClick={onCancel} disabled={uploading} style={{ background:"#F0ECE6", border:"none", borderRadius:"8px", padding:"10px 18px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b", opacity: uploading ? 0.5 : 1 }}>Cancelar</button>
+          <button onClick={handleSave} disabled={uploading} style={{ background:"#1B3A5C", border:"none", borderRadius:"8px", padding:"10px 22px", cursor:"pointer", fontWeight:"700", color:"#fff", fontSize:"14px", opacity: uploading ? 0.7 : 1 }}>{uploading ? "⏳ Guardando..." : "💾 Guardar"}</button>
         </div>
       </div>
     </div>
