@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useWebAuthn } from "@/hooks/useWebAuthn";
 import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb, getUsers, saveUsers as saveUsersDb, uploadImage, deleteImage } from "@/lib/storage";
 import { CATEGORIES, INITIAL_USERS } from "@/lib/constants";
 import { SEED_RECIPES } from "@/data/seed-recipes";
@@ -10,6 +11,7 @@ import { UsersPanel } from "@/components/UsersPanel";
 
 export default function App() {
   const isMobile = useIsMobile();
+  const { isSupported: biometricSupported, hasCredential: hasBiometric, register: registerBiometric, authenticate: authBiometric, clearCredential } = useWebAuthn();
   const [screen, setScreen] = useState("login");
   const [currentUser, setCurrentUser] = useState(null);
   const [recipes, setRecipes] = useState([]);
@@ -24,6 +26,8 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [loginForm, setLoginForm] = useState({ username:"", password:"" });
   const [loginError, setLoginError] = useState("");
+  const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
+  const [biometricLoading, setBiometricLoading] = useState(false);
 
   // En móvil: cerrar sidebar por defecto
   useEffect(() => { setSidebarOpen(!isMobile); }, [isMobile]);
@@ -45,7 +49,30 @@ export default function App() {
     const u = users.find(u => u.username===loginForm.username && u.password===loginForm.password);
     if (!u) { setLoginError("Usuario o contraseña incorrectos"); return; }
     setCurrentUser(u); setScreen("app"); setLoginError("");
+    // Ofrecer biometría en móvil si no tiene credencial registrada
+    if (isMobile && biometricSupported && !hasBiometric) {
+      setTimeout(() => setShowBiometricPrompt(true), 500);
+    }
   };
+
+  const handleBiometricLogin = async () => {
+    setBiometricLoading(true);
+    setLoginError("");
+    const user = await authBiometric();
+    if (user) {
+      setCurrentUser(user); setScreen("app");
+    } else {
+      setLoginError("No se pudo verificar la identidad biométrica");
+    }
+    setBiometricLoading(false);
+  };
+
+  const handleRegisterBiometric = async () => {
+    const ok = await registerBiometric(currentUser);
+    setShowBiometricPrompt(false);
+    if (!ok) alert("No se pudo registrar el acceso biométrico");
+  };
+
   const handleLogout = () => { setCurrentUser(null); setScreen("login"); setLoginForm({username:"",password:""}); setSelectedRecipe(null); };
 
   const selectCat = (catId) => {
@@ -130,6 +157,26 @@ export default function App() {
             <button onClick={handleLogin} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#1B3A5C,#0d2340)", border:"none", borderRadius:"10px", color:"#fff", fontSize:"15px", fontWeight:"700", cursor:"pointer", fontFamily:"Georgia,serif", letterSpacing:"1px" }}>
               INGRESAR AL RECETARIO
             </button>
+
+            {/* Botón de acceso biométrico */}
+            {hasBiometric && (
+              <button
+                onClick={handleBiometricLogin}
+                disabled={biometricLoading}
+                style={{
+                  width:"100%", padding:"14px", marginTop:"12px",
+                  background:"linear-gradient(135deg,#27ae60,#1e8449)",
+                  border:"none", borderRadius:"10px", color:"#fff",
+                  fontSize:"15px", fontWeight:"700", cursor:"pointer",
+                  fontFamily:"Georgia,serif", letterSpacing:"1px",
+                  opacity: biometricLoading ? 0.7 : 1,
+                  display:"flex", alignItems:"center", justifyContent:"center", gap:"8px"
+                }}
+              >
+                {biometricLoading ? "⏳ Verificando..." : "🔐 Acceso con Face ID / Huella"}
+              </button>
+            )}
+
             <div style={{ textAlign:"center", marginTop:"18px", fontSize:"11px", color:"#bbb" }}>Acceso exclusivo personal Don Telmo</div>
           </>}
         </div>
@@ -292,6 +339,43 @@ export default function App() {
       )}
       {showUsers && isAdmin && (
         <UsersPanel users={users} onSave={saveUsers} onClose={()=>setShowUsers(false)} />
+      )}
+
+      {/* Modal para activar acceso biométrico */}
+      {showBiometricPrompt && (
+        <div style={{ position:"fixed", inset:0, zIndex:500, background:"rgba(10,15,25,0.88)", backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+          <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"360px", textAlign:"center", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
+            <div style={{ fontSize:"48px", marginBottom:"16px" }}>🔐</div>
+            <div style={{ color:"#1B3A5C", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", marginBottom:"8px" }}>
+              Acceso Biométrico
+            </div>
+            <div style={{ color:"#666", fontSize:"13px", lineHeight:"1.6", marginBottom:"24px" }}>
+              ¿Deseas activar el acceso con Face ID o huella dactilar para iniciar sesión más rápido?
+            </div>
+            <button
+              onClick={handleRegisterBiometric}
+              style={{
+                width:"100%", padding:"14px",
+                background:"linear-gradient(135deg,#27ae60,#1e8449)",
+                border:"none", borderRadius:"10px", color:"#fff",
+                fontSize:"15px", fontWeight:"700", cursor:"pointer",
+                fontFamily:"Georgia,serif", marginBottom:"10px"
+              }}
+            >
+              ✅ Sí, activar
+            </button>
+            <button
+              onClick={() => setShowBiometricPrompt(false)}
+              style={{
+                width:"100%", padding:"12px",
+                background:"#F0ECE6", border:"none", borderRadius:"10px",
+                color:"#5a3e2b", fontSize:"14px", fontWeight:"600", cursor:"pointer"
+              }}
+            >
+              Ahora no
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
