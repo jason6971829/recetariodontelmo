@@ -28,6 +28,7 @@ export default function App() {
   const [loginError, setLoginError] = useState("");
   const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
+  const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
 
   // En móvil: cerrar sidebar por defecto
   useEffect(() => { setSidebarOpen(!isMobile); }, [isMobile]);
@@ -102,15 +103,41 @@ export default function App() {
     }
     setShowForm(false); setEditingRecipe(null);
   };
-  const handleDelete = async (r) => {
-    if (!window.confirm(`¿Eliminar "${r.name}"?`)) return;
-    // Eliminar imagen del Storage si existe
-    if (r.image && r.image.includes("supabase")) {
-      await deleteImage(r.image);
-    }
-    const ok = await deleteRecipeDb(r.id);
-    if (ok) setRecipes(recipes.filter(x => x.id !== r.id));
-    setSelectedRecipe(null);
+  const handleDelete = (r) => {
+    setConfirmModal({
+      title: "Eliminar Receta",
+      message: `¿Estás seguro de eliminar "${r.name}"? Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        if (r.image && r.image.includes("supabase")) {
+          await deleteImage(r.image);
+        }
+        const ok = await deleteRecipeDb(r.id);
+        if (ok) setRecipes(prev => prev.filter(x => x.id !== r.id));
+        setSelectedRecipe(null);
+        setConfirmModal(null);
+      }
+    });
+  };
+
+  const handleDeleteCategory = (catId) => {
+    const catLabel = CATEGORIES.find(c => c.id === catId)?.label || catId;
+    const catRecipes = recipes.filter(r => r.category === catId);
+    setConfirmModal({
+      title: "Eliminar Categoría Completa",
+      message: `¿Estás seguro de eliminar la categoría "${catLabel}" y sus ${catRecipes.length} receta${catRecipes.length !== 1 ? "s" : ""}? Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        for (const r of catRecipes) {
+          if (r.image && r.image.includes("supabase")) {
+            await deleteImage(r.image);
+          }
+          await deleteRecipeDb(r.id);
+        }
+        setRecipes(prev => prev.filter(r => r.category !== catId));
+        setSelectedCat("all");
+        setSelectedRecipe(null);
+        setConfirmModal(null);
+      }
+    });
   };
 
   // Filtrado
@@ -269,8 +296,19 @@ export default function App() {
                   <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1, marginRight:"8px" }}>
                     {cat.icon} {cat.label}
                   </span>
-                  <span style={{ background: active ? "#D4721A" : "rgba(255,255,255,0.1)", borderRadius:"10px", padding:"2px 7px", fontSize:"11px", fontWeight:"700", color: active ? "#fff" : "#9BBACC", flexShrink:0 }}>
-                    {count}
+                  <span style={{ display:"flex", alignItems:"center", gap:"6px", flexShrink:0 }}>
+                    {isAdmin && cat.id !== "all" && count > 0 && (
+                      <span
+                        onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id); }}
+                        style={{ background:"rgba(231,76,60,0.15)", borderRadius:"6px", padding:"2px 5px", fontSize:"11px", cursor:"pointer", color:"#e74c3c", lineHeight:1, opacity:0.6, transition:"opacity 0.2s" }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = "1"}
+                        onMouseLeave={e => e.currentTarget.style.opacity = "0.6"}
+                        title={`Eliminar categoría ${cat.label}`}
+                      >🗑️</span>
+                    )}
+                    <span style={{ background: active ? "#D4721A" : "rgba(255,255,255,0.1)", borderRadius:"10px", padding:"2px 7px", fontSize:"11px", fontWeight:"700", color: active ? "#fff" : "#9BBACC" }}>
+                      {count}
+                    </span>
                   </span>
                 </button>
               );
@@ -373,6 +411,43 @@ export default function App() {
               }}
             >
               Ahora no
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación */}
+      {confirmModal && (
+        <div style={{ position:"fixed", inset:0, zIndex:600, background:"rgba(10,15,25,0.88)", backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+          <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"400px", textAlign:"center", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
+            <div style={{ fontSize:"48px", marginBottom:"16px" }}>⚠️</div>
+            <div style={{ color:"#1B3A5C", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", marginBottom:"8px" }}>
+              {confirmModal.title}
+            </div>
+            <div style={{ color:"#666", fontSize:"14px", lineHeight:"1.6", marginBottom:"24px" }}>
+              {confirmModal.message}
+            </div>
+            <button
+              onClick={confirmModal.onConfirm}
+              style={{
+                width:"100%", padding:"14px",
+                background:"linear-gradient(135deg,#e74c3c,#c0392b)",
+                border:"none", borderRadius:"10px", color:"#fff",
+                fontSize:"15px", fontWeight:"700", cursor:"pointer",
+                fontFamily:"Georgia,serif", marginBottom:"10px"
+              }}
+            >
+              🗑️ Sí, eliminar
+            </button>
+            <button
+              onClick={() => setConfirmModal(null)}
+              style={{
+                width:"100%", padding:"12px",
+                background:"#F0ECE6", border:"none", borderRadius:"10px",
+                color:"#5a3e2b", fontSize:"14px", fontWeight:"600", cursor:"pointer"
+              }}
+            >
+              Cancelar
             </button>
           </div>
         </div>
