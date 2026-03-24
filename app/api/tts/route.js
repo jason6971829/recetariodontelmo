@@ -19,8 +19,8 @@ export async function POST(request) {
     });
   }
 
-  // Voz: Laura (femenina, entusiasta) - buena para español
-  const voiceId = "FGY2WhTYpPnrIDTdsKH5";
+  // Voz: George (masculina, cálida, narrador) - ideal para Don Telmo
+  const voiceId = "JBFqnCBsd6RMkjVDRZzb";
 
   try {
     const response = await fetch(
