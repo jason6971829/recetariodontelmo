@@ -1,6 +1,7 @@
 "use client";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { Watermark } from "@/components/Watermark";
+import { TextToSpeech } from "@/components/TextToSpeech";
 
 export function RecipeDetail({ recipe, onClose, onEdit, onDelete, currentUser }) {
   const isAdmin = currentUser.role === "admin";
@@ -87,7 +88,10 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, currentUser })
                 }
               </div>
 
-              <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"#1B3A5C", marginBottom:"10px", letterSpacing:"1px" }}>INGREDIENTES</div>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"10px" }}>
+                <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"#1B3A5C", letterSpacing:"1px" }}>INGREDIENTES</div>
+                <TextToSpeech text={recipe.ingredients.join(". ")} label="ingredientes" />
+              </div>
               {recipe.ingredients.length > 0
                 ? recipe.ingredients.map((ing, i) => (
                     <div key={i} style={{
@@ -102,13 +106,19 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, currentUser })
 
             {/* Derecha: preparación + recomendaciones + video */}
             <div style={{ padding:"20px" }}>
-              <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"#1B3A5C", marginBottom:"10px", letterSpacing:"1px" }}>PREPARACIÓN</div>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"10px" }}>
+                <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"#1B3A5C", letterSpacing:"1px" }}>PREPARACIÓN</div>
+                <TextToSpeech text={recipe.preparation} label="preparación" />
+              </div>
               <div style={{ background:"#F7F3EE", borderRadius:"10px", padding:"14px", fontSize:"13px", color:"#333", lineHeight:"1.9", marginBottom:"18px", minHeight:"100px", whiteSpace:"pre-wrap" }}>
                 {recipe.preparation || <span style={{ color:"#aaa", fontStyle:"italic" }}>Sin instrucciones aún</span>}
               </div>
 
               {recipe.recommendations && <>
-                <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"#1B3A5C", marginBottom:"10px", letterSpacing:"1px" }}>RECOMENDACIONES</div>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"10px" }}>
+                  <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"#1B3A5C", letterSpacing:"1px" }}>RECOMENDACIONES</div>
+                  <TextToSpeech text={recipe.recommendations} label="recomendaciones" />
+                </div>
                 <div style={{ background:"#FFF8F2", border:"1px solid #E8C9A0", borderRadius:"10px", padding:"14px", fontSize:"13px", color:"#5a3e2b", lineHeight:"1.7", marginBottom:"18px" }}>
                   {recipe.recommendations}
                 </div>
