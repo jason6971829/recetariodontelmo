@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const SPEED_OPTIONS = [
   { label: "0.5×", value: 0.5 },
@@ -11,219 +11,158 @@ const SPEED_OPTIONS = [
 ];
 
 export function TextToSpeech({ text, label }) {
-  const [playing, setPlaying] = useState(false);
-  const [paused, setPaused] = useState(false);
+  const [status, setStatus] = useState("idle"); // idle | loading | playing | paused
   const [speed, setSpeed] = useState(1);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
-  const [voices, setVoices] = useState([]);
   const [progress, setProgress] = useState(0);
-  const utterRef = useRef(null);
-  const intervalRef = useRef(null);
-  const startTimeRef = useRef(null);
-  const durationEstRef = useRef(0);
+  const audioRef = useRef(null);
+  const cacheRef = useRef({}); // Cache audio blobs por texto
 
-  // Cargar voces disponibles
+  // Cleanup al desmontar
   useEffect(() => {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-
-    const loadVoices = () => {
-      const v = speechSynthesis.getVoices();
-      setVoices(v);
-    };
-
-    loadVoices();
-    speechSynthesis.onvoiceschanged = loadVoices;
-
     return () => {
-      speechSynthesis.cancel();
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
     };
   }, []);
 
-  // Seleccionar la mejor voz femenina en español
-  const getBestVoice = useCallback(() => {
-    if (voices.length === 0) return null;
+  const fetchAudio = async (txt) => {
+    // Revisar cache
+    const cacheKey = txt.slice(0, 100);
+    if (cacheRef.current[cacheKey]) return cacheRef.current[cacheKey];
 
-    // Prioridad: voces de Google/Microsoft en español que suenen natural
-    const spanishVoices = voices.filter(v =>
-      v.lang.startsWith("es")
-    );
-
-    // Preferir voces femeninas (nombres comunes de voces femeninas)
-    const femaleKeywords = [
-      "female", "mujer", "femenin",
-      "elena", "paulina", "monica", "mónica", "lucia", "lucía",
-      "conchita", "lupe", "penelope", "penélope", "miren",
-      "sabina", "elvira", "ines", "inés", "silvia",
-      "google español", "microsoft sabina", "microsoft elvira",
-      "microsoft helena", "helena",
-    ];
-
-    // Buscar voz femenina en español
-    let best = spanishVoices.find(v => {
-      const name = v.name.toLowerCase();
-      return femaleKeywords.some(k => name.includes(k));
+    const res = await fetch("/api/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: txt }),
     });
 
-    // Si no encuentra femenina específica, usar cualquier voz española
-    if (!best && spanishVoices.length > 0) {
-      // Preferir voces de Google o Microsoft (suenan más natural)
-      best = spanishVoices.find(v =>
-        v.name.toLowerCase().includes("google") || v.name.toLowerCase().includes("microsoft")
-      ) || spanishVoices[0];
-    }
+    if (!res.ok) throw new Error("TTS failed");
 
-    // Fallback a cualquier voz
-    return best || voices[0];
-  }, [voices]);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    cacheRef.current[cacheKey] = url;
+    return url;
+  };
 
-  const handlePlay = () => {
-    if (!window.speechSynthesis || !text) return;
+  const handlePlay = async () => {
+    if (!text) return;
 
-    // Si está pausada, reanudar
-    if (paused) {
-      speechSynthesis.resume();
-      setPaused(false);
-      setPlaying(true);
-      startProgressTracker();
+    // Si está pausado, reanudar
+    if (status === "paused" && audioRef.current) {
+      audioRef.current.play();
+      setStatus("playing");
       return;
     }
 
-    // Cancelar cualquier lectura previa
-    speechSynthesis.cancel();
+    // Si ya está reproduciendo, ignorar
+    if (status === "loading") return;
 
-    const utter = new SpeechSynthesisUtterance(text);
-    const voice = getBestVoice();
-    if (voice) utter.voice = voice;
-    utter.lang = "es-ES";
-    utter.rate = speed;
-    utter.pitch = 1.1; // Ligeramente más alto para voz femenina
+    setStatus("loading");
 
-    // Estimar duración (aprox 150 palabras por minuto a velocidad 1x)
-    const wordCount = text.split(/\s+/).length;
-    durationEstRef.current = (wordCount / 150) * 60 * 1000 / speed;
+    try {
+      // Detener audio anterior si existe
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
 
-    utter.onstart = () => {
-      startTimeRef.current = Date.now();
-      startProgressTracker();
-    };
+      const audioUrl = await fetchAudio(text);
+      const audio = new Audio(audioUrl);
+      audio.playbackRate = speed;
 
-    utter.onend = () => {
-      setPlaying(false);
-      setPaused(false);
-      setProgress(0);
-      stopProgressTracker();
-    };
+      audio.ontimeupdate = () => {
+        if (audio.duration) {
+          setProgress((audio.currentTime / audio.duration) * 100);
+        }
+      };
 
-    utter.onerror = () => {
-      setPlaying(false);
-      setPaused(false);
-      setProgress(0);
-      stopProgressTracker();
-    };
+      audio.onended = () => {
+        setStatus("idle");
+        setProgress(0);
+      };
 
-    utterRef.current = utter;
-    speechSynthesis.speak(utter);
-    setPlaying(true);
-    setPaused(false);
+      audio.onerror = () => {
+        setStatus("idle");
+        setProgress(0);
+      };
+
+      audioRef.current = audio;
+      await audio.play();
+      setStatus("playing");
+    } catch (err) {
+      console.error("TTS error:", err);
+      setStatus("idle");
+    }
   };
 
   const handlePause = () => {
-    if (speechSynthesis.speaking && !speechSynthesis.paused) {
-      speechSynthesis.pause();
-      setPaused(true);
-      setPlaying(false);
-      stopProgressTracker();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      setStatus("paused");
     }
   };
 
   const handleStop = () => {
-    speechSynthesis.cancel();
-    setPlaying(false);
-    setPaused(false);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    setStatus("idle");
     setProgress(0);
-    stopProgressTracker();
   };
 
   const changeSpeed = (newSpeed) => {
     setSpeed(newSpeed);
     setShowSpeedMenu(false);
-    // Si está reproduciéndose, reiniciar con nueva velocidad
-    if (playing || paused) {
-      speechSynthesis.cancel();
-      setPlaying(false);
-      setPaused(false);
-      setProgress(0);
-      stopProgressTracker();
-      // Reiniciar con nueva velocidad después de un tick
-      setTimeout(() => {
-        const utter = new SpeechSynthesisUtterance(text);
-        const voice = getBestVoice();
-        if (voice) utter.voice = voice;
-        utter.lang = "es-ES";
-        utter.rate = newSpeed;
-        utter.pitch = 1.1;
-
-        const wordCount = text.split(/\s+/).length;
-        durationEstRef.current = (wordCount / 150) * 60 * 1000 / newSpeed;
-
-        utter.onstart = () => {
-          startTimeRef.current = Date.now();
-          startProgressTracker();
-        };
-        utter.onend = () => { setPlaying(false); setPaused(false); setProgress(0); stopProgressTracker(); };
-        utter.onerror = () => { setPlaying(false); setPaused(false); setProgress(0); stopProgressTracker(); };
-
-        utterRef.current = utter;
-        speechSynthesis.speak(utter);
-        setPlaying(true);
-        setPaused(false);
-      }, 100);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = newSpeed;
     }
   };
 
-  const startProgressTracker = () => {
-    stopProgressTracker();
-    intervalRef.current = setInterval(() => {
-      if (startTimeRef.current && durationEstRef.current > 0) {
-        const elapsed = Date.now() - startTimeRef.current;
-        const pct = Math.min((elapsed / durationEstRef.current) * 100, 100);
-        setProgress(pct);
-      }
-    }, 200);
-  };
-
-  const stopProgressTracker = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  };
-
-  if (typeof window === "undefined" || !window.speechSynthesis || !text) return null;
+  if (!text) return null;
 
   return (
     <div style={{ display:"flex", alignItems:"center", gap:"6px", position:"relative" }}>
-      {/* Play / Pause */}
-      {!playing && !paused && (
+
+      {/* Play */}
+      {(status === "idle" || status === "paused") && (
         <button
           onClick={handlePlay}
-          title={`Escuchar ${label}`}
+          title={status === "paused" ? "Reanudar" : `Escuchar ${label}`}
           style={{
-            background:"linear-gradient(135deg,#27ae60,#1e8449)",
+            background: status === "paused"
+              ? "linear-gradient(135deg,#27ae60,#1e8449)"
+              : "linear-gradient(135deg,#27ae60,#1e8449)",
             border:"none", borderRadius:"50%", width:"32px", height:"32px",
             cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
             boxShadow:"0 2px 8px rgba(39,174,96,0.3)", transition:"transform 0.15s",
             color:"#fff", fontSize:"14px",
+            animation: status === "paused" ? "pulse 1.5s infinite" : "none",
           }}
           onMouseEnter={e => e.currentTarget.style.transform = "scale(1.1)"}
           onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
         >
-          🔊
+          {status === "paused" ? "▶️" : "🔊"}
         </button>
       )}
 
-      {playing && (
+      {/* Loading */}
+      {status === "loading" && (
+        <div
+          style={{
+            width:"32px", height:"32px", borderRadius:"50%",
+            border:"3px solid #E0D8CE", borderTopColor:"#27ae60",
+            animation:"spin 0.8s linear infinite",
+          }}
+        />
+      )}
+
+      {/* Pause (cuando está reproduciendo) */}
+      {status === "playing" && (
         <button
           onClick={handlePause}
           title="Pausar"
@@ -239,24 +178,8 @@ export function TextToSpeech({ text, label }) {
         </button>
       )}
 
-      {paused && (
-        <button
-          onClick={handlePlay}
-          title="Reanudar"
-          style={{
-            background:"linear-gradient(135deg,#27ae60,#1e8449)",
-            border:"none", borderRadius:"50%", width:"32px", height:"32px",
-            cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
-            boxShadow:"0 2px 8px rgba(39,174,96,0.3)",
-            color:"#fff", fontSize:"14px", animation:"pulse 1.5s infinite",
-          }}
-        >
-          ▶️
-        </button>
-      )}
-
       {/* Stop */}
-      {(playing || paused) && (
+      {(status === "playing" || status === "paused") && (
         <button
           onClick={handleStop}
           title="Detener"
@@ -272,14 +195,15 @@ export function TextToSpeech({ text, label }) {
       )}
 
       {/* Barra de progreso */}
-      {(playing || paused) && (
+      {(status === "playing" || status === "paused") && (
         <div style={{
           flex:1, height:"4px", background:"#E0D8CE", borderRadius:"2px",
           overflow:"hidden", minWidth:"40px", maxWidth:"80px",
         }}>
           <div style={{
-            height:"100%", background: playing ? "#27ae60" : "#f39c12",
-            borderRadius:"2px", transition:"width 0.2s",
+            height:"100%",
+            background: status === "playing" ? "#27ae60" : "#f39c12",
+            borderRadius:"2px", transition:"width 0.3s",
             width: `${progress}%`,
           }} />
         </div>
@@ -328,6 +252,17 @@ export function TextToSpeech({ text, label }) {
           </div>
         )}
       </div>
+
+      {/* CSS animations */}
+      <style jsx global>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.6; }
+        }
+      `}</style>
     </div>
   );
 }
