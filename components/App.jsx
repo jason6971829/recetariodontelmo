@@ -2,12 +2,13 @@
 import { useState, useEffect } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useWebAuthn } from "@/hooks/useWebAuthn";
-import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb, getUsers, saveUsers as saveUsersDb, uploadImage, deleteImage } from "@/lib/storage";
+import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb, getUsers, saveUsers as saveUsersDb, uploadImage, deleteImage, logActivity } from "@/lib/storage";
 import { CATEGORIES, INITIAL_USERS } from "@/lib/constants";
 import { SEED_RECIPES } from "@/data/seed-recipes";
 import { RecipeDetail } from "@/components/RecipeDetail";
 import { RecipeForm } from "@/components/RecipeForm";
 import { UsersPanel } from "@/components/UsersPanel";
+import { ActivityReport } from "@/components/ActivityReport";
 
 export default function App() {
   const isMobile = useIsMobile();
@@ -28,6 +29,7 @@ export default function App() {
   const [loginError, setLoginError] = useState("");
   const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
 
   // En móvil: cerrar sidebar por defecto
@@ -50,6 +52,7 @@ export default function App() {
     const u = users.find(u => u.username===loginForm.username && u.password===loginForm.password);
     if (!u) { setLoginError("Usuario o contraseña incorrectos"); return; }
     setCurrentUser(u); setScreen("app"); setLoginError("");
+    logActivity(u.id, "login");
     // Ofrecer biometría en móvil si no tiene credencial registrada
     if (isMobile && biometricSupported && !hasBiometric) {
       setTimeout(() => setShowBiometricPrompt(true), 500);
@@ -62,6 +65,7 @@ export default function App() {
     const user = await authBiometric();
     if (user) {
       setCurrentUser(user); setScreen("app");
+      logActivity(user.id, "login");
     } else {
       setLoginError("No se pudo verificar la identidad biométrica");
     }
@@ -85,6 +89,7 @@ export default function App() {
   const openRecipe = (r) => {
     setSelectedRecipe(r);
     if (isMobile) setSidebarOpen(false);
+    if (currentUser) logActivity(currentUser.id, "view_recipe", r.name, r.category);
   };
 
   const handleCreate = () => { setEditingRecipe(null); setShowForm(true); };
@@ -235,7 +240,18 @@ export default function App() {
             style={{ width:"100%", padding:"8px 12px 8px 34px", border:"none", borderRadius:"20px", background:"rgba(255,255,255,0.13)", color:"#fff", fontSize:"13px", outline:"none", boxSizing:"border-box" }}
             placeholder="Buscar receta..."
             value={search}
-            onChange={e => { setSearch(e.target.value); if (isMobile) setSidebarOpen(false); }}
+            onChange={e => {
+              setSearch(e.target.value);
+              if (isMobile) setSidebarOpen(false);
+              // Log search after user stops typing (debounced via timeout)
+              clearTimeout(window._searchTimeout);
+              if (e.target.value.length >= 3) {
+                const val = e.target.value;
+                window._searchTimeout = setTimeout(() => {
+                  if (currentUser) logActivity(currentUser.id, "search", val);
+                }, 1500);
+              }
+            }}
           />
         </div>
 
@@ -243,6 +259,7 @@ export default function App() {
         <div style={{ display:"flex", gap:"8px", alignItems:"center", flexShrink:0 }}>
           {isAdmin && <>
             <button onClick={handleCreate} style={{ background:"#D4721A", border:"none", borderRadius:"8px", color:"#fff", padding:"7px 12px", cursor:"pointer", fontWeight:"700", fontSize:"13px", whiteSpace:"nowrap" }}>+ Nueva</button>
+            <button onClick={()=>setShowReport(true)} title="Reporte de actividad" style={{ background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"16px" }}>📊</button>
             <button onClick={()=>setShowUsers(true)} style={{ background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"16px" }}>👥</button>
           </>}
           <div style={{ width:"30px", height:"30px", borderRadius:"50%", background:isAdmin?"#D4721A":"#27ae60", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontWeight:"700", fontSize:"12px", cursor:"pointer" }} onClick={handleLogout} title="Cerrar sesión">
@@ -377,6 +394,9 @@ export default function App() {
       )}
       {showUsers && isAdmin && (
         <UsersPanel users={users} onSave={saveUsers} onClose={()=>setShowUsers(false)} />
+      )}
+      {showReport && isAdmin && (
+        <ActivityReport onClose={()=>setShowReport(false)} />
       )}
 
       {/* Modal para activar acceso biométrico */}

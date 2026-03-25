@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { logActivity } from "@/lib/storage";
 
 const SPEED_OPTIONS = [
   { label: "0.5×", value: 0.5 },
@@ -11,7 +12,7 @@ const SPEED_OPTIONS = [
   { label: "2×", value: 2 },
 ];
 
-export function TextToSpeech({ text, label }) {
+export function TextToSpeech({ text, label, userId }) {
   const [status, setStatus] = useState("idle"); // idle | loading | playing | paused
   const [speed, setSpeed] = useState(1);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
@@ -94,6 +95,7 @@ export function TextToSpeech({ text, label }) {
       audioRef.current = audio;
       await audio.play();
       setStatus("playing");
+      if (userId) logActivity(userId, "tts_play", label);
     } catch (err) {
       console.error("TTS error:", err);
       setStatus("idle");

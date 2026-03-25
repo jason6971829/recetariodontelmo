@@ -90,7 +90,7 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, currentUser })
 
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"10px" }}>
                 <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"#1B3A5C", letterSpacing:"1px" }}>INGREDIENTES</div>
-                <TextToSpeech text={recipe.ingredients.join(". ")} label="ingredientes" />
+                <TextToSpeech text={recipe.ingredients.join(". ")} label="ingredientes" userId={currentUser?.id} />
               </div>
               {recipe.ingredients.length > 0
                 ? recipe.ingredients.map((ing, i) => (
@@ -108,7 +108,7 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, currentUser })
             <div style={{ padding:"20px" }}>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"10px" }}>
                 <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"#1B3A5C", letterSpacing:"1px" }}>PREPARACIÓN</div>
-                <TextToSpeech text={recipe.preparation} label="preparación" />
+                <TextToSpeech text={recipe.preparation} label="preparación" userId={currentUser?.id} />
               </div>
               <div style={{ background:"#F7F3EE", borderRadius:"10px", padding:"14px", fontSize:"13px", color:"#333", lineHeight:"1.9", marginBottom:"18px", minHeight:"100px", whiteSpace:"pre-wrap" }}>
                 {recipe.preparation || <span style={{ color:"#aaa", fontStyle:"italic" }}>Sin instrucciones aún</span>}
@@ -117,7 +117,7 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, currentUser })
               {recipe.recommendations && <>
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"10px" }}>
                   <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"#1B3A5C", letterSpacing:"1px" }}>RECOMENDACIONES</div>
-                  <TextToSpeech text={recipe.recommendations} label="recomendaciones" />
+                  <TextToSpeech text={recipe.recommendations} label="recomendaciones" userId={currentUser?.id} />
                 </div>
                 <div style={{ background:"#FFF8F2", border:"1px solid #E8C9A0", borderRadius:"10px", padding:"14px", fontSize:"13px", color:"#5a3e2b", lineHeight:"1.7", marginBottom:"18px" }}>
                   {recipe.recommendations}
