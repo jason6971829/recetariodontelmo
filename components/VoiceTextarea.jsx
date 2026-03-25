@@ -1,10 +1,12 @@
 "use client";
 import { useState, useRef } from "react";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 export function VoiceTextarea({ value, onChange, placeholder, minHeight = "110px", fieldColor = "#F7F3EE" }) {
   const [interim, setInterim] = useState(false);
   const baseRef = useRef(value);
+  const isMobile = useIsMobile();
 
   const { listening, supported, start, stop } = useSpeechRecognition({
     onResult: (text, isInterim) => {
@@ -42,14 +44,16 @@ export function VoiceTextarea({ value, onChange, placeholder, minHeight = "110px
           onClick={handleMic}
           title={listening ? "Detener grabación" : "Dictar con voz"}
           style={{
-            position: "absolute", right: "8px", top: "8px",
-            width: "30px", height: "30px", borderRadius: "50%",
+            position: "absolute", right: isMobile ? "10px" : "8px", top: isMobile ? "10px" : "8px",
+            width: isMobile ? "44px" : "30px", height: isMobile ? "44px" : "30px",
+            borderRadius: "50%",
             border: "none", cursor: "pointer",
             background: listening ? "#e74c3c" : "#1B3A5C",
-            color: "#fff", fontSize: "14px",
+            color: "#fff", fontSize: isMobile ? "20px" : "14px",
             display: "flex", alignItems: "center", justifyContent: "center",
             boxShadow: listening ? "0 0 0 4px rgba(231,76,60,0.25)" : "none",
             animation: listening ? "pulse 1.2s ease-in-out infinite" : "none",
+            WebkitTapHighlightColor: "transparent",
           }}
         >
           {listening ? "⏹" : "🎙️"}
@@ -57,9 +61,9 @@ export function VoiceTextarea({ value, onChange, placeholder, minHeight = "110px
       )}
       {listening && (
         <div style={{
-          position: "absolute", bottom: "8px", right: "8px",
-          background: "#e74c3c", color: "#fff", fontSize: "10px",
-          fontWeight: "700", borderRadius: "10px", padding: "2px 8px",
+          position: "absolute", bottom: isMobile ? "10px" : "8px", right: isMobile ? "10px" : "8px",
+          background: "#e74c3c", color: "#fff", fontSize: isMobile ? "12px" : "10px",
+          fontWeight: "700", borderRadius: "10px", padding: isMobile ? "4px 12px" : "2px 8px",
           letterSpacing: "1px", animation: "pulse 1.2s ease-in-out infinite"
         }}>● GRABANDO</div>
       )}
