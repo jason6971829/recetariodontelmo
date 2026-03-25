@@ -18,3 +18,41 @@ export function Watermark({ username }) {
     </div>
   );
 }
+
+// Marca de agua global que cubre toda la pantalla - más visible para disuadir capturas
+export function GlobalWatermark({ username, sede }) {
+  const text = `CONFIDENCIAL • ${username.toUpperCase()}${sede ? ` • ${sede.toUpperCase()}` : ""} • DON TELMO®`;
+  const rows = 12;
+  const cols = 4;
+
+  return (
+    <div style={{
+      position:"fixed", inset:0, overflow:"hidden",
+      pointerEvents:"none", zIndex:9990,
+      userSelect:"none", WebkitUserSelect:"none",
+    }}>
+      {Array.from({ length: rows * cols }).map((_, i) => {
+        const row = Math.floor(i / cols);
+        const col = i % cols;
+        return (
+          <div key={i} style={{
+            position:"absolute",
+            top: `${(row / rows) * 100}%`,
+            left: `${(col / cols) * 100 - 15}%`,
+            transform: "rotate(-30deg)",
+            fontSize: "13px",
+            fontWeight: "700",
+            color: "rgba(27,58,92,0.06)",
+            whiteSpace: "nowrap",
+            letterSpacing: "3px",
+            fontFamily: "Georgia,serif",
+            userSelect: "none",
+            WebkitUserSelect: "none",
+          }}>
+            {text}
+          </div>
+        );
+      })}
+    </div>
+  );
+}

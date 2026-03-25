@@ -10,6 +10,7 @@ import { RecipeForm } from "@/components/RecipeForm";
 import { UsersPanel } from "@/components/UsersPanel";
 import { ActivityReport } from "@/components/ActivityReport";
 import { ScreenProtection } from "@/components/ScreenProtection";
+import { GlobalWatermark } from "@/components/Watermark";
 
 export default function App() {
   const isMobile = useIsMobile();
@@ -223,6 +224,7 @@ export default function App() {
   return (
     <div style={{ height:"100vh", display:"flex", flexDirection:"column", fontFamily:"'Segoe UI',sans-serif", overflow:"hidden", background:"#F4F0EB" }}>
       <ScreenProtection userName={currentUser?.name} />
+      <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} />
 
       {/* HEADER */}
       <header style={{ height:"58px", flexShrink:0, background:"linear-gradient(135deg,#1B3A5C,#0d2340)", display:"flex", alignItems:"center", gap:"12px", padding:"0 14px", boxShadow:"0 4px 20px rgba(0,0,0,0.3)", zIndex:50 }}>
