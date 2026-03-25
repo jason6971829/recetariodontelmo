@@ -114,6 +114,17 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, currentUser })
                 {recipe.preparation || <span style={{ color:"#aaa", fontStyle:"italic" }}>Sin instrucciones aún</span>}
               </div>
 
+              {/* Descripción */}
+              {recipe.description && <>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"10px" }}>
+                  <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"#1B3A5C", letterSpacing:"1px" }}>DESCRIPCIÓN</div>
+                  <TextToSpeech text={recipe.description} label="descripción" userId={currentUser?.id} />
+                </div>
+                <div style={{ background:"#F0F4F8", border:"1px solid #C8D6E5", borderRadius:"10px", padding:"14px", fontSize:"13px", color:"#2c3e50", lineHeight:"1.7", marginBottom:"18px", whiteSpace:"pre-wrap" }}>
+                  {recipe.description}
+                </div>
+              </>}
+
               {recipe.recommendations && <>
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"10px" }}>
                   <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"#1B3A5C", letterSpacing:"1px" }}>RECOMENDACIONES</div>
@@ -121,6 +132,17 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, currentUser })
                 </div>
                 <div style={{ background:"#FFF8F2", border:"1px solid #E8C9A0", borderRadius:"10px", padding:"14px", fontSize:"13px", color:"#5a3e2b", lineHeight:"1.7", marginBottom:"18px" }}>
                   {recipe.recommendations}
+                </div>
+              </>}
+
+              {/* Aprende a Vender */}
+              {recipe.salesPitch && <>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"10px" }}>
+                  <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"#D4721A", letterSpacing:"1px" }}>🎯 APRENDE A VENDER</div>
+                  <TextToSpeech text={recipe.salesPitch} label="aprende a vender" userId={currentUser?.id} />
+                </div>
+                <div style={{ background:"linear-gradient(135deg, #FFF8F0, #FFF3E6)", border:"2px solid #D4721A", borderRadius:"10px", padding:"14px", fontSize:"13px", color:"#5a3e2b", lineHeight:"1.7", marginBottom:"18px", whiteSpace:"pre-wrap" }}>
+                  {recipe.salesPitch}
                 </div>
               </>}
 

@@ -8,7 +8,8 @@ import { uploadImage } from "@/lib/storage";
 export function RecipeForm({ initial, onSave, onCancel }) {
   const [form, setForm] = useState(initial || {
     name:"", category:"Adiciones", prepTime:"", cookTime:"", portions:"",
-    ingredients:[], preparation:"", recommendations:"", image:null, video:""
+    ingredients:[], preparation:"", recommendations:"", image:null, video:"",
+    description:"", salesPitch:""
   });
   const [newIng, setNewIng] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -111,6 +112,19 @@ export function RecipeForm({ initial, onSave, onCancel }) {
 
           <div style={{ marginBottom:"14px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"5px" }}>
+              <label style={{...lbl, marginBottom:0}}>DESCRIPCIÓN</label>
+              <span style={{ fontSize:"10px", color:"#aaa" }}>🎙️ Toca el micrófono para dictar</span>
+            </div>
+            <VoiceTextarea
+              value={form.description}
+              onChange={v => set("description", v)}
+              placeholder="Descripción del plato... (o dicta con el micrófono 🎙️)"
+              minHeight="80px"
+            />
+          </div>
+
+          <div style={{ marginBottom:"14px" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"5px" }}>
               <label style={{...lbl, marginBottom:0}}>RECOMENDACIONES</label>
               <span style={{ fontSize:"10px", color:"#aaa" }}>🎙️ Toca el micrófono para dictar</span>
             </div>
@@ -118,6 +132,19 @@ export function RecipeForm({ initial, onSave, onCancel }) {
               value={form.recommendations}
               onChange={v => set("recommendations", v)}
               placeholder="Consejos y sugerencias... (o dicta con el micrófono 🎙️)"
+              minHeight="80px"
+            />
+          </div>
+
+          <div style={{ marginBottom:"14px" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"5px" }}>
+              <label style={{...lbl, marginBottom:0, color:"#D4721A"}}>🎯 APRENDE A VENDER</label>
+              <span style={{ fontSize:"10px", color:"#aaa" }}>🎙️ Toca el micrófono para dictar</span>
+            </div>
+            <VoiceTextarea
+              value={form.salesPitch}
+              onChange={v => set("salesPitch", v)}
+              placeholder="Cómo ofrecer este plato al comensal... (o dicta con el micrófono 🎙️)"
               minHeight="80px"
             />
           </div>
