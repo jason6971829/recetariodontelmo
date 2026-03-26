@@ -5,7 +5,8 @@ import { VoiceTextarea } from "@/components/VoiceTextarea";
 import { CATEGORIES } from "@/lib/constants";
 import { uploadImage } from "@/lib/storage";
 
-export function RecipeForm({ initial, onSave, onCancel }) {
+export function RecipeForm({ initial, categories, onSave, onCancel }) {
+  const cats = (categories || CATEGORIES).filter(c => c.id !== "all");
   const [form, setForm] = useState(initial || {
     name:"", category:"Adiciones", prepTime:"", cookTime:"", portions:"",
     ingredients:[], preparation:"", recommendations:"", image:null, video:"",
@@ -66,7 +67,7 @@ export function RecipeForm({ initial, onSave, onCancel }) {
             <div>
               <label style={lbl}>CATEGORÍA</label>
               <select style={inp} value={form.category} onChange={e=>set("category",e.target.value)}>
-                {CATEGORIES.filter(c=>c.id!=="all").map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
+                {cats.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
               </select>
             </div>
             <div>

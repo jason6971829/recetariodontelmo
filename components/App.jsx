@@ -136,7 +136,7 @@ export default function App() {
   };
 
   const handleDeleteCategory = (catId) => {
-    const catLabel = CATEGORIES.find(c => c.id === catId)?.label || catId;
+    const catLabel = allCategories.find(c => c.id === catId)?.label || catId;
     const catRecipes = recipes.filter(r => r.category === catId);
     setConfirmModal({
       title: "Eliminar Categoría Completa",
@@ -168,6 +168,15 @@ export default function App() {
     recipes.forEach(r => { counts[r.category] = (counts[r.category]||0)+1; });
     return counts;
   }, [recipes]);
+
+  // Categorías dinámicas: las del archivo + cualquier nueva de las recetas
+  const allCategories = useMemo(() => {
+    const baseIds = CATEGORIES.map(c => c.id);
+    const extraCats = Object.keys(catCounts)
+      .filter(id => !baseIds.includes(id))
+      .map(id => ({ id, label: id, icon: "🍽️" }));
+    return [...CATEGORIES, ...extraCats];
+  }, [catCounts]);
 
   // ══ LOGIN ═══════════════════════════════════════════════════════
   if (screen==="login" || loading) {
@@ -319,7 +328,7 @@ export default function App() {
             <div style={{ padding:"14px 16px 8px", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
               <div style={{ color:"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"2px", fontFamily:"Georgia,serif" }}>CATEGORÍAS</div>
             </div>
-            {CATEGORIES.map(cat => {
+            {allCategories.map(cat => {
               const count = cat.id==="all" ? recipes.length : (catCounts[cat.id]||0);
               const active = selectedCat===cat.id;
               return (
@@ -359,6 +368,26 @@ export default function App() {
                 </button>
               );
             })}
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  const name = prompt("Nombre de la nueva categoría:");
+                  if (!name || !name.trim()) return;
+                  const icon = prompt("Emoji/ícono (ej: 🍖, 🥩, 🍹):", "🍽️") || "🍽️";
+                  // Agregar a constants dinámicamente y crear receta placeholder
+                  const newCat = { id: name.trim(), label: name.trim(), icon: icon.trim() };
+                  CATEGORIES.push(newCat);
+                  setSelectedCat(name.trim());
+                }}
+                style={{
+                  width: "100%", textAlign: "left", background: "rgba(212,114,26,0.12)", border: "none",
+                  borderLeft: "3px solid #D4721A", color: "#D4721A", padding: "10px 16px", cursor: "pointer",
+                  fontSize: "13px", fontWeight: "600", marginTop: "4px"
+                }}
+              >
+                ➕ Nueva Categoría
+              </button>
+            )}
           </aside>
         )}
 
@@ -367,7 +396,7 @@ export default function App() {
           {/* Título */}
           <div style={{ marginBottom:"18px" }}>
             <h1 style={{ margin:0, color:"#1B3A5C", fontFamily:"Georgia,serif", fontSize: isMobile?"18px":"21px", fontWeight:"700" }}>
-              {CATEGORIES.find(c=>c.id===selectedCat)?.icon} {CATEGORIES.find(c=>c.id===selectedCat)?.label}
+              {allCategories.find(c=>c.id===selectedCat)?.icon} {allCategories.find(c=>c.id===selectedCat)?.label}
             </h1>
             <div style={{ color:"#888", fontSize:"13px", marginTop:"3px" }}>
               {filtered.length} receta{filtered.length!==1?"s":""}{search && ` — "${search}"`}
@@ -395,7 +424,7 @@ export default function App() {
                     {r.image
                       ? <img src={r.image} alt={r.name} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
                       : <div style={{ textAlign:"center", color:"#C0B8A8" }}>
-                          <div style={{ fontSize:"28px" }}>{CATEGORIES.find(c=>c.id===r.category)?.icon||"🍽️"}</div>
+                          <div style={{ fontSize:"28px" }}>{allCategories.find(c=>c.id===r.category)?.icon||"🍽️"}</div>
                         </div>
                     }
                     {r.video && <div style={{ position:"absolute", top:"6px", right:"6px", background:"#e74c3c", borderRadius:"5px", padding:"2px 6px", fontSize:"10px", color:"#fff", fontWeight:"700" }}>▶</div>}
@@ -419,7 +448,7 @@ export default function App() {
         <RecipeDetail recipe={selectedRecipe} currentUser={currentUser} onClose={()=>setSelectedRecipe(null)} onEdit={()=>handleEdit(selectedRecipe)} onDelete={()=>handleDelete(selectedRecipe)} />
       )}
       {showForm && (
-        <RecipeForm initial={editingRecipe} onSave={handleSaveRecipe} onCancel={()=>{setShowForm(false);setEditingRecipe(null);}} />
+        <RecipeForm initial={editingRecipe} categories={allCategories} onSave={handleSaveRecipe} onCancel={()=>{setShowForm(false);setEditingRecipe(null);}} />
       )}
       {showUsers && isAdmin && (
         <UsersPanel users={users} onSave={saveUsers} onClose={()=>setShowUsers(false)} />
