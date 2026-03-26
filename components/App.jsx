@@ -317,9 +317,12 @@ export default function App() {
             <button onClick={()=>setShowReport(true)} title="Reporte de actividad" style={{ background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"16px" }}>📊</button>
             <button onClick={()=>setShowUsers(true)} style={{ background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"16px" }}>👥</button>
           </>}
-          <div style={{ width:"30px", height:"30px", borderRadius:"50%", background:isAdmin?"#D4721A":"#27ae60", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontWeight:"700", fontSize:"12px", cursor:"pointer" }} onClick={handleLogout} title="Cerrar sesión">
-            {currentUser.name[0]}
-          </div>
+          <button onClick={handleLogout} title="Cerrar sesión" style={{ display:"flex", alignItems:"center", gap:"6px", background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"8px", color:"#fff", padding:"6px 12px", cursor:"pointer", fontSize:"12px", fontWeight:"600" }}>
+            <div style={{ width:"26px", height:"26px", borderRadius:"50%", background:isAdmin?"#D4721A":"#27ae60", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontWeight:"700", fontSize:"11px", flexShrink:0 }}>
+              {currentUser.name[0]}
+            </div>
+            Salir
+          </button>
         </div>
       </header>
 
