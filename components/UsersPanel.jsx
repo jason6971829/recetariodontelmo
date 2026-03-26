@@ -25,8 +25,10 @@ export function UsersPanel({ users, onSave, onClose }) {
     setEditForm({ name: u.name, username: u.username, password: u.password, role: u.role, sede: u.sede || "" });
   };
   const saveEdit = (id) => {
-    setList(l => l.map(u => u.id === id ? { ...u, ...editForm } : u));
+    const updated = list.map(u => u.id === id ? { ...u, ...editForm } : u);
+    setList(updated);
     setEditingId(null);
+    onSave(updated); // Guardar directamente en Supabase
   };
   const cancelEdit = () => setEditingId(null);
 
