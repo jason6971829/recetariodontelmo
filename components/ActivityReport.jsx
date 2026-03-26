@@ -8,7 +8,9 @@ export function ActivityReport({ onClose }) {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all"); // all | today | week
   const [userFilter, setUserFilter] = useState("all");
+  const [sedeFilter, setSedeFilter] = useState("all");
   const isMobile = useIsMobile();
+  const SEDES = ["Almendros", "Hayuelos", "Capriani", "Campiña", "Felicidad", "Calera", "Granada", "Oficina"];
 
   useEffect(() => {
     (async () => {
@@ -28,6 +30,7 @@ export function ActivityReport({ onClose }) {
     if (filter === "today" && date < today) return false;
     if (filter === "week" && date < weekAgo) return false;
     if (userFilter !== "all" && String(a.user_id) !== userFilter) return false;
+    if (sedeFilter !== "all" && (a.users?.sede || "") !== sedeFilter) return false;
     return true;
   });
 
@@ -111,11 +114,21 @@ export function ActivityReport({ onClose }) {
               {filterBtn("today", "Hoy")}
               {filterBtn("week", "Esta semana")}
               <select
+                value={sedeFilter}
+                onChange={e => setSedeFilter(e.target.value)}
+                style={{ padding: "6px 10px", border: "1.5px solid #E0D8CE", borderRadius: "8px", fontSize: "12px", outline: "none", background: "#fff" }}
+              >
+                <option value="all">📍 Todas las sedes</option>
+                {SEDES.map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+              <select
                 value={userFilter}
                 onChange={e => setUserFilter(e.target.value)}
                 style={{ padding: "6px 10px", border: "1.5px solid #E0D8CE", borderRadius: "8px", fontSize: "12px", outline: "none", background: "#fff" }}
               >
-                <option value="all">Todos los usuarios</option>
+                <option value="all">👤 Todos los usuarios</option>
                 {allUsers.map(u => (
                   <option key={u.id} value={u.id}>{u.name} ({u.sede})</option>
                 ))}
