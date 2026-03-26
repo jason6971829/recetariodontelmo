@@ -11,9 +11,11 @@ import { UsersPanel } from "@/components/UsersPanel";
 import { ActivityReport } from "@/components/ActivityReport";
 import { ScreenProtection } from "@/components/ScreenProtection";
 import { GlobalWatermark } from "@/components/Watermark";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 export default function App() {
   const isMobile = useIsMobile();
+  const { online, syncing, pendingCount } = useOnlineStatus();
   const { isSupported: biometricSupported, hasCredential: hasBiometric, register: registerBiometric, authenticate: authBiometric, clearCredential } = useWebAuthn();
   const [screen, setScreen] = useState("login");
   const [currentUser, setCurrentUser] = useState(null);
@@ -225,6 +227,18 @@ export default function App() {
     <div style={{ height:"100vh", display:"flex", flexDirection:"column", fontFamily:"'Segoe UI',sans-serif", overflow:"hidden", background:"#F4F0EB" }}>
       <ScreenProtection userName={currentUser?.name} />
       <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} />
+
+      {/* OFFLINE BANNER */}
+      {!online && (
+        <div style={{ background:"#e74c3c", color:"#fff", textAlign:"center", padding:"8px 14px", fontSize:"13px", fontWeight:"600", zIndex:100, flexShrink:0 }}>
+          📡 Sin conexión — Los cambios se guardarán localmente y se sincronizarán al reconectar
+        </div>
+      )}
+      {online && syncing && (
+        <div style={{ background:"#f39c12", color:"#fff", textAlign:"center", padding:"6px 14px", fontSize:"12px", fontWeight:"600", zIndex:100, flexShrink:0 }}>
+          ⏳ Sincronizando {pendingCount} cambios pendientes...
+        </div>
+      )}
 
       {/* HEADER */}
       <header style={{ height:"58px", flexShrink:0, background:"linear-gradient(135deg,#1B3A5C,#0d2340)", display:"flex", alignItems:"center", gap:"12px", padding:"0 14px", boxShadow:"0 4px 20px rgba(0,0,0,0.3)", zIndex:50 }}>
