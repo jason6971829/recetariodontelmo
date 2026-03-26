@@ -154,8 +154,9 @@ export function ActivityReport({ onClose }) {
             {/* Tabla de usuarios */}
             <div style={{ marginBottom: "20px" }}>
               <div style={{ fontSize: "13px", fontWeight: "700", color: "#1B3A5C", letterSpacing: "1px", marginBottom: "10px", fontFamily: "Georgia,serif" }}>
-                ACTIVIDAD POR USUARIO
+                ACTIVIDAD POR USUARIO ({allUsers.length})
               </div>
+            <div style={{ maxHeight: "240px", overflowY: "auto", borderRadius: "10px" }}>
               {allUsers.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "30px", color: "#888", fontSize: "13px" }}>No hay actividad registrada aún</div>
               ) : (
@@ -180,6 +181,7 @@ export function ActivityReport({ onClose }) {
                   </div>
                 ))
               )}
+            </div>
             </div>
 
             {/* Historial reciente */}
