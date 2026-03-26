@@ -9,6 +9,7 @@ import { RecipeForm } from "@/components/RecipeForm";
 import { UsersPanel } from "@/components/UsersPanel";
 import { ActivityReport } from "@/components/ActivityReport";
 import { ProgressReport } from "@/components/ProgressReport";
+import { CategoryModal } from "@/components/CategoryModal";
 import { ScreenProtection } from "@/components/ScreenProtection";
 import { GlobalWatermark } from "@/components/Watermark";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -35,6 +36,7 @@ export default function App() {
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [showProgress, setShowProgress] = useState(false);
+  const [categoryModal, setCategoryModal] = useState(null); // { mode: "create"|"edit", initial? }
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
   const searchTimeoutRef = useRef(null);
 
@@ -352,12 +354,21 @@ export default function App() {
                     {cat.icon} {cat.label}
                   </span>
                   <span style={{ display:"flex", alignItems:"center", gap:"6px", flexShrink:0 }}>
+                    {isAdmin && cat.id !== "all" && (
+                      <span
+                        onClick={(e) => { e.stopPropagation(); setCategoryModal({ mode: "edit", initial: cat }); }}
+                        style={{ background:"rgba(255,255,255,0.1)", borderRadius:"6px", padding:"2px 5px", fontSize:"11px", cursor:"pointer", color:"#8BAACC", lineHeight:1, opacity:0.5, transition:"opacity 0.2s" }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = "1"}
+                        onMouseLeave={e => e.currentTarget.style.opacity = "0.5"}
+                        title={`Editar categoría ${cat.label}`}
+                      >✏️</span>
+                    )}
                     {isAdmin && cat.id !== "all" && count > 0 && (
                       <span
                         onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id); }}
-                        style={{ background:"rgba(231,76,60,0.15)", borderRadius:"6px", padding:"2px 5px", fontSize:"11px", cursor:"pointer", color:"#e74c3c", lineHeight:1, opacity:0.6, transition:"opacity 0.2s" }}
+                        style={{ background:"rgba(231,76,60,0.15)", borderRadius:"6px", padding:"2px 5px", fontSize:"11px", cursor:"pointer", color:"#e74c3c", lineHeight:1, opacity:0.5, transition:"opacity 0.2s" }}
                         onMouseEnter={e => e.currentTarget.style.opacity = "1"}
-                        onMouseLeave={e => e.currentTarget.style.opacity = "0.6"}
+                        onMouseLeave={e => e.currentTarget.style.opacity = "0.5"}
                         title={`Eliminar categoría ${cat.label}`}
                       >🗑️</span>
                     )}
@@ -370,15 +381,7 @@ export default function App() {
             })}
             {isAdmin && (
               <button
-                onClick={() => {
-                  const name = prompt("Nombre de la nueva categoría:");
-                  if (!name || !name.trim()) return;
-                  const icon = prompt("Emoji/ícono (ej: 🍖, 🥩, 🍹):", "🍽️") || "🍽️";
-                  // Agregar a constants dinámicamente y crear receta placeholder
-                  const newCat = { id: name.trim(), label: name.trim(), icon: icon.trim() };
-                  CATEGORIES.push(newCat);
-                  setSelectedCat(name.trim());
-                }}
+                onClick={() => setCategoryModal({ mode: "create" })}
                 style={{
                   width: "100%", textAlign: "left", background: "rgba(212,114,26,0.12)", border: "none",
                   borderLeft: "3px solid #D4721A", color: "#D4721A", padding: "10px 16px", cursor: "pointer",
@@ -458,6 +461,35 @@ export default function App() {
       )}
       {showProgress && isAdmin && (
         <ProgressReport recipes={recipes} onClose={()=>setShowProgress(false)} />
+      )}
+      {categoryModal && isAdmin && (
+        <CategoryModal
+          mode={categoryModal.mode}
+          initial={categoryModal.initial}
+          onClose={() => setCategoryModal(null)}
+          onSave={async (cat) => {
+            if (cat.oldId && cat.oldId !== cat.id) {
+              // Editar: renombrar categoría en todas las recetas
+              const toUpdate = recipes.filter(r => r.category === cat.oldId);
+              for (const r of toUpdate) {
+                await upsertRecipe({ ...r, category: cat.id });
+              }
+              setRecipes(prev => prev.map(r => r.category === cat.oldId ? { ...r, category: cat.id } : r));
+              // Actualizar en CATEGORIES
+              const idx = CATEGORIES.findIndex(c => c.id === cat.oldId);
+              if (idx >= 0) { CATEGORIES[idx] = { id: cat.id, label: cat.label, icon: cat.icon }; }
+            } else if (cat.oldId) {
+              // Solo editar ícono/label
+              const idx = CATEGORIES.findIndex(c => c.id === cat.oldId);
+              if (idx >= 0) { CATEGORIES[idx] = { id: cat.id, label: cat.label, icon: cat.icon }; }
+            } else {
+              // Nueva categoría
+              CATEGORIES.push({ id: cat.id, label: cat.label, icon: cat.icon });
+            }
+            setSelectedCat(cat.id);
+            setCategoryModal(null);
+          }}
+        />
       )}
 
       {/* Modal para activar acceso biométrico */}
