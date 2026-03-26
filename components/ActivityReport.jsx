@@ -160,7 +160,7 @@ export function ActivityReport({ onClose }) {
                 <div style={{ textAlign: "center", padding: "30px", color: "#888", fontSize: "13px" }}>No hay actividad registrada aún</div>
               ) : (
                 allUsers.map(u => (
-                  <div key={u.id} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px", background: "#F7F3EE", borderRadius: "10px", marginBottom: "6px" }}>
+                  <div key={u.id} onClick={() => setUserFilter(userFilter === u.id ? "all" : u.id)} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px", background: userFilter === u.id ? "#E8F0FA" : "#F7F3EE", borderRadius: "10px", marginBottom: "6px", cursor: "pointer", border: userFilter === u.id ? "2px solid #1B3A5C" : "2px solid transparent", transition: "all 0.15s" }}>
                     <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: u.role === "admin" ? "#1B3A5C" : "#D4721A", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: "700", fontSize: "14px", flexShrink: 0 }}>
                       {u.name[0].toUpperCase()}
                     </div>
@@ -168,6 +168,7 @@ export function ActivityReport({ onClose }) {
                       <div style={{ fontWeight: "700", fontSize: "14px", color: "#1B3A5C" }}>
                         {u.name}
                         {u.sede && <span style={{ fontSize: "11px", color: "#888", fontWeight: "400", marginLeft: "8px" }}>📍 {u.sede}</span>}
+                        {userFilter === u.id && <span style={{ fontSize: "10px", color: "#1B3A5C", fontWeight: "700", marginLeft: "8px", background: "#D4E8FF", padding: "2px 8px", borderRadius: "10px" }}>✓ Seleccionado</span>}
                       </div>
                       <div style={{ fontSize: "12px", color: "#888", marginTop: "2px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
                         <span>👁️ {u.views} vistas</span>
