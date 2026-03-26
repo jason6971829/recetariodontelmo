@@ -162,11 +162,19 @@ export default function App() {
   };
 
   // Filtrado
-  const filtered = useMemo(() => recipes.filter(r => {
-    const matchCat = selectedCat==="all" || r.category===selectedCat;
-    const matchSearch = !search || r.name.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchSearch;
-  }), [recipes, selectedCat, search]);
+  const filtered = useMemo(() => {
+    if (!search) return recipes.filter(r => selectedCat === "all" || r.category === selectedCat);
+    // Si hay búsqueda, buscar en TODAS las categorías y en múltiples campos
+    const terms = search.toLowerCase().split(/\s+/).filter(t => t.length > 0);
+    return recipes.filter(r => {
+      const searchable = [
+        r.name, r.category, r.description || "", r.preparation || "",
+        r.recommendations || "", r.salesPitch || "",
+        ...(r.ingredients || [])
+      ].join(" ").toLowerCase();
+      return terms.every(term => searchable.includes(term));
+    });
+  }, [recipes, selectedCat, search]);
 
   const catCounts = useMemo(() => {
     const counts = {};
