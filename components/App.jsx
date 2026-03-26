@@ -8,6 +8,7 @@ import { RecipeDetail } from "@/components/RecipeDetail";
 import { RecipeForm } from "@/components/RecipeForm";
 import { UsersPanel } from "@/components/UsersPanel";
 import { ActivityReport } from "@/components/ActivityReport";
+import { ProgressReport } from "@/components/ProgressReport";
 import { ScreenProtection } from "@/components/ScreenProtection";
 import { GlobalWatermark } from "@/components/Watermark";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -33,6 +34,7 @@ export default function App() {
   const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [showProgress, setShowProgress] = useState(false);
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
   const searchTimeoutRef = useRef(null);
 
@@ -285,6 +287,7 @@ export default function App() {
         <div style={{ display:"flex", gap:"8px", alignItems:"center", flexShrink:0 }}>
           {isAdmin && <>
             <button onClick={handleCreate} style={{ background:"#D4721A", border:"none", borderRadius:"8px", color:"#fff", padding:"7px 12px", cursor:"pointer", fontWeight:"700", fontSize:"13px", whiteSpace:"nowrap" }}>+ Nueva</button>
+            <button onClick={()=>setShowProgress(true)} title="Estado del recetario" style={{ background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"16px" }}>🎯</button>
             <button onClick={()=>setShowReport(true)} title="Reporte de actividad" style={{ background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"16px" }}>📊</button>
             <button onClick={()=>setShowUsers(true)} style={{ background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"16px" }}>👥</button>
           </>}
@@ -423,6 +426,9 @@ export default function App() {
       )}
       {showReport && isAdmin && (
         <ActivityReport onClose={()=>setShowReport(false)} />
+      )}
+      {showProgress && isAdmin && (
+        <ProgressReport recipes={recipes} onClose={()=>setShowProgress(false)} />
       )}
 
       {/* Modal para activar acceso biométrico */}
