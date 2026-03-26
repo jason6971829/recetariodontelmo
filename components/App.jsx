@@ -1,10 +1,9 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useWebAuthn } from "@/hooks/useWebAuthn";
 import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb, getUsers, saveUsers as saveUsersDb, uploadImage, deleteImage, logActivity } from "@/lib/storage";
 import { CATEGORIES, INITIAL_USERS } from "@/lib/constants";
-import { SEED_RECIPES } from "@/data/seed-recipes";
 import { RecipeDetail } from "@/components/RecipeDetail";
 import { RecipeForm } from "@/components/RecipeForm";
 import { UsersPanel } from "@/components/UsersPanel";
@@ -35,6 +34,7 @@ export default function App() {
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
+  const searchTimeoutRef = useRef(null);
 
   // En móvil: cerrar sidebar por defecto
   useEffect(() => { setSidebarOpen(!isMobile); }, [isMobile]);
@@ -43,7 +43,12 @@ export default function App() {
     async function load() {
       const sr = await getRecipes();
       const su = await getUsers();
-      setRecipes(sr || SEED_RECIPES);
+      if (sr) { setRecipes(sr); }
+      else {
+        // Lazy load seed data solo si la DB está vacía
+        const { SEED_RECIPES } = await import("@/data/seed-recipes");
+        setRecipes(SEED_RECIPES);
+      }
       if (su && su.length > 0) setUsers(su);
       setLoading(false);
     }
@@ -150,14 +155,17 @@ export default function App() {
   };
 
   // Filtrado
-  const filtered = recipes.filter(r => {
+  const filtered = useMemo(() => recipes.filter(r => {
     const matchCat = selectedCat==="all" || r.category===selectedCat;
     const matchSearch = !search || r.name.toLowerCase().includes(search.toLowerCase());
     return matchCat && matchSearch;
-  });
+  }), [recipes, selectedCat, search]);
 
-  const catCounts = {};
-  recipes.forEach(r => { catCounts[r.category] = (catCounts[r.category]||0)+1; });
+  const catCounts = useMemo(() => {
+    const counts = {};
+    recipes.forEach(r => { counts[r.category] = (counts[r.category]||0)+1; });
+    return counts;
+  }, [recipes]);
 
   // ══ LOGIN ═══════════════════════════════════════════════════════
   if (screen==="login" || loading) {
@@ -262,10 +270,10 @@ export default function App() {
               setSearch(e.target.value);
               if (isMobile) setSidebarOpen(false);
               // Log search after user stops typing (debounced via timeout)
-              clearTimeout(window._searchTimeout);
+              clearTimeout(searchTimeoutRef.current);
               if (e.target.value.length >= 3) {
                 const val = e.target.value;
-                window._searchTimeout = setTimeout(() => {
+                searchTimeoutRef.current = setTimeout(() => {
                   if (currentUser) logActivity(currentUser.id, "search", val);
                 }, 1500);
               }
