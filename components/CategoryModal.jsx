@@ -32,16 +32,16 @@ export function CategoryModal({ mode, initial, onSave, onClose }) {
           {/* Ícono */}
           <div style={{ textAlign:"center", marginBottom:"20px" }}>
             <div
-              onClick={() => setShowEmojis(!showEmojis)}
-              style={{ width:"70px", height:"70px", borderRadius:"50%", background:"#F7F3EE", border:"2px solid #E0D8CE", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:"36px", cursor:"pointer", transition:"all 0.2s" }}
+              onClick={(ev) => { ev.stopPropagation(); setShowEmojis(!showEmojis); }}
+              style={{ width:"70px", height:"70px", borderRadius:"50%", background: showEmojis ? "#1B3A5C" : "#F7F3EE", border:"2px solid #E0D8CE", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:"36px", cursor:"pointer", transition:"all 0.2s" }}
             >
               {icon}
             </div>
-            <div style={{ fontSize:"11px", color:"#888", marginTop:"6px" }}>Toca para cambiar ícono</div>
+            <div style={{ fontSize:"11px", color:"#888", marginTop:"6px" }}>{showEmojis ? "Elige un ícono:" : "Toca para cambiar ícono"}</div>
             {showEmojis && (
-              <div style={{ display:"flex", flexWrap:"wrap", gap:"6px", justifyContent:"center", marginTop:"12px", padding:"12px", background:"#F7F3EE", borderRadius:"12px", maxHeight:"120px", overflowY:"auto" }}>
+              <div onClick={(ev) => ev.stopPropagation()} style={{ display:"flex", flexWrap:"wrap", gap:"8px", justifyContent:"center", marginTop:"12px", padding:"14px", background:"#F7F3EE", borderRadius:"12px", maxHeight:"160px", overflowY:"auto" }}>
                 {EMOJI_OPTIONS.map(e => (
-                  <button key={e} onClick={() => { setIcon(e); setShowEmojis(false); }} style={{ background: icon === e ? "#1B3A5C" : "transparent", border:"none", borderRadius:"8px", fontSize:"22px", padding:"6px", cursor:"pointer", transition:"all 0.1s" }}>
+                  <button key={e} onClick={(ev) => { ev.stopPropagation(); setIcon(e); setShowEmojis(false); }} style={{ background: icon === e ? "#1B3A5C" : "#fff", border: icon === e ? "2px solid #D4721A" : "2px solid #E0D8CE", borderRadius:"10px", fontSize:"24px", padding:"8px", cursor:"pointer", transition:"all 0.1s", minWidth:"44px", minHeight:"44px" }}>
                     {e}
                   </button>
                 ))}
