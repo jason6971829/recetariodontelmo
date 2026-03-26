@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useWebAuthn } from "@/hooks/useWebAuthn";
-import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb, getUsers, saveUsers as saveUsersDb, uploadImage, deleteImage, logActivity } from "@/lib/storage";
+import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb, getUsers, saveUsers as saveUsersDb, uploadImage, deleteImage, logActivity, getCategories, upsertCategory, deleteCategory as deleteCategoryDb } from "@/lib/storage";
 import { CATEGORIES, INITIAL_USERS } from "@/lib/constants";
 import { RecipeDetail } from "@/components/RecipeDetail";
 import { RecipeForm } from "@/components/RecipeForm";
@@ -22,6 +22,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [recipes, setRecipes] = useState([]);
   const [users, setUsers] = useState(INITIAL_USERS);
+  const [dbCategories, setDbCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCat, setSelectedCat] = useState("all");
   const [search, setSearch] = useState("");
@@ -54,6 +55,8 @@ export default function App() {
         setRecipes(SEED_RECIPES);
       }
       if (su && su.length > 0) setUsers(su);
+      const cats = await getCategories();
+      if (cats && cats.length > 0) setDbCategories(cats);
       setLoading(false);
     }
     load();
@@ -171,14 +174,18 @@ export default function App() {
     return counts;
   }, [recipes]);
 
-  // Categorías dinámicas: las del archivo + cualquier nueva de las recetas
+  // Categorías: de Supabase si hay, sino del archivo constants
   const allCategories = useMemo(() => {
-    const baseIds = CATEGORIES.map(c => c.id);
+    const base = dbCategories.length > 0
+      ? [{ id: "all", label: "Todas las Recetas", icon: "🍽️" }, ...dbCategories]
+      : CATEGORIES;
+    // Agregar categorías que existan en recetas pero no en la lista
+    const baseIds = base.map(c => c.id);
     const extraCats = Object.keys(catCounts)
       .filter(id => !baseIds.includes(id))
       .map(id => ({ id, label: id, icon: "🍽️" }));
-    return [...CATEGORIES, ...extraCats];
-  }, [catCounts]);
+    return [...base, ...extraCats];
+  }, [dbCategories, catCounts]);
 
   // ══ LOGIN ═══════════════════════════════════════════════════════
   if (screen==="login" || loading) {
@@ -475,17 +482,19 @@ export default function App() {
                 await upsertRecipe({ ...r, category: cat.id });
               }
               setRecipes(prev => prev.map(r => r.category === cat.oldId ? { ...r, category: cat.id } : r));
-              // Actualizar en CATEGORIES
-              const idx = CATEGORIES.findIndex(c => c.id === cat.oldId);
-              if (idx >= 0) { CATEGORIES[idx] = { id: cat.id, label: cat.label, icon: cat.icon }; }
+              // Eliminar la vieja y crear la nueva en Supabase
+              await deleteCategoryDb(cat.oldId);
+              await upsertCategory({ id: cat.id, label: cat.label, icon: cat.icon, sort_order: 999 });
             } else if (cat.oldId) {
               // Solo editar ícono/label
-              const idx = CATEGORIES.findIndex(c => c.id === cat.oldId);
-              if (idx >= 0) { CATEGORIES[idx] = { id: cat.id, label: cat.label, icon: cat.icon }; }
+              await upsertCategory({ id: cat.id, label: cat.label, icon: cat.icon });
             } else {
               // Nueva categoría
-              CATEGORIES.push({ id: cat.id, label: cat.label, icon: cat.icon });
+              await upsertCategory({ id: cat.id, label: cat.label, icon: cat.icon, sort_order: 999 });
             }
+            // Recargar categorías
+            const fresh = await getCategories();
+            if (fresh) setDbCategories(fresh);
             setSelectedCat(cat.id);
             setCategoryModal(null);
           }}
