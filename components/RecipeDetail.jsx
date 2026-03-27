@@ -3,7 +3,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { Watermark } from "@/components/Watermark";
 import { TextToSpeech } from "@/components/TextToSpeech";
 
-export function RecipeDetail({ recipe, onClose, onEdit, onDelete, currentUser }) {
+export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onTogglePublish, currentUser }) {
   const isAdmin = currentUser.role === "admin";
   const isMobile = useIsMobile();
 
@@ -51,6 +51,9 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, currentUser })
             </div>
             <div style={{ display:"flex", gap:"8px", alignItems:"center", flexShrink:0 }}>
               {isAdmin && <>
+                <button onClick={onTogglePublish} style={{ background: recipe.published ? "#27ae60" : "#7f8c8d", border:"none", borderRadius:"8px", color:"#fff", padding:"7px 14px", cursor:"pointer", fontSize:"13px", fontWeight:"600" }}>
+                  {recipe.published ? "✅ Publicada" : "📝 Borrador"}
+                </button>
                 <button onClick={onEdit}  style={{ background:"#D4721A", border:"none", borderRadius:"8px", color:"#fff", padding:"7px 14px", cursor:"pointer", fontSize:"13px", fontWeight:"600" }}>✏️ Editar</button>
                 <button onClick={onDelete} style={{ background:"rgba(220,50,50,0.8)", border:"none", borderRadius:"8px", color:"#fff", padding:"7px 12px", cursor:"pointer", fontSize:"13px" }}>🗑️</button>
               </>}

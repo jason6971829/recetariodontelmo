@@ -124,6 +124,15 @@ export default function App() {
     }
     setShowForm(false); setEditingRecipe(null);
   };
+  const handleTogglePublish = async (r) => {
+    const updated = { ...r, published: !r.published };
+    const saved = await upsertRecipe(updated);
+    if (saved) {
+      setRecipes(prev => prev.map(x => x.id === r.id ? { ...x, published: !r.published } : x));
+      setSelectedRecipe(prev => prev ? { ...prev, published: !r.published } : null);
+    }
+  };
+
   const handleDelete = (r) => {
     setConfirmModal({
       title: "Eliminar Receta",
@@ -162,11 +171,18 @@ export default function App() {
   };
 
   // Filtrado
+  // Cocineros solo ven recetas publicadas, admin ve todo
+  const isAdminUser = currentUser?.role === "admin";
+  const visibleRecipes = useMemo(() => {
+    if (isAdminUser) return recipes;
+    return recipes.filter(r => r.published);
+  }, [recipes, isAdminUser]);
+
   const filtered = useMemo(() => {
-    if (!search) return recipes.filter(r => selectedCat === "all" || r.category === selectedCat);
+    if (!search) return visibleRecipes.filter(r => selectedCat === "all" || r.category === selectedCat);
     // Si hay búsqueda, buscar en TODAS las categorías y en múltiples campos
     const terms = search.toLowerCase().split(/\s+/).filter(t => t.length > 0);
-    return recipes.filter(r => {
+    return visibleRecipes.filter(r => {
       const searchable = [
         r.name, r.category, r.description || "", r.preparation || "",
         r.recommendations || "", r.salesPitch || "",
@@ -174,13 +190,13 @@ export default function App() {
       ].join(" ").toLowerCase();
       return terms.every(term => searchable.includes(term));
     });
-  }, [recipes, selectedCat, search]);
+  }, [visibleRecipes, selectedCat, search]);
 
   const catCounts = useMemo(() => {
     const counts = {};
-    recipes.forEach(r => { counts[r.category] = (counts[r.category]||0)+1; });
+    visibleRecipes.forEach(r => { counts[r.category] = (counts[r.category]||0)+1; });
     return counts;
-  }, [recipes]);
+  }, [visibleRecipes]);
 
   // Categorías: de Supabase si hay, sino del archivo constants
   const allCategories = useMemo(() => {
@@ -446,6 +462,7 @@ export default function App() {
                         </div>
                     }
                     {r.video && <div style={{ position:"absolute", top:"6px", right:"6px", background:"#e74c3c", borderRadius:"5px", padding:"2px 6px", fontSize:"10px", color:"#fff", fontWeight:"700" }}>▶</div>}
+                    {isAdmin && !r.published && <div style={{ position:"absolute", top:"6px", left:"6px", background:"#7f8c8d", borderRadius:"5px", padding:"2px 6px", fontSize:"10px", color:"#fff", fontWeight:"700" }}>📝 Borrador</div>}
                   </div>
                   <div style={{ padding: isMobile?"10px":"13px" }}>
                     <div style={{ background:"#F7F3EE", borderRadius:"5px", padding:"2px 7px", fontSize:"9px", fontWeight:"700", color:"#D4721A", display:"inline-block", marginBottom:"5px", letterSpacing:"0.5px" }}>
@@ -463,7 +480,7 @@ export default function App() {
 
       {/* MODALES */}
       {selectedRecipe && !showForm && (
-        <RecipeDetail recipe={selectedRecipe} currentUser={currentUser} onClose={()=>setSelectedRecipe(null)} onEdit={()=>handleEdit(selectedRecipe)} onDelete={()=>handleDelete(selectedRecipe)} />
+        <RecipeDetail recipe={selectedRecipe} currentUser={currentUser} onClose={()=>setSelectedRecipe(null)} onEdit={()=>handleEdit(selectedRecipe)} onDelete={()=>handleDelete(selectedRecipe)} onTogglePublish={()=>handleTogglePublish(selectedRecipe)} />
       )}
       {showForm && (
         <RecipeForm initial={editingRecipe} categories={allCategories} onSave={handleSaveRecipe} onCancel={()=>{setShowForm(false);setEditingRecipe(null);}} />
