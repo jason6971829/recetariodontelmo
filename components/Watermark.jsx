@@ -13,12 +13,11 @@ export function Watermark({ username }) {
         src={DEFAULT_LOGO}
         alt=""
         style={{
-          width:"60%",
-          maxWidth:"400px",
+          width:"90%",
+          maxWidth:"1600px",
           height:"auto",
           objectFit:"contain",
           opacity: 0.07,
-          transform:"rotate(-15deg)",
           userSelect:"none",
           WebkitUserSelect:"none",
         }}
@@ -40,12 +39,11 @@ export function GlobalWatermark({ username, sede }) {
         src={DEFAULT_LOGO}
         alt=""
         style={{
-          width:"50vw",
-          maxWidth:"500px",
+          width:"90vw",
+          maxWidth:"1600px",
           height:"auto",
           objectFit:"contain",
           opacity: 0.06,
-          transform:"rotate(-15deg)",
           userSelect:"none",
           WebkitUserSelect:"none",
         }}
