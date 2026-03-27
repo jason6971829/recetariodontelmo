@@ -13,8 +13,8 @@ export function Watermark({ username }) {
         src={DEFAULT_LOGO}
         alt=""
         style={{
-          width:"90%",
-          maxWidth:"1600px",
+          width:"45%",
+          maxWidth:"800px",
           height:"auto",
           objectFit:"contain",
           opacity: 0.07,
@@ -39,8 +39,8 @@ export function GlobalWatermark({ username, sede }) {
         src={DEFAULT_LOGO}
         alt=""
         style={{
-          width:"90vw",
-          maxWidth:"1600px",
+          width:"45vw",
+          maxWidth:"800px",
           height:"auto",
           objectFit:"contain",
           opacity: 0.06,
