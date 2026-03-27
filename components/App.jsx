@@ -37,6 +37,7 @@ export default function App() {
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [showProgress, setShowProgress] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [categoryModal, setCategoryModal] = useState(null); // { mode: "create"|"edit", initial? }
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
   const searchTimeoutRef = useRef(null);
@@ -329,15 +330,39 @@ export default function App() {
         <div style={{ display:"flex", gap:"8px", alignItems:"center", flexShrink:0 }}>
           {isAdmin && <>
             <button onClick={handleCreate} style={{ background:"#D4721A", border:"none", borderRadius:"8px", color:"#fff", padding:"7px 12px", cursor:"pointer", fontWeight:"700", fontSize:"13px", whiteSpace:"nowrap" }}>+ Nueva</button>
-            <button onClick={()=>setShowProgress(true)} title="Estado del recetario" style={{ background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"16px" }}>🎯</button>
-            <button onClick={()=>setShowReport(true)} title="Reporte de actividad" style={{ background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"16px" }}>📊</button>
-            <button onClick={()=>setShowUsers(true)} style={{ background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"16px" }}>👥</button>
+            <div style={{ position:"relative" }}>
+              <button onClick={()=>setShowSettingsMenu(v=>!v)} title="Configuración" style={{ background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"16px" }}>⚙️</button>
+              {showSettingsMenu && (
+                <div style={{
+                  position:"absolute", top:"42px", right:0, background:"#1B3A5C", borderRadius:"12px",
+                  boxShadow:"0 8px 32px rgba(0,0,0,0.4)", padding:"8px", zIndex:9999, minWidth:"200px",
+                  border:"1px solid rgba(255,255,255,0.15)",
+                }}>
+                  <button onClick={()=>{setShowProgress(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
+                    onMouseEnter={e=>e.target.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.target.style.background="none"}>
+                    🎯 Estado del Recetario
+                  </button>
+                  <button onClick={()=>{setShowReport(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
+                    onMouseEnter={e=>e.target.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.target.style.background="none"}>
+                    📊 Reporte de Actividad
+                  </button>
+                  <button onClick={()=>{setShowUsers(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
+                    onMouseEnter={e=>e.target.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.target.style.background="none"}>
+                    👥 Gestión de Usuarios
+                  </button>
+                  <div style={{ height:"1px", background:"rgba(255,255,255,0.15)", margin:"4px 0" }} />
+                </div>
+              )}
+            </div>
           </>}
           <button onClick={handleLogout} title="Cerrar sesión" style={{ display:"flex", alignItems:"center", gap:"8px", background:"#c0392b", border:"none", borderRadius:"8px", color:"#fff", padding:"8px 14px", cursor:"pointer", fontSize:"13px", fontWeight:"700", letterSpacing:"0.5px" }}>
             🚪 Cerrar Sesión
           </button>
         </div>
       </header>
+
+      {/* Cerrar menú settings al hacer clic fuera */}
+      {showSettingsMenu && <div style={{ position:"fixed", inset:0, zIndex:9998 }} onClick={()=>setShowSettingsMenu(false)} />}
 
       {/* BODY */}
       <div style={{ flex:1, display:"flex", overflow:"hidden", position:"relative" }}>
