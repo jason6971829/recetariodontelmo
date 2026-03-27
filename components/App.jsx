@@ -65,7 +65,7 @@ export default function App() {
   const saveUsers = async u => { setUsers(u); await saveUsersDb(u); };
 
   const handleLogin = () => {
-    const u = users.find(u => u.username===loginForm.username && u.password===loginForm.password);
+    const u = users.find(u => u.username.trim()===loginForm.username.trim() && u.password.trim()===loginForm.password.trim());
     if (!u) { setLoginError("Usuario o contraseña incorrectos"); return; }
     setCurrentUser(u); setScreen("app"); setLoginError("");
     logActivity(u.id, "login");
