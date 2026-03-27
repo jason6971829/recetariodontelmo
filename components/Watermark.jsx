@@ -1,28 +1,29 @@
 "use client";
 
+const DEFAULT_LOGO = "https://nhqdsdmqmyoxuyzsdacj.supabase.co/storage/v1/object/public/recipe-images/branding/watermark-logo.png";
+
 export function Watermark({ username }) {
   return (
     <div style={{ position:"absolute", inset:0, overflow:"hidden", pointerEvents:"none", zIndex:5 }}>
-      {Array.from({length:18}).map((_,i) => (
+      {Array.from({length:6}).map((_,i) => (
         <div key={i} style={{
           position:"absolute",
-          top:`${(i % 6)*18}%`,
-          left:`${Math.floor(i/6)*38 - 10}%`,
-          transform:"rotate(-35deg)",
-          fontSize:"12px", fontWeight:"700",
-          color:"rgba(180,100,20,0.09)",
-          whiteSpace:"nowrap", letterSpacing:"2px",
-          fontFamily:"Georgia,serif", userSelect:"none"
-        }}>DON TELMO • {username.toUpperCase()}</div>
+          top:`${(i % 3)*35 + 5}%`,
+          left:`${Math.floor(i/3)*50 + 10}%`,
+          transform:"rotate(-25deg)",
+          opacity: 0.06,
+          userSelect:"none",
+        }}>
+          <img src={DEFAULT_LOGO} alt="" style={{ width:"120px", height:"120px", objectFit:"contain" }} />
+        </div>
       ))}
     </div>
   );
 }
 
-// Marca de agua global que cubre toda la pantalla - más visible para disuadir capturas
+// Marca de agua global con logo que cubre toda la pantalla
 export function GlobalWatermark({ username, sede }) {
-  const text = `CONFIDENCIAL • ${username.toUpperCase()}${sede ? ` • ${sede.toUpperCase()}` : ""} • DON TELMO®`;
-  const rows = 12;
+  const rows = 5;
   const cols = 4;
 
   return (
@@ -37,19 +38,14 @@ export function GlobalWatermark({ username, sede }) {
         return (
           <div key={i} style={{
             position:"absolute",
-            top: `${(row / rows) * 100}%`,
-            left: `${(col / cols) * 100 - 15}%`,
-            transform: "rotate(-30deg)",
-            fontSize: "13px",
-            fontWeight: "700",
-            color: "rgba(27,58,92,0.06)",
-            whiteSpace: "nowrap",
-            letterSpacing: "3px",
-            fontFamily: "Georgia,serif",
+            top: `${(row / rows) * 100 + 2}%`,
+            left: `${(col / cols) * 100}%`,
+            transform: "rotate(-25deg)",
+            opacity: 0.04,
             userSelect: "none",
             WebkitUserSelect: "none",
           }}>
-            {text}
+            <img src={DEFAULT_LOGO} alt="" style={{ width:"100px", height:"100px", objectFit:"contain" }} />
           </div>
         );
       })}
