@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useWebAuthn } from "@/hooks/useWebAuthn";
 import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb, getUsers, saveUsers as saveUsersDb, uploadImage, deleteImage, logActivity, getCategories, upsertCategory, deleteCategory as deleteCategoryDb, saveWatermarkConfig, loadWatermarkConfig, saveBannerConfig, loadBannerConfig, saveProfileConfig, loadProfileConfig } from "@/lib/storage";
+import { sha256, DEFAULT_PROFILE_HASH, isLockedOut, getLockoutSecondsLeft, registerFailedAttempt, resetLoginAttempts, getLoginAttempts, touchActivity, isSessionExpired, INACTIVITY_MS } from "@/lib/security";
 import { CATEGORIES, INITIAL_USERS } from "@/lib/constants";
 import { RecipeDetail } from "@/components/RecipeDetail";
 import { RecipeForm } from "@/components/RecipeForm";
@@ -77,6 +78,26 @@ export default function App() {
   const [profileData, setProfileData] = useState({ name: "", email: "", phone: "" });
   const [profileDraft, setProfileDraft] = useState({ name: "", email: "", phone: "" });
   const [profileSaved, setProfileSaved] = useState(false);
+  const [profileHash, setProfileHash] = useState(DEFAULT_PROFILE_HASH);
+  const [profileNewPass, setProfileNewPass] = useState("");
+  const [profileNewPassConfirm, setProfileNewPassConfirm] = useState("");
+
+  // Guard de acceso al perfil
+  const [showProfileGuard, setShowProfileGuard] = useState(false);
+  const [guardInput, setGuardInput] = useState("");
+  const [guardError, setGuardError] = useState("");
+  const [guardAttempts, setGuardAttempts] = useState(0);
+  const [guardLocked, setGuardLocked] = useState(false);
+  const guardLockRef = useRef(null);
+
+  // Brute-force login
+  const [loginLocked, setLoginLocked] = useState(false);
+  const [loginLockSecs, setLoginLockSecs] = useState(0);
+  const [loginAttemptsLeft, setLoginAttemptsLeft] = useState(5);
+  const lockTimerRef = useRef(null);
+
+  // Auto-lock inactividad
+  const inactivityRef = useRef(null);
 
   // Recuperar contraseña
   const [showRecover, setShowRecover] = useState(false);
@@ -215,22 +236,85 @@ export default function App() {
       if (profCfg) {
         setProfileData(profCfg);
         setProfileDraft(profCfg);
+        if (profCfg.profileHash) setProfileHash(profCfg.profileHash);
       }
       setLoading(false);
     }
     load();
   }, []);
 
+  // ── Brute-force: inicializar estado si ya hay bloqueo activo ─────
+  useEffect(() => {
+    if (isLockedOut()) {
+      setLoginLocked(true);
+      setLoginLockSecs(getLockoutSecondsLeft());
+      lockTimerRef.current = setInterval(() => {
+        const secs = getLockoutSecondsLeft();
+        setLoginLockSecs(secs);
+        if (secs <= 0) { clearInterval(lockTimerRef.current); setLoginLocked(false); }
+      }, 1000);
+    } else {
+      setLoginAttemptsLeft(5 - getLoginAttempts());
+    }
+    return () => clearInterval(lockTimerRef.current);
+  }, []);
+
+  // ── Auto-lock por inactividad ────────────────────────────────────
+  useEffect(() => {
+    if (screen !== "app") return;
+    const events = ["mousemove","keydown","touchstart","click","scroll"];
+    const onActivity = () => touchActivity();
+    events.forEach(e => window.addEventListener(e, onActivity, { passive: true }));
+    touchActivity(); // marcar inicio de sesión
+    inactivityRef.current = setInterval(() => {
+      if (isSessionExpired()) {
+        setCurrentUser(null);
+        setScreen("login");
+        setLoginForm({ username:"", password:"" });
+        setSelectedRecipe(null);
+        clearInterval(inactivityRef.current);
+      }
+    }, 30_000); // revisar cada 30s
+    return () => {
+      events.forEach(e => window.removeEventListener(e, onActivity));
+      clearInterval(inactivityRef.current);
+    };
+  }, [screen]);
+
   const saveUsers = async u => { setUsers(u); await saveUsersDb(u); };
 
   const handleLogin = () => {
+    // Verificar bloqueo por intentos fallidos
+    if (isLockedOut()) {
+      setLoginLocked(true);
+      setLoginLockSecs(getLockoutSecondsLeft());
+      return;
+    }
     const u = users.find(u => u.username.trim()===loginForm.username.trim() && u.password.trim()===loginForm.password.trim());
-    if (!u) { setLoginError(t.login.error); return; }
+    if (!u) {
+      const attempts = registerFailedAttempt();
+      if (isLockedOut()) {
+        setLoginLocked(true);
+        setLoginLockSecs(getLockoutSecondsLeft());
+        clearInterval(lockTimerRef.current);
+        lockTimerRef.current = setInterval(() => {
+          const secs = getLockoutSecondsLeft();
+          setLoginLockSecs(secs);
+          if (secs <= 0) { clearInterval(lockTimerRef.current); setLoginLocked(false); setLoginAttemptsLeft(5); }
+        }, 1000);
+        setLoginError("");
+      } else {
+        const left = 5 - getLoginAttempts();
+        setLoginAttemptsLeft(left);
+        setLoginError(t.login.error);
+      }
+      return;
+    }
+    resetLoginAttempts();
+    setLoginAttemptsLeft(5);
     setCurrentUser(u); setScreen("app"); setLoginError("");
     logActivity(u.id, "login");
-    // Mostrar banner si está activo
     setTimeout(() => setShowBanner(true), 300);
-    // Ofrecer biometría en móvil si no tiene credencial registrada
     if (isMobile && biometricSupported && !hasBiometric) {
       setTimeout(() => setShowBiometricPrompt(true), 500);
     }
@@ -406,10 +490,30 @@ export default function App() {
                 value={loginForm.password} onChange={e=>setLoginForm(f=>({...f,password:e.target.value}))}
                 onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder={t.login.passwordPlaceholder} />
             </div>
-            {loginError && <div style={{ color:"#e74c3c", fontSize:"13px", marginBottom:"14px", textAlign:"center", background:"#fef0ef", padding:"10px", borderRadius:"8px" }}>{loginError}</div>}
-            <button onClick={handleLogin} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", border:"none", borderRadius:"10px", color:"#fff", fontSize:"15px", fontWeight:"700", cursor:"pointer", fontFamily:"Georgia,serif", letterSpacing:"1px" }}>
-              {t.login.button}
-            </button>
+            {loginLocked ? (
+              <div style={{ textAlign:"center", background:"#fff5f5", border:"2px solid #e74c3c", borderRadius:"12px", padding:"16px", marginBottom:"14px" }}>
+                <div style={{ fontSize:"28px", marginBottom:"6px" }}>🔒</div>
+                <div style={{ color:"#c0392b", fontWeight:"700", fontSize:"14px" }}>Acceso bloqueado temporalmente</div>
+                <div style={{ color:"#e74c3c", fontSize:"22px", fontWeight:"700", marginTop:"6px", fontFamily:"monospace" }}>
+                  {Math.floor(loginLockSecs/60)}:{String(loginLockSecs%60).padStart(2,"0")}
+                </div>
+                <div style={{ color:"#888", fontSize:"12px", marginTop:"4px" }}>Demasiados intentos fallidos</div>
+              </div>
+            ) : (
+              <>
+                {loginError && (
+                  <div style={{ color:"#e74c3c", fontSize:"13px", marginBottom:"10px", textAlign:"center", background:"#fef0ef", padding:"10px", borderRadius:"8px" }}>
+                    {loginError}
+                    {loginAttemptsLeft < 5 && loginAttemptsLeft > 0 && (
+                      <div style={{ marginTop:"4px", fontWeight:"700" }}>⚠️ {loginAttemptsLeft} intento{loginAttemptsLeft!==1?"s":""} restante{loginAttemptsLeft!==1?"s":""}</div>
+                    )}
+                  </div>
+                )}
+                <button onClick={handleLogin} disabled={loginLocked} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", border:"none", borderRadius:"10px", color:"#fff", fontSize:"15px", fontWeight:"700", cursor:"pointer", fontFamily:"Georgia,serif", letterSpacing:"1px" }}>
+                  {t.login.button}
+                </button>
+              </>
+            )}
 
             {/* Link recuperar contraseña */}
             <div style={{ textAlign:"center", marginTop:"12px" }}>
@@ -573,7 +677,7 @@ export default function App() {
                   boxShadow:"0 8px 32px rgba(0,0,0,0.4)", padding:"8px", zIndex:9999, minWidth:"200px",
                   border:"1px solid rgba(255,255,255,0.15)",
                 }}>
-                  <button onClick={()=>{setProfileDraft({...profileData});setShowProfileModal(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
+                  <button onClick={()=>{setGuardInput("");setGuardError("");setGuardAttempts(0);setGuardLocked(false);setShowProfileGuard(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
                     onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
                     {t.settings.profile}
                   </button>
@@ -1427,16 +1531,102 @@ export default function App() {
           </div>
         </div>
       )}
+      {/* Guard: contraseña de perfil */}
+      {showProfileGuard && isAdmin && (
+        <div style={{ position:"fixed", inset:0, zIndex:9997, background:"rgba(5,10,20,0.92)", backdropFilter:"blur(12px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+          <div style={{ background:"#fff", borderRadius:"24px", padding:"36px 28px", width:"100%", maxWidth:"360px", boxShadow:"0 40px 100px rgba(0,0,0,0.7)", textAlign:"center" }}>
+            <div style={{ fontSize:"48px", marginBottom:"8px" }}>🔐</div>
+            <div style={{ fontWeight:"700", fontSize:"18px", color:"var(--app-primary)", fontFamily:"Georgia,serif", marginBottom:"6px" }}>Zona Segura</div>
+            <div style={{ color:"#888", fontSize:"13px", marginBottom:"24px" }}>Ingresa la clave de perfil para continuar</div>
+
+            {guardLocked ? (
+              <div style={{ background:"#fff5f5", border:"2px solid #e74c3c", borderRadius:"12px", padding:"16px", marginBottom:"16px" }}>
+                <div style={{ color:"#c0392b", fontWeight:"700" }}>🚫 Bloqueado temporalmente</div>
+                <div style={{ color:"#888", fontSize:"12px", marginTop:"4px" }}>Espera 2 minutos antes de intentar de nuevo</div>
+              </div>
+            ) : (
+              <>
+                <input
+                  type="password"
+                  value={guardInput}
+                  onChange={e => { setGuardInput(e.target.value); setGuardError(""); }}
+                  onKeyDown={async e => {
+                    if (e.key !== "Enter") return;
+                    const hash = await sha256(guardInput.trim());
+                    if (hash === profileHash) {
+                      setShowProfileGuard(false);
+                      setProfileDraft({...profileData});
+                      setProfileNewPass(""); setProfileNewPassConfirm("");
+                      setShowProfileModal(true);
+                    } else {
+                      const att = guardAttempts + 1;
+                      setGuardAttempts(att);
+                      if (att >= 3) {
+                        setGuardLocked(true);
+                        clearTimeout(guardLockRef.current);
+                        guardLockRef.current = setTimeout(() => { setGuardLocked(false); setGuardAttempts(0); }, 120_000);
+                      }
+                      setGuardError(`Clave incorrecta. ${3 - att > 0 ? `${3 - att} intento${3-att!==1?"s":""} restante${3-att!==1?"s":""}` : ""}`);
+                      setGuardInput("");
+                    }
+                  }}
+                  placeholder="••••••••"
+                  autoFocus
+                  style={{ width:"100%", padding:"14px", border:"2px solid #E0D8CE", borderRadius:"12px", fontSize:"20px", outline:"none", boxSizing:"border-box", textAlign:"center", letterSpacing:"6px", marginBottom:"10px" }}
+                />
+                {guardError && <div style={{ color:"#e74c3c", fontSize:"13px", marginBottom:"10px", background:"#fef0ef", padding:"8px 12px", borderRadius:"8px" }}>{guardError}</div>}
+                <button
+                  onClick={async () => {
+                    const hash = await sha256(guardInput.trim());
+                    if (hash === profileHash) {
+                      setShowProfileGuard(false);
+                      setProfileDraft({...profileData});
+                      setProfileNewPass(""); setProfileNewPassConfirm("");
+                      setShowProfileModal(true);
+                    } else {
+                      const att = guardAttempts + 1;
+                      setGuardAttempts(att);
+                      if (att >= 3) {
+                        setGuardLocked(true);
+                        clearTimeout(guardLockRef.current);
+                        guardLockRef.current = setTimeout(() => { setGuardLocked(false); setGuardAttempts(0); }, 120_000);
+                      }
+                      setGuardError(`Clave incorrecta. ${3 - att > 0 ? `${3 - att} intento${3-att!==1?"s":""} restante${3-att!==1?"s":""}` : ""}`);
+                      setGuardInput("");
+                    }
+                  }}
+                  style={{ width:"100%", padding:"13px", background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", border:"none", borderRadius:"12px", color:"#fff", fontWeight:"700", fontSize:"15px", cursor:"pointer", marginBottom:"10px" }}>
+                  Verificar
+                </button>
+              </>
+            )}
+            <button onClick={() => { setShowProfileGuard(false); setGuardInput(""); setGuardError(""); }}
+              style={{ width:"100%", padding:"12px", background:"#f5f0eb", border:"none", borderRadius:"12px", color:"#888", fontWeight:"600", fontSize:"14px", cursor:"pointer" }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Modal Perfil */}
       {showProfileModal && isAdmin && (
         <div style={{ position:"fixed", inset:0, zIndex:9996, background:"rgba(10,15,25,0.85)", backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-          <div style={{ background:"#fff", borderRadius:"20px", padding:"28px 24px", width:"100%", maxWidth:"400px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
+          <div style={{ background:"#fff", borderRadius:"20px", padding:"28px 24px", width:"100%", maxWidth:"420px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)", maxHeight:"90vh", overflowY:"auto" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"20px" }}>
               <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
                 <span style={{ fontSize:"26px" }}>👤</span>
                 <span style={{ fontWeight:"700", color:"var(--app-primary)", fontSize:"17px", fontFamily:"Georgia,serif" }}>{t.profile.title}</span>
               </div>
               <button onClick={() => { setShowProfileModal(false); setProfileSaved(false); }} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"8px", width:"32px", height:"32px", cursor:"pointer", fontSize:"16px" }}>×</button>
+            </div>
+
+            {/* Badge seguridad */}
+            <div style={{ background:"linear-gradient(135deg,#1a3a1a,#2d5a2d)", borderRadius:"10px", padding:"10px 14px", marginBottom:"18px", display:"flex", alignItems:"center", gap:"10px" }}>
+              <span style={{ fontSize:"20px" }}>🛡️</span>
+              <div>
+                <div style={{ color:"#7fff7f", fontSize:"11px", fontWeight:"700", letterSpacing:"1px" }}>ZONA PROTEGIDA</div>
+                <div style={{ color:"rgba(255,255,255,0.7)", fontSize:"11px" }}>Sesión auto-cierra a los 20 min de inactividad</div>
+              </div>
             </div>
 
             {/* Info */}
@@ -1468,6 +1658,20 @@ export default function App() {
                 style={{ width:"100%", padding:"12px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"15px", outline:"none", boxSizing:"border-box" }} />
             </div>
 
+            {/* Cambiar clave de perfil */}
+            <div style={{ borderTop:"1px solid #eee", paddingTop:"18px", marginBottom:"18px" }}>
+              <div style={{ fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"12px" }}>🔑 CAMBIAR CLAVE DE PERFIL</div>
+              <input type="password" value={profileNewPass} onChange={e => setProfileNewPass(e.target.value)}
+                placeholder="Nueva clave"
+                style={{ width:"100%", padding:"12px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"14px", outline:"none", boxSizing:"border-box", marginBottom:"8px" }} />
+              <input type="password" value={profileNewPassConfirm} onChange={e => setProfileNewPassConfirm(e.target.value)}
+                placeholder="Confirmar clave"
+                style={{ width:"100%", padding:"12px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"14px", outline:"none", boxSizing:"border-box" }} />
+              {profileNewPass && profileNewPassConfirm && profileNewPass !== profileNewPassConfirm && (
+                <div style={{ color:"#e74c3c", fontSize:"12px", marginTop:"6px" }}>⚠️ Las claves no coinciden</div>
+              )}
+            </div>
+
             {profileSaved && <div style={{ color:"#27ae60", fontWeight:"700", textAlign:"center", marginBottom:"12px", fontSize:"14px" }}>{t.profile.saved}</div>}
 
             <div style={{ display:"flex", gap:"10px" }}>
@@ -1476,8 +1680,20 @@ export default function App() {
                 {t.profile.cancel}
               </button>
               <button onClick={async () => {
-                  const saved = await saveProfileConfig(profileDraft);
-                  if (saved) { setProfileData(profileDraft); setProfileSaved(true); setTimeout(() => { setProfileSaved(false); setShowProfileModal(false); }, 1200); }
+                  // Validar clave si se quiere cambiar
+                  let newHash = profileHash;
+                  if (profileNewPass) {
+                    if (profileNewPass !== profileNewPassConfirm) return;
+                    newHash = await sha256(profileNewPass.trim());
+                    setProfileHash(newHash);
+                  }
+                  const toSave = { ...profileDraft, profileHash: newHash };
+                  const saved = await saveProfileConfig(toSave);
+                  if (saved) {
+                    setProfileData(profileDraft);
+                    setProfileSaved(true);
+                    setTimeout(() => { setProfileSaved(false); setShowProfileModal(false); }, 1200);
+                  }
                 }}
                 style={{ flex:2, padding:"12px", background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", border:"none", borderRadius:"10px", cursor:"pointer", fontWeight:"700", color:"#fff", fontSize:"14px" }}>
                 {t.profile.save}
