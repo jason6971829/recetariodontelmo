@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useLang } from "@/lib/LangContext";
 
 const SEDES = ["Almendros", "Hayuelos", "Capriani", "Campiña", "Felicidad", "Calera", "Granada", "Oficina"];
 
@@ -8,6 +9,7 @@ export function UsersPanel({ users, onSave, onClose }) {
   const [newUser, setNewUser] = useState({ username:"", password:"", name:"", role:"cocinero", sede:"" });
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
+  const { t } = useLang();
   const inp = { padding:"9px 10px", border:"1.5px solid #E0D8CE", borderRadius:"7px", fontSize:"13px", outline:"none", width:"100%", boxSizing:"border-box" };
 
   const addUser = () => {
@@ -38,7 +40,7 @@ export function UsersPanel({ users, onSave, onClose }) {
         <div style={{ background:"linear-gradient(135deg,#1B3A5C,#0d2340)", padding:"18px 24px", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
           <div>
             <div style={{ color:"#D4721A", fontSize:"10px", fontWeight:"700", letterSpacing:"3px", fontFamily:"Georgia,serif" }}>ADMINISTRACIÓN</div>
-            <div style={{ color:"#fff", fontFamily:"Georgia,serif", fontSize:"17px", fontWeight:"700", marginTop:"3px" }}>Gestión de Usuarios</div>
+            <div style={{ color:"#fff", fontFamily:"Georgia,serif", fontSize:"17px", fontWeight:"700", marginTop:"3px" }}>{t.users.title}</div>
           </div>
           <button onClick={onClose} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"18px" }}>×</button>
         </div>
@@ -49,21 +51,21 @@ export function UsersPanel({ users, onSave, onClose }) {
                 /* MODO EDICIÓN */
                 <div>
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"8px" }}>
-                    <input style={inp} placeholder="Nombre" value={editForm.name} onChange={e=>setEditForm(f=>({...f,name:e.target.value}))} />
-                    <input style={inp} placeholder="Usuario" value={editForm.username} onChange={e=>setEditForm(f=>({...f,username:e.target.value}))} />
-                    <input style={inp} placeholder="Contraseña" value={editForm.password} onChange={e=>setEditForm(f=>({...f,password:e.target.value}))} />
+                    <input style={inp} placeholder={t.users.name} value={editForm.name} onChange={e=>setEditForm(f=>({...f,name:e.target.value}))} />
+                    <input style={inp} placeholder={t.users.username} value={editForm.username} onChange={e=>setEditForm(f=>({...f,username:e.target.value}))} />
+                    <input style={inp} placeholder={t.users.password} value={editForm.password} onChange={e=>setEditForm(f=>({...f,password:e.target.value}))} />
                     <select style={inp} value={editForm.role} onChange={e=>setEditForm(f=>({...f,role:e.target.value}))}>
-                      <option value="cocinero">Cocinero (solo lectura)</option>
-                      <option value="admin">Admin (editor)</option>
+                      <option value="cocinero">{t.users.roleChef}</option>
+                      <option value="admin">{t.users.roleAdmin}</option>
                     </select>
                     <select style={inp} value={editForm.sede} onChange={e=>setEditForm(f=>({...f,sede:e.target.value}))}>
-                      <option value="">Sede (opcional)</option>
+                      <option value="">{t.users.sede}</option>
                       {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
                   <div style={{ display:"flex", gap:"8px", justifyContent:"flex-end" }}>
-                    <button onClick={cancelEdit} style={{ background:"#F0ECE6", border:"none", borderRadius:"6px", padding:"6px 14px", cursor:"pointer", fontSize:"12px", fontWeight:"600", color:"#5a3e2b" }}>Cancelar</button>
-                    <button onClick={()=>saveEdit(u.id)} style={{ background:"#27ae60", border:"none", borderRadius:"6px", padding:"6px 14px", cursor:"pointer", fontSize:"12px", fontWeight:"700", color:"#fff" }}>✓ Guardar</button>
+                    <button onClick={cancelEdit} style={{ background:"#F0ECE6", border:"none", borderRadius:"6px", padding:"6px 14px", cursor:"pointer", fontSize:"12px", fontWeight:"600", color:"#5a3e2b" }}>{t.users.cancel}</button>
+                    <button onClick={()=>saveEdit(u.id)} style={{ background:"#27ae60", border:"none", borderRadius:"6px", padding:"6px 14px", cursor:"pointer", fontSize:"12px", fontWeight:"700", color:"#fff" }}>{t.users.save}</button>
                   </div>
                 </div>
               ) : (
@@ -81,7 +83,7 @@ export function UsersPanel({ users, onSave, onClose }) {
                       </div>
                     </div>
                     <div style={{ display:"flex", gap:"6px", flexShrink:0 }}>
-                      <button onClick={()=>startEdit(u)} style={{ background:"none", border:"1px solid #1B3A5C", color:"#1B3A5C", borderRadius:"6px", padding:"5px 10px", cursor:"pointer", fontSize:"12px" }}>✏️ Editar</button>
+                      <button onClick={()=>startEdit(u)} style={{ background:"none", border:"1px solid #1B3A5C", color:"#1B3A5C", borderRadius:"6px", padding:"5px 10px", cursor:"pointer", fontSize:"12px" }}>{t.users.edit}</button>
                       {u.username!=="admin"&&<button onClick={()=>removeUser(u.id)} style={{ background:"none", border:"1px solid #e74c3c", color:"#e74c3c", borderRadius:"6px", padding:"5px 10px", cursor:"pointer", fontSize:"12px" }}>🗑️</button>}
                     </div>
                   </div>
@@ -90,26 +92,26 @@ export function UsersPanel({ users, onSave, onClose }) {
             </div>
           ))}
           <div style={{ borderTop:"2px dashed #E0D8CE", paddingTop:"16px", marginTop:"10px" }}>
-            <div style={{ fontSize:"12px", fontWeight:"700", color:"#1B3A5C", letterSpacing:"1.5px", marginBottom:"12px" }}>AGREGAR USUARIO</div>
+            <div style={{ fontSize:"12px", fontWeight:"700", color:"#1B3A5C", letterSpacing:"1.5px", marginBottom:"12px" }}>{t.users.addSection}</div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"10px" }}>
-              <input style={inp} placeholder="Nombre completo" value={newUser.name} onChange={e=>setNewUser(n=>({...n,name:e.target.value}))} />
-              <input style={inp} placeholder="Usuario" value={newUser.username} onChange={e=>setNewUser(n=>({...n,username:e.target.value}))} />
-              <input style={inp} placeholder="Contraseña" value={newUser.password} onChange={e=>setNewUser(n=>({...n,password:e.target.value}))} />
+              <input style={inp} placeholder={t.users.fullName} value={newUser.name} onChange={e=>setNewUser(n=>({...n,name:e.target.value}))} />
+              <input style={inp} placeholder={t.users.username} value={newUser.username} onChange={e=>setNewUser(n=>({...n,username:e.target.value}))} />
+              <input style={inp} placeholder={t.users.password} value={newUser.password} onChange={e=>setNewUser(n=>({...n,password:e.target.value}))} />
               <select style={inp} value={newUser.role} onChange={e=>setNewUser(n=>({...n,role:e.target.value}))}>
-                <option value="cocinero">Cocinero (solo lectura)</option>
-                <option value="admin">Admin (editor)</option>
+                <option value="cocinero">{t.users.roleChef}</option>
+                <option value="admin">{t.users.roleAdmin}</option>
               </select>
               <select style={inp} value={newUser.sede} onChange={e=>setNewUser(n=>({...n,sede:e.target.value}))}>
-                <option value="">Sede (opcional)</option>
+                <option value="">{t.users.sede}</option>
                 {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
-            <button onClick={addUser} style={{ background:"#D4721A", border:"none", borderRadius:"8px", color:"#fff", padding:"10px 18px", cursor:"pointer", fontWeight:"700" }}>+ Agregar</button>
+            <button onClick={addUser} style={{ background:"#D4721A", border:"none", borderRadius:"8px", color:"#fff", padding:"10px 18px", cursor:"pointer", fontWeight:"700" }}>{t.users.add}</button>
           </div>
         </div>
         <div style={{ padding:"14px 20px", borderTop:"1px solid #F0ECE6", display:"flex", justifyContent:"flex-end", gap:"10px", flexShrink:0 }}>
-          <button onClick={onClose} style={{ background:"#F0ECE6", border:"none", borderRadius:"8px", padding:"10px 16px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b" }}>Cancelar</button>
-          <button onClick={()=>{onSave(list);onClose();}} style={{ background:"#1B3A5C", border:"none", borderRadius:"8px", padding:"10px 18px", cursor:"pointer", fontWeight:"700", color:"#fff" }}>💾 Guardar</button>
+          <button onClick={onClose} style={{ background:"#F0ECE6", border:"none", borderRadius:"8px", padding:"10px 16px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b" }}>{t.users.cancel}</button>
+          <button onClick={()=>{onSave(list);onClose();}} style={{ background:"#1B3A5C", border:"none", borderRadius:"8px", padding:"10px 18px", cursor:"pointer", fontWeight:"700", color:"#fff" }}>{t.users.save}</button>
         </div>
       </div>
     </div>

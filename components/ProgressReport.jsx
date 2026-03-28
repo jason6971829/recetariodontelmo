@@ -1,9 +1,11 @@
 "use client";
 import { useState, useMemo } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useLang } from "@/lib/LangContext";
 
 export function ProgressReport({ recipes, onClose }) {
   const isMobile = useIsMobile();
+  const { t } = useLang();
   const [viewMode, setViewMode] = useState("general"); // general | category | missing
 
   const stats = useMemo(() => {
@@ -86,14 +88,14 @@ export function ProgressReport({ recipes, onClose }) {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div style={{ color: "#D4721A", fontSize: "10px", fontWeight: "700", letterSpacing: "3px", fontFamily: "Georgia,serif" }}>ADMINISTRACIÓN</div>
-              <div style={{ color: "#fff", fontFamily: "Georgia,serif", fontSize: "17px", fontWeight: "700", marginTop: "3px" }}>Estado del Recetario</div>
+              <div style={{ color: "#fff", fontFamily: "Georgia,serif", fontSize: "17px", fontWeight: "700", marginTop: "3px" }}>{t.progress.title}</div>
             </div>
             <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "8px", color: "#fff", width: "34px", height: "34px", cursor: "pointer", fontSize: "18px" }}>×</button>
           </div>
           {/* Progreso general */}
           <div style={{ marginTop: "14px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-              <span style={{ color: "#8BAACC", fontSize: "12px", fontWeight: "600" }}>PROGRESO GENERAL</span>
+              <span style={{ color: "#8BAACC", fontSize: "12px", fontWeight: "600" }}>{t.progress.general}</span>
               <span style={{ color: "#fff", fontSize: "20px", fontWeight: "700", fontFamily: "Georgia,serif" }}>{pctCompletas}%</span>
             </div>
             <div style={{ width: "100%", height: "10px", background: "rgba(255,255,255,0.15)", borderRadius: "5px", overflow: "hidden" }}>
@@ -108,9 +110,9 @@ export function ProgressReport({ recipes, onClose }) {
         <div style={{ overflowY: "auto", flex: 1, padding: "20px" }}>
           {/* Tabs */}
           <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
-            {tabBtn("general", "📊 General")}
-            {tabBtn("category", "📂 Por categoría")}
-            {tabBtn("missing", "⚠️ Faltantes")}
+            {tabBtn("general", t.progress.generalTab)}
+            {tabBtn("category", t.progress.categoryTab)}
+            {tabBtn("missing", t.progress.missingTab)}
           </div>
 
           {/* Vista General */}

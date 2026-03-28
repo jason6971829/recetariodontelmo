@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { getActivityReport } from "@/lib/storage";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useLang } from "@/lib/LangContext";
 
 export function ActivityReport({ onClose }) {
   const [activity, setActivity] = useState([]);
@@ -10,6 +11,7 @@ export function ActivityReport({ onClose }) {
   const [userFilter, setUserFilter] = useState("all");
   const [sedeFilter, setSedeFilter] = useState("all");
   const isMobile = useIsMobile();
+  const { t } = useLang();
   const SEDES = ["Almendros", "Hayuelos", "Capriani", "Campiña", "Felicidad", "Calera", "Granada", "Oficina"];
 
   useEffect(() => {
@@ -96,7 +98,7 @@ export function ActivityReport({ onClose }) {
         <div style={{ background: "linear-gradient(135deg,#1B3A5C,#0d2340)", padding: "18px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
           <div>
             <div style={{ color: "#D4721A", fontSize: "10px", fontWeight: "700", letterSpacing: "3px", fontFamily: "Georgia,serif" }}>ADMINISTRACIÓN</div>
-            <div style={{ color: "#fff", fontFamily: "Georgia,serif", fontSize: "17px", fontWeight: "700", marginTop: "3px" }}>Reporte de Actividad</div>
+            <div style={{ color: "#fff", fontFamily: "Georgia,serif", fontSize: "17px", fontWeight: "700", marginTop: "3px" }}>{t.report.title}</div>
           </div>
           <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "8px", color: "#fff", width: "34px", height: "34px", cursor: "pointer", fontSize: "18px" }}>×</button>
         </div>
@@ -104,21 +106,21 @@ export function ActivityReport({ onClose }) {
         {loading ? (
           <div style={{ padding: "60px", textAlign: "center", color: "#888" }}>
             <div style={{ fontSize: "32px", marginBottom: "12px" }}>⏳</div>
-            Cargando reporte...
+            {t.report.loading}
           </div>
         ) : (
           <div style={{ overflowY: "auto", flex: 1, padding: "20px" }}>
             {/* Filtros */}
             <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap", alignItems: "center" }}>
-              {filterBtn("all", "Todo")}
-              {filterBtn("today", "Hoy")}
-              {filterBtn("week", "Esta semana")}
+              {filterBtn("all", t.report.all)}
+              {filterBtn("today", t.report.today)}
+              {filterBtn("week", t.report.week)}
               <select
                 value={sedeFilter}
                 onChange={e => setSedeFilter(e.target.value)}
                 style={{ padding: "6px 10px", border: "1.5px solid #E0D8CE", borderRadius: "8px", fontSize: "12px", outline: "none", background: "#fff" }}
               >
-                <option value="all">📍 Todas las sedes</option>
+                <option value="all">{t.report.allSedes}</option>
                 {SEDES.map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
@@ -128,7 +130,7 @@ export function ActivityReport({ onClose }) {
                 onChange={e => setUserFilter(e.target.value)}
                 style={{ padding: "6px 10px", border: "1.5px solid #E0D8CE", borderRadius: "8px", fontSize: "12px", outline: "none", background: "#fff" }}
               >
-                <option value="all">👤 Todos los usuarios</option>
+                <option value="all">{t.report.allUsers}</option>
                 {allUsers.map(u => (
                   <option key={u.id} value={u.id}>{u.name} ({u.sede})</option>
                 ))}
@@ -138,10 +140,10 @@ export function ActivityReport({ onClose }) {
             {/* Resumen */}
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: "12px", marginBottom: "20px" }}>
               {[
-                { label: "Usuarios activos", value: uniqueUsers.length, icon: "👥", color: "#1B3A5C" },
-                { label: "Recetas vistas", value: filtered.filter(a => a.action === "view_recipe").length, icon: "👁️", color: "#27ae60" },
-                { label: "Lecturas TTS", value: filtered.filter(a => a.action === "tts_play").length, icon: "🔊", color: "#D4721A" },
-                { label: "Búsquedas", value: filtered.filter(a => a.action === "search").length, icon: "🔍", color: "#8e44ad" },
+                { label: t.report.activeUsers, value: uniqueUsers.length, icon: "👥", color: "#1B3A5C" },
+                { label: t.report.recipesViewed, value: filtered.filter(a => a.action === "view_recipe").length, icon: "👁️", color: "#27ae60" },
+                { label: t.report.ttsReadings, value: filtered.filter(a => a.action === "tts_play").length, icon: "🔊", color: "#D4721A" },
+                { label: t.report.searches, value: filtered.filter(a => a.action === "search").length, icon: "🔍", color: "#8e44ad" },
               ].map(s => (
                 <div key={s.label} style={{ background: "#F7F3EE", borderRadius: "12px", padding: "14px", textAlign: "center" }}>
                   <div style={{ fontSize: "24px" }}>{s.icon}</div>
@@ -154,11 +156,11 @@ export function ActivityReport({ onClose }) {
             {/* Tabla de usuarios */}
             <div style={{ marginBottom: "20px" }}>
               <div style={{ fontSize: "13px", fontWeight: "700", color: "#1B3A5C", letterSpacing: "1px", marginBottom: "10px", fontFamily: "Georgia,serif" }}>
-                ACTIVIDAD POR USUARIO ({allUsers.length})
+                {t.report.activityByUser} ({allUsers.length})
               </div>
             <div style={{ maxHeight: "240px", overflowY: "auto", borderRadius: "10px" }}>
               {allUsers.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "30px", color: "#888", fontSize: "13px" }}>No hay actividad registrada aún</div>
+                <div style={{ textAlign: "center", padding: "30px", color: "#888", fontSize: "13px" }}>{t.report.noActivity}</div>
               ) : (
                 allUsers.map(u => (
                   <div key={u.id} onClick={() => setUserFilter(userFilter === u.id ? "all" : u.id)} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px", background: userFilter === u.id ? "#E8F0FA" : "#F7F3EE", borderRadius: "10px", marginBottom: "6px", cursor: "pointer", border: userFilter === u.id ? "2px solid #1B3A5C" : "2px solid transparent", transition: "all 0.15s" }}>
@@ -187,7 +189,7 @@ export function ActivityReport({ onClose }) {
             {/* Historial reciente */}
             <div>
               <div style={{ fontSize: "13px", fontWeight: "700", color: "#1B3A5C", letterSpacing: "1px", marginBottom: "10px", fontFamily: "Georgia,serif" }}>
-                HISTORIAL RECIENTE
+                {t.report.recentHistory}
               </div>
               {filtered.slice(0, 50).map(a => (
                 <div key={a.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 12px", borderBottom: "1px solid #F0ECE6", fontSize: "13px" }}>
@@ -201,7 +203,7 @@ export function ActivityReport({ onClose }) {
                 </div>
               ))}
               {filtered.length === 0 && (
-                <div style={{ textAlign: "center", padding: "30px", color: "#888", fontSize: "13px" }}>No hay actividad en este período</div>
+                <div style={{ textAlign: "center", padding: "30px", color: "#888", fontSize: "13px" }}>{t.report.noPeriodActivity}</div>
               )}
             </div>
           </div>
