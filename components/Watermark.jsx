@@ -2,7 +2,8 @@
 
 const DEFAULT_LOGO = "https://nhqdsdmqmyoxuyzsdacj.supabase.co/storage/v1/object/public/recipe-images/watermark/logo-watermark.png";
 
-export function Watermark({ username }) {
+export function Watermark({ username, customLogo }) {
+  const logo = customLogo || DEFAULT_LOGO;
   return (
     <div style={{
       position:"absolute", inset:0, overflow:"hidden",
@@ -10,7 +11,7 @@ export function Watermark({ username }) {
       display:"flex", alignItems:"center", justifyContent:"center",
     }}>
       <img
-        src={DEFAULT_LOGO}
+        src={logo}
         alt=""
         style={{
           width:"45%",
@@ -27,7 +28,8 @@ export function Watermark({ username }) {
 }
 
 // Marca de agua global — un solo logo grande centrado
-export function GlobalWatermark({ username, sede }) {
+export function GlobalWatermark({ username, sede, customLogo }) {
+  const logo = customLogo || DEFAULT_LOGO;
   return (
     <div style={{
       position:"fixed", inset:0, overflow:"hidden",
@@ -36,7 +38,7 @@ export function GlobalWatermark({ username, sede }) {
       display:"flex", alignItems:"center", justifyContent:"center",
     }}>
       <img
-        src={DEFAULT_LOGO}
+        src={logo}
         alt=""
         style={{
           width:"45vw",

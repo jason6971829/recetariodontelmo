@@ -38,6 +38,8 @@ export default function App() {
   const [showReport, setShowReport] = useState(false);
   const [showProgress, setShowProgress] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [watermarkLogo, setWatermarkLogo] = useState(null);
+  const [showWatermarkUpload, setShowWatermarkUpload] = useState(false);
   const [categoryModal, setCategoryModal] = useState(null); // { mode: "create"|"edit", initial? }
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
   const searchTimeoutRef = useRef(null);
@@ -58,6 +60,9 @@ export default function App() {
       if (su && su.length > 0) setUsers(su);
       const cats = await getCategories();
       if (cats && cats.length > 0) setDbCategories(cats);
+      // Cargar watermark personalizado
+      const savedWatermark = localStorage.getItem("dontelmo:watermark_url");
+      if (savedWatermark) setWatermarkLogo(savedWatermark);
       setLoading(false);
     }
     load();
@@ -279,7 +284,7 @@ export default function App() {
   return (
     <div style={{ height:"100vh", display:"flex", flexDirection:"column", fontFamily:"'Segoe UI',sans-serif", overflow:"hidden", background:"#F4F0EB" }}>
       <ScreenProtection userName={currentUser?.name} />
-      <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} />
+      <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} customLogo={watermarkLogo} />
 
       {/* OFFLINE BANNER */}
       {!online && (
@@ -351,6 +356,10 @@ export default function App() {
                     👥 Gestión de Usuarios
                   </button>
                   <div style={{ height:"1px", background:"rgba(255,255,255,0.15)", margin:"4px 0" }} />
+                  <button onClick={()=>{setShowWatermarkUpload(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
+                    onMouseEnter={e=>e.target.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.target.style.background="none"}>
+                    🖼️ Marca de Agua
+                  </button>
                 </div>
               )}
             </div>
@@ -549,6 +558,76 @@ export default function App() {
             setCategoryModal(null);
           }}
         />
+      )}
+
+      {/* Modal para cambiar marca de agua */}
+      {showWatermarkUpload && isAdmin && (
+        <div style={{ position:"fixed", inset:0, zIndex:500, background:"rgba(10,15,25,0.88)", backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+          <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"420px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
+            <div style={{ fontSize:"28px", marginBottom:"4px", textAlign:"center" }}>🖼️</div>
+            <div style={{ color:"#1B3A5C", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", marginBottom:"16px", textAlign:"center" }}>
+              Marca de Agua
+            </div>
+
+            {/* Preview actual */}
+            <div style={{ background:"#f5f0eb", borderRadius:"12px", padding:"20px", marginBottom:"16px", textAlign:"center" }}>
+              <img
+                src={watermarkLogo || "https://nhqdsdmqmyoxuyzsdacj.supabase.co/storage/v1/object/public/recipe-images/watermark/logo-watermark.png"}
+                alt="Marca de agua actual"
+                style={{ width:"60%", maxWidth:"200px", opacity:0.3 }}
+              />
+              <div style={{ color:"#888", fontSize:"12px", marginTop:"8px" }}>Vista previa</div>
+            </div>
+
+            {/* Subir nueva imagen */}
+            <label style={{
+              display:"block", background:"#1B3A5C", color:"#fff", padding:"12px", borderRadius:"10px",
+              textAlign:"center", cursor:"pointer", fontWeight:"700", fontSize:"14px", marginBottom:"12px",
+            }}>
+              📤 Subir nueva imagen
+              <input type="file" accept="image/*" style={{ display:"none" }} onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const { uploadImage } = await import("@/lib/storage");
+                const url = await uploadImage(file);
+                if (url) {
+                  // Guardar como watermark en Supabase Storage
+                  const { supabase } = await import("@/lib/supabase");
+                  const ext = file.name.split(".").pop();
+                  const { error } = await supabase.storage
+                    .from("recipe-images")
+                    .upload("watermark/logo-watermark." + ext, file, { upsert: true, cacheControl: "0" });
+                  if (!error) {
+                    const { data: urlData } = supabase.storage.from("recipe-images").getPublicUrl("watermark/logo-watermark." + ext);
+                    const finalUrl = urlData.publicUrl + "?t=" + Date.now();
+                    setWatermarkLogo(finalUrl);
+                    localStorage.setItem("dontelmo:watermark_url", finalUrl);
+                  } else {
+                    setWatermarkLogo(url);
+                    localStorage.setItem("dontelmo:watermark_url", url);
+                  }
+                }
+              }} />
+            </label>
+
+            {/* Restaurar por defecto */}
+            {watermarkLogo && (
+              <button onClick={() => {
+                setWatermarkLogo(null);
+                localStorage.removeItem("dontelmo:watermark_url");
+              }} style={{ width:"100%", background:"none", border:"1px solid #ddd", padding:"10px", borderRadius:"10px", cursor:"pointer", fontSize:"13px", color:"#888", marginBottom:"12px" }}>
+                Restaurar logo por defecto
+              </button>
+            )}
+
+            <button onClick={() => setShowWatermarkUpload(false)} style={{
+              width:"100%", background:"#e74c3c", border:"none", padding:"12px", borderRadius:"10px",
+              color:"#fff", cursor:"pointer", fontWeight:"700", fontSize:"14px",
+            }}>
+              Cerrar
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Modal para activar acceso biométrico */}
