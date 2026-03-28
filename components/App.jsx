@@ -368,9 +368,16 @@ export default function App() {
         <button onClick={()=>setSidebarOpen(o=>!o)} style={{ background:"rgba(255,255,255,0.1)", border:"none", borderRadius:"8px", color:"#fff", width:"36px", height:"36px", cursor:"pointer", fontSize:"16px", flexShrink:0 }}>☰</button>
 
         {!isMobile && (
-          <div style={{ flexShrink:0 }}>
-            <div style={{ color:"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"3px", fontFamily:"Georgia,serif" }}>{brandLabel}</div>
-            <div style={{ color:"#fff", fontSize:"15px", fontWeight:"700", fontFamily:"Georgia,serif", lineHeight:"1" }}>{brandName} {companyTagline && <span style={{ color:"#8BAACC", fontSize:"11px" }}>{companyTagline}</span>}</div>
+          <div style={{ flexShrink:0, display:"flex", alignItems:"center", gap:"10px" }}>
+            <div style={{ width:"32px", height:"32px", borderRadius:"8px", background:"linear-gradient(135deg,#1B3A5C,#0d2340)", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", flexShrink:0, border:"1px solid rgba(255,255,255,0.15)" }}>
+              {brandIcon
+                ? <img src={brandIcon} alt="logo" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                : <span style={{ fontSize:"14px" }}>🍽️</span>}
+            </div>
+            <div>
+              <div style={{ color:"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"3px", fontFamily:"Georgia,serif" }}>{brandLabel}</div>
+              <div style={{ color:"#fff", fontSize:"15px", fontWeight:"700", fontFamily:"Georgia,serif", lineHeight:"1" }}>{brandName} {companyTagline && <span style={{ color:"#8BAACC", fontSize:"11px" }}>{companyTagline}</span>}</div>
+            </div>
           </div>
         )}
 
