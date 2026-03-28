@@ -579,7 +579,7 @@ export default function App() {
 
       {/* Modal para cambiar marca de agua */}
       {showWatermarkUpload && isAdmin && (
-        <div style={{ position:"fixed", inset:0, zIndex:500, background:"#0d2340", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+        <div style={{ position:"fixed", inset:0, zIndex:9995, background:"#0d2340", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
           <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"440px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
             <div style={{ fontSize:"28px", marginBottom:"4px", textAlign:"center" }}>🖼️</div>
             <div style={{ color:"#1B3A5C", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", marginBottom:"16px", textAlign:"center" }}>
