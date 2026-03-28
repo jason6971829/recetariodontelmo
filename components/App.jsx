@@ -49,7 +49,8 @@ export default function App() {
   const [brandLabel, setBrandLabel] = useState("RECETARIO DIGITAL");
   const [brandName, setBrandName] = useState("Don Telmo®");
   const [companyTagline, setCompanyTagline] = useState("1958 — Company");
-  const [brandDraft, setBrandDraft] = useState({ label:"RECETARIO DIGITAL", name:"Don Telmo®", tagline:"1958 — Company" });
+  const [brandIcon, setBrandIcon] = useState(null);
+  const [brandDraft, setBrandDraft] = useState({ label:"RECETARIO DIGITAL", name:"Don Telmo®", tagline:"1958 — Company", icon:null });
   const [showLangModal, setShowLangModal] = useState(false);
   const [categoryModal, setCategoryModal] = useState(null); // { mode: "create"|"edit", initial? }
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
@@ -113,14 +114,17 @@ export default function App() {
       const savedLabel = localStorage.getItem("dontelmo:brandLabel");
       const savedName = localStorage.getItem("dontelmo:brandName");
       const savedTagline = localStorage.getItem("dontelmo:tagline");
+      const savedIcon = localStorage.getItem("dontelmo:brandIcon");
       const draft = {
         label: savedLabel ?? "RECETARIO DIGITAL",
         name: savedName ?? "Don Telmo®",
         tagline: savedTagline ?? "1958 — Company",
+        icon: savedIcon || null,
       };
       if (savedLabel !== null) setBrandLabel(savedLabel);
       if (savedName !== null) setBrandName(savedName);
       if (savedTagline !== null) setCompanyTagline(savedTagline);
+      if (savedIcon) setBrandIcon(savedIcon);
       setBrandDraft(draft);
       setLoading(false);
     }
@@ -282,8 +286,10 @@ export default function App() {
       <div style={{ height:"100vh", background:"linear-gradient(135deg,#0d2340 0%,#1B3A5C 50%,#0d2340 100%)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px", fontFamily:"Georgia,serif" }}>
         <div style={{ background:"#fff", borderRadius:"24px", padding: isMobile?"36px 28px":"48px 44px", width:"100%", maxWidth:"420px", boxShadow:"0 40px 100px rgba(0,0,0,0.5)" }}>
           <div style={{ textAlign:"center", marginBottom:"32px" }}>
-            <div style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", width:"72px", height:"72px", background:"linear-gradient(135deg,#1B3A5C,#0d2340)", borderRadius:"18px", marginBottom:"14px", boxShadow:"0 8px 24px rgba(27,58,92,0.4)" }}>
-              <span style={{ fontSize:"30px" }}>🍽️</span>
+            <div style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", width:"72px", height:"72px", background:"linear-gradient(135deg,#1B3A5C,#0d2340)", borderRadius:"18px", marginBottom:"14px", boxShadow:"0 8px 24px rgba(27,58,92,0.4)", overflow:"hidden" }}>
+              {brandIcon
+                ? <img src={brandIcon} alt="logo" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                : <span style={{ fontSize:"30px" }}>🍽️</span>}
             </div>
             <div style={{ color:"#D4721A", fontSize:"11px", fontWeight:"700", letterSpacing:"4px", marginBottom:"5px" }}>{brandLabel}</div>
             <div style={{ color:"#1B3A5C", fontSize:"26px", fontWeight:"700", lineHeight:"1.1" }}>{brandName}</div>
@@ -780,12 +786,46 @@ export default function App() {
 
             {/* Preview en tiempo real */}
             <div style={{ background:"linear-gradient(135deg,#0d2340,#1B3A5C)", borderRadius:"14px", padding:"22px", textAlign:"center", marginBottom:"20px" }}>
-              <div style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", width:"52px", height:"52px", background:"linear-gradient(135deg,#1B3A5C,#0d2340)", borderRadius:"14px", marginBottom:"10px", boxShadow:"0 4px 16px rgba(0,0,0,0.4)", border:"2px solid rgba(255,255,255,0.1)" }}>
-                <span style={{ fontSize:"22px" }}>🍽️</span>
+              <div style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", width:"62px", height:"62px", background:"linear-gradient(135deg,#1B3A5C,#0d2340)", borderRadius:"16px", marginBottom:"10px", boxShadow:"0 4px 16px rgba(0,0,0,0.4)", border:"2px solid rgba(255,255,255,0.1)", overflow:"hidden" }}>
+                {brandDraft.icon
+                  ? <img src={brandDraft.icon} alt="logo" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                  : <span style={{ fontSize:"26px" }}>🍽️</span>}
               </div>
               <div style={{ color:"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"3px" }}>{brandDraft.label || "RECETARIO DIGITAL"}</div>
               <div style={{ color:"#fff", fontSize:"20px", fontWeight:"700", fontFamily:"Georgia,serif", marginTop:"2px" }}>{brandDraft.name || "Don Telmo®"}</div>
               {brandDraft.tagline && <div style={{ color:"#8BAACC", fontSize:"12px", marginTop:"2px" }}>{brandDraft.tagline}</div>}
+            </div>
+
+            {/* Imagen del ícono */}
+            <div style={{ marginBottom:"14px" }}>
+              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"#1B3A5C", letterSpacing:"1.5px", marginBottom:"8px" }}>🖼️ ÍCONO / LOGO</label>
+              <label style={{ display:"block", background:"#1B3A5C", color:"#fff", padding:"11px", borderRadius:"10px", textAlign:"center", cursor:"pointer", fontWeight:"700", fontSize:"13px", marginBottom:"6px" }}>
+                📤 Subir imagen
+                <input type="file" accept="image/*" style={{ display:"none" }} onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  try {
+                    const { supabase } = await import("@/lib/supabase");
+                    const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+                    const path = `brand/brand-icon.${ext}`;
+                    await supabase.storage.from("recipe-images").remove([path]);
+                    const { error } = await supabase.storage.from("recipe-images").upload(path, file, { upsert:true, cacheControl:"0" });
+                    if (error) throw error;
+                    const { data: urlData } = supabase.storage.from("recipe-images").getPublicUrl(path);
+                    const url = urlData.publicUrl + "?t=" + Date.now();
+                    setBrandDraft(d => ({...d, icon: url}));
+                  } catch {
+                    const reader = new FileReader();
+                    reader.onload = () => setBrandDraft(d => ({...d, icon: reader.result}));
+                    reader.readAsDataURL(file);
+                  }
+                }} />
+              </label>
+              {brandDraft.icon && (
+                <button onClick={() => setBrandDraft(d => ({...d, icon:null}))} style={{ width:"100%", background:"none", border:"1px solid #e0d8ce", borderRadius:"8px", padding:"8px", cursor:"pointer", fontSize:"12px", color:"#c0392b" }}>
+                  🗑️ Eliminar imagen
+                </button>
+              )}
             </div>
 
             {/* Campo 1: etiqueta naranja */}
@@ -826,16 +866,19 @@ export default function App() {
             </div>
 
             <div style={{ display:"flex", gap:"10px" }}>
-              <button onClick={() => { setBrandDraft({ label:brandLabel, name:brandName, tagline:companyTagline }); setShowBrandModal(false); }} style={{ flex:1, background:"#F0ECE6", border:"none", borderRadius:"10px", padding:"12px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b", fontSize:"14px" }}>
+              <button onClick={() => { setBrandDraft({ label:brandLabel, name:brandName, tagline:companyTagline, icon:brandIcon }); setShowBrandModal(false); }} style={{ flex:1, background:"#F0ECE6", border:"none", borderRadius:"10px", padding:"12px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b", fontSize:"14px" }}>
                 {t.brand.cancel}
               </button>
               <button onClick={() => {
                 setBrandLabel(brandDraft.label);
                 setBrandName(brandDraft.name);
                 setCompanyTagline(brandDraft.tagline);
+                setBrandIcon(brandDraft.icon);
                 localStorage.setItem("dontelmo:brandLabel", brandDraft.label);
                 localStorage.setItem("dontelmo:brandName", brandDraft.name);
                 localStorage.setItem("dontelmo:tagline", brandDraft.tagline);
+                if (brandDraft.icon) localStorage.setItem("dontelmo:brandIcon", brandDraft.icon);
+                else localStorage.removeItem("dontelmo:brandIcon");
                 setShowBrandModal(false);
               }} style={{ flex:1, background:"#1B3A5C", border:"none", borderRadius:"10px", padding:"12px", cursor:"pointer", fontWeight:"700", color:"#fff", fontSize:"14px" }}>
                 {t.brand.save}
