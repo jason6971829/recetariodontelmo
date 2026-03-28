@@ -437,7 +437,7 @@ export default function App() {
             boxShadow: isMobile ? "4px 0 20px rgba(0,0,0,0.4)" : "none"
           }}>
             <div style={{ padding:"14px 16px 8px", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
-              <div style={{ color:"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"2px", fontFamily:"Georgia,serif" }}>CATEGORÍAS</div>
+              <div style={{ color:"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"2px", fontFamily:"Georgia,serif" }}>{t.categories}</div>
             </div>
             {allCategories.map(cat => {
               const count = cat.id==="all" ? recipes.length : (catCounts[cat.id]||0);

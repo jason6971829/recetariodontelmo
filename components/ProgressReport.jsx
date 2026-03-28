@@ -11,13 +11,13 @@ export function ProgressReport({ recipes, onClose }) {
   const stats = useMemo(() => {
     const total = recipes.length;
     const fields = {
-      image: { label: "Imágenes", icon: "📷", check: r => r.image && r.image.trim() !== "" },
-      description: { label: "Descripciones", icon: "📝", check: r => r.description && r.description.trim() !== "" },
-      preparation: { label: "Preparación", icon: "🍳", check: r => r.preparation && r.preparation.trim() !== "" },
-      ingredients: { label: "Ingredientes", icon: "🥕", check: r => r.ingredients && r.ingredients.length > 0 },
-      recommendations: { label: "Recomendaciones", icon: "💡", check: r => r.recommendations && r.recommendations.trim() !== "" },
-      salesPitch: { label: "Aprende a Vender", icon: "🎯", check: r => r.salesPitch && r.salesPitch.trim() !== "" },
-      video: { label: "Videos", icon: "🎥", check: r => r.video && r.video.trim() !== "" },
+      image: { label: t.progress.fields.image, icon: "📷", check: r => r.image && r.image.trim() !== "" },
+      description: { label: t.progress.fields.description, icon: "📝", check: r => r.description && r.description.trim() !== "" },
+      preparation: { label: t.progress.fields.preparation, icon: "🍳", check: r => r.preparation && r.preparation.trim() !== "" },
+      ingredients: { label: t.progress.fields.ingredients, icon: "🥕", check: r => r.ingredients && r.ingredients.length > 0 },
+      recommendations: { label: t.progress.fields.recommendations, icon: "💡", check: r => r.recommendations && r.recommendations.trim() !== "" },
+      salesPitch: { label: t.progress.fields.salesPitch, icon: "🎯", check: r => r.salesPitch && r.salesPitch.trim() !== "" },
+      video: { label: t.progress.fields.video, icon: "🎥", check: r => r.video && r.video.trim() !== "" },
     };
 
     const counts = {};
@@ -50,7 +50,7 @@ export function ProgressReport({ recipes, onClose }) {
     const sinSalesPitch = recipes.filter(r => !fields.salesPitch.check(r)).map(r => ({ id: r.id, name: r.name, category: r.category }));
 
     return { total, counts, completas, cats, sinImagen, sinDescripcion, sinSalesPitch };
-  }, [recipes]);
+  }, [recipes, t]);
 
   const pctCompletas = Math.round((stats.completas / stats.total) * 100);
 
@@ -87,7 +87,7 @@ export function ProgressReport({ recipes, onClose }) {
         <div style={{ background: "linear-gradient(135deg,#1B3A5C,#0d2340)", padding: "18px 24px", flexShrink: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <div style={{ color: "#D4721A", fontSize: "10px", fontWeight: "700", letterSpacing: "3px", fontFamily: "Georgia,serif" }}>ADMINISTRACIÓN</div>
+              <div style={{ color: "#D4721A", fontSize: "10px", fontWeight: "700", letterSpacing: "3px", fontFamily: "Georgia,serif" }}>{t.admin}</div>
               <div style={{ color: "#fff", fontFamily: "Georgia,serif", fontSize: "17px", fontWeight: "700", marginTop: "3px" }}>{t.progress.title}</div>
             </div>
             <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "8px", color: "#fff", width: "34px", height: "34px", cursor: "pointer", fontSize: "18px" }}>×</button>
@@ -102,7 +102,7 @@ export function ProgressReport({ recipes, onClose }) {
               <div style={{ width: pctCompletas + "%", height: "100%", background: "linear-gradient(90deg, #D4721A, #f39c12)", borderRadius: "5px", transition: "width 0.5s ease" }} />
             </div>
             <div style={{ color: "#8BAACC", fontSize: "11px", marginTop: "4px" }}>
-              {stats.completas} de {stats.total} recetas completas
+              {stats.completas} {t.progress.of} {stats.total} {t.progress.complete}
             </div>
           </div>
         </div>
@@ -127,7 +127,7 @@ export function ProgressReport({ recipes, onClose }) {
                     </div>
                     <ProgressBar pct={s.pct} color="#D4721A" />
                     <div style={{ fontSize: "11px", color: "#888", marginTop: "6px" }}>
-                      {s.count} de {s.total} — faltan <strong>{s.total - s.count}</strong>
+                      {s.count} {t.progress.of} {s.total} — {t.progress.missing} <strong>{s.total - s.count}</strong>
                     </div>
                   </div>
                 ))}
@@ -165,7 +165,7 @@ export function ProgressReport({ recipes, onClose }) {
             <div>
               <div style={{ marginBottom: "20px" }}>
                 <div style={{ fontSize: "13px", fontWeight: "700", color: "#e74c3c", letterSpacing: "1px", marginBottom: "10px" }}>
-                  📷 SIN IMAGEN ({stats.sinImagen.length})
+                  {t.progress.noImage} ({stats.sinImagen.length})
                 </div>
                 <div style={{ maxHeight: "200px", overflowY: "auto", borderRadius: "10px" }}>
                   {stats.sinImagen.map(r => (
@@ -179,7 +179,7 @@ export function ProgressReport({ recipes, onClose }) {
 
               <div style={{ marginBottom: "20px" }}>
                 <div style={{ fontSize: "13px", fontWeight: "700", color: "#e74c3c", letterSpacing: "1px", marginBottom: "10px" }}>
-                  📝 SIN DESCRIPCIÓN ({stats.sinDescripcion.length})
+                  {t.progress.noDescription} ({stats.sinDescripcion.length})
                 </div>
                 <div style={{ maxHeight: "200px", overflowY: "auto", borderRadius: "10px" }}>
                   {stats.sinDescripcion.map(r => (
@@ -193,7 +193,7 @@ export function ProgressReport({ recipes, onClose }) {
 
               <div>
                 <div style={{ fontSize: "13px", fontWeight: "700", color: "#e74c3c", letterSpacing: "1px", marginBottom: "10px" }}>
-                  🎯 SIN APRENDE A VENDER ({stats.sinSalesPitch.length})
+                  {t.progress.noSalesPitch} ({stats.sinSalesPitch.length})
                 </div>
                 <div style={{ maxHeight: "200px", overflowY: "auto", borderRadius: "10px" }}>
                   {stats.sinSalesPitch.map(r => (
