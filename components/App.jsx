@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useWebAuthn } from "@/hooks/useWebAuthn";
-import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb, getUsers, saveUsers as saveUsersDb, uploadImage, deleteImage, logActivity, getCategories, upsertCategory, deleteCategory as deleteCategoryDb, saveWatermarkConfig, loadWatermarkConfig, saveBannerConfig, loadBannerConfig } from "@/lib/storage";
+import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb, getUsers, saveUsers as saveUsersDb, uploadImage, deleteImage, logActivity, getCategories, upsertCategory, deleteCategory as deleteCategoryDb, saveWatermarkConfig, loadWatermarkConfig, saveBannerConfig, loadBannerConfig, saveProfileConfig, loadProfileConfig } from "@/lib/storage";
 import { CATEGORIES, INITIAL_USERS } from "@/lib/constants";
 import { RecipeDetail } from "@/components/RecipeDetail";
 import { RecipeForm } from "@/components/RecipeForm";
@@ -71,6 +71,18 @@ export default function App() {
   const [bannerStripPos, setBannerStripPos] = useState(1);
   const [bannerCanTransition, setBannerCanTransition] = useState(true);
   const [bannerUploading, setBannerUploading] = useState(false);
+
+  // Perfil
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileData, setProfileData] = useState({ name: "", email: "", phone: "" });
+  const [profileDraft, setProfileDraft] = useState({ name: "", email: "", phone: "" });
+  const [profileSaved, setProfileSaved] = useState(false);
+
+  // Recuperar contraseña
+  const [showRecover, setShowRecover] = useState(false);
+  const [recoverEmail, setRecoverEmail] = useState("");
+  const [recoverState, setRecoverState] = useState("idle"); // idle | sending | sent | notfound | error
+
   const [categoryModal, setCategoryModal] = useState(null); // { mode: "create"|"edit", initial? }
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
   const searchTimeoutRef = useRef(null);
@@ -198,6 +210,11 @@ export default function App() {
       if (bannerCfg) {
         setBannerActive(bannerCfg.active ?? false);
         setBannerImages(bannerCfg.images ?? []);
+      }
+      const profCfg = await loadProfileConfig();
+      if (profCfg) {
+        setProfileData(profCfg);
+        setProfileDraft(profCfg);
       }
       setLoading(false);
     }
@@ -359,6 +376,7 @@ export default function App() {
   // ══ LOGIN ═══════════════════════════════════════════════════════
   if (screen==="login" || loading) {
     return (
+      <>
       <div style={{ height:"100vh", background:"linear-gradient(135deg,var(--app-primary-dark) 0%,var(--app-primary) 50%,var(--app-primary-dark) 100%)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px", fontFamily:"Georgia,serif" }}>
         <div style={{ background:"#fff", borderRadius:"24px", padding: isMobile?"36px 28px":"48px 44px", width:"100%", maxWidth:"420px", boxShadow:"0 40px 100px rgba(0,0,0,0.5)" }}>
           <div style={{ textAlign:"center", marginBottom:"32px" }}>
@@ -393,6 +411,14 @@ export default function App() {
               {t.login.button}
             </button>
 
+            {/* Link recuperar contraseña */}
+            <div style={{ textAlign:"right", marginTop:"-10px", marginBottom:"16px" }}>
+              <button onClick={() => { setShowRecover(true); setRecoverEmail(""); setRecoverState("idle"); }}
+                style={{ background:"none", border:"none", color:"var(--app-primary)", fontSize:"13px", cursor:"pointer", textDecoration:"underline", padding:0 }}>
+                {t.login.forgotPassword}
+              </button>
+            </div>
+
             {/* Botón de acceso biométrico */}
             {hasBiometric && (
               <button
@@ -416,6 +442,62 @@ export default function App() {
           </>}
         </div>
       </div>
+
+      {/* Modal recuperar contraseña */}
+      {showRecover && (
+        <div style={{ position:"fixed", inset:0, zIndex:20000, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+          <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"380px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
+            <div style={{ textAlign:"center", marginBottom:"20px" }}>
+              <div style={{ fontSize:"36px", marginBottom:"8px" }}>🔑</div>
+              <div style={{ color:"var(--app-primary)", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif" }}>{t.login.recover.title}</div>
+              <div style={{ color:"#888", fontSize:"13px", marginTop:"6px" }}>{t.login.recover.desc}</div>
+            </div>
+            {recoverState === "sent" ? (
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontSize:"40px", marginBottom:"12px" }}>✉️</div>
+                <div style={{ color:"#27ae60", fontWeight:"700", fontSize:"15px", marginBottom:"20px" }}>{t.login.recover.sent}</div>
+                <button onClick={() => setShowRecover(false)}
+                  style={{ width:"100%", padding:"13px", background:"var(--app-primary)", border:"none", borderRadius:"10px", color:"#fff", fontWeight:"700", cursor:"pointer", fontSize:"14px" }}>
+                  {t.login.recover.back}
+                </button>
+              </div>
+            ) : (
+              <>
+                <input
+                  type="email"
+                  value={recoverEmail}
+                  onChange={e => setRecoverEmail(e.target.value)}
+                  placeholder={t.login.recover.emailPlaceholder}
+                  style={{ width:"100%", padding:"13px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"15px", outline:"none", boxSizing:"border-box", marginBottom:"10px" }}
+                />
+                {recoverState === "notfound" && <div style={{ color:"#e74c3c", fontSize:"13px", marginBottom:"10px", background:"#fef0ef", padding:"10px", borderRadius:"8px" }}>{t.login.recover.notFound}</div>}
+                {recoverState === "error" && <div style={{ color:"#e74c3c", fontSize:"13px", marginBottom:"10px", background:"#fef0ef", padding:"10px", borderRadius:"8px" }}>{t.login.recover.error}</div>}
+                <button
+                  onClick={async () => {
+                    if (!recoverEmail.trim()) return;
+                    setRecoverState("sending");
+                    try {
+                      const res = await fetch("/api/recover", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ email: recoverEmail.trim() }) });
+                      const data = await res.json();
+                      if (data.ok) { setRecoverState("sent"); }
+                      else if (data.error === "email_not_found" || data.error === "no_profile") { setRecoverState("notfound"); }
+                      else { setRecoverState("error"); }
+                    } catch { setRecoverState("error"); }
+                  }}
+                  disabled={recoverState === "sending"}
+                  style={{ width:"100%", padding:"13px", background:"var(--app-primary)", border:"none", borderRadius:"10px", color:"#fff", fontWeight:"700", cursor:"pointer", fontSize:"14px", marginBottom:"10px", opacity: recoverState === "sending" ? 0.7 : 1 }}>
+                  {recoverState === "sending" ? t.login.recover.sending : t.login.recover.button}
+                </button>
+                <button onClick={() => setShowRecover(false)}
+                  style={{ width:"100%", padding:"12px", background:"#f5f0eb", border:"none", borderRadius:"10px", color:"#888", fontWeight:"600", cursor:"pointer", fontSize:"13px" }}>
+                  {t.login.recover.back}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+      </>
     );
   }
 
@@ -491,6 +573,11 @@ export default function App() {
                   boxShadow:"0 8px 32px rgba(0,0,0,0.4)", padding:"8px", zIndex:9999, minWidth:"200px",
                   border:"1px solid rgba(255,255,255,0.15)",
                 }}>
+                  <button onClick={()=>{setProfileDraft({...profileData});setShowProfileModal(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
+                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
+                    {t.settings.profile}
+                  </button>
+                  <div style={{ height:"1px", background:"rgba(255,255,255,0.15)", margin:"4px 0" }} />
                   <button onClick={()=>{setShowProgress(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
                     onMouseEnter={e=>e.target.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.target.style.background="none"}>
                     {t.settings.status}
@@ -1340,6 +1427,66 @@ export default function App() {
           </div>
         </div>
       )}
+      {/* Modal Perfil */}
+      {showProfileModal && isAdmin && (
+        <div style={{ position:"fixed", inset:0, zIndex:9996, background:"rgba(10,15,25,0.85)", backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+          <div style={{ background:"#fff", borderRadius:"20px", padding:"28px 24px", width:"100%", maxWidth:"400px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"20px" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
+                <span style={{ fontSize:"26px" }}>👤</span>
+                <span style={{ fontWeight:"700", color:"var(--app-primary)", fontSize:"17px", fontFamily:"Georgia,serif" }}>{t.profile.title}</span>
+              </div>
+              <button onClick={() => { setShowProfileModal(false); setProfileSaved(false); }} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"8px", width:"32px", height:"32px", cursor:"pointer", fontSize:"16px" }}>×</button>
+            </div>
+
+            {/* Info */}
+            <div style={{ background:"#f0f7ff", border:"1px solid #c8dff5", borderRadius:"10px", padding:"10px 14px", marginBottom:"18px", fontSize:"12px", color:"#2c5f8a", display:"flex", gap:"8px", alignItems:"flex-start" }}>
+              <span>ℹ️</span><span>{t.profile.info}</span>
+            </div>
+
+            {/* Nombre */}
+            <div style={{ marginBottom:"14px" }}>
+              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.profile.nameLabel}</label>
+              <input value={profileDraft.name} onChange={e => setProfileDraft(d => ({...d, name: e.target.value}))}
+                placeholder={t.profile.namePlaceholder}
+                style={{ width:"100%", padding:"12px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"15px", outline:"none", boxSizing:"border-box" }} />
+            </div>
+
+            {/* Email */}
+            <div style={{ marginBottom:"14px" }}>
+              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.profile.emailLabel}</label>
+              <input type="email" value={profileDraft.email} onChange={e => setProfileDraft(d => ({...d, email: e.target.value}))}
+                placeholder={t.profile.emailPlaceholder}
+                style={{ width:"100%", padding:"12px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"15px", outline:"none", boxSizing:"border-box" }} />
+            </div>
+
+            {/* Teléfono */}
+            <div style={{ marginBottom:"20px" }}>
+              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.profile.phoneLabel}</label>
+              <input value={profileDraft.phone} onChange={e => setProfileDraft(d => ({...d, phone: e.target.value}))}
+                placeholder={t.profile.phonePlaceholder}
+                style={{ width:"100%", padding:"12px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"15px", outline:"none", boxSizing:"border-box" }} />
+            </div>
+
+            {profileSaved && <div style={{ color:"#27ae60", fontWeight:"700", textAlign:"center", marginBottom:"12px", fontSize:"14px" }}>{t.profile.saved}</div>}
+
+            <div style={{ display:"flex", gap:"10px" }}>
+              <button onClick={() => { setShowProfileModal(false); setProfileSaved(false); }}
+                style={{ flex:1, padding:"12px", background:"#F0ECE6", border:"none", borderRadius:"10px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b", fontSize:"14px" }}>
+                {t.profile.cancel}
+              </button>
+              <button onClick={async () => {
+                  const saved = await saveProfileConfig(profileDraft);
+                  if (saved) { setProfileData(profileDraft); setProfileSaved(true); setTimeout(() => { setProfileSaved(false); setShowProfileModal(false); }, 1200); }
+                }}
+                style={{ flex:2, padding:"12px", background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", border:"none", borderRadius:"10px", cursor:"pointer", fontWeight:"700", color:"#fff", fontSize:"14px" }}>
+                {t.profile.save}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
