@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useWebAuthn } from "@/hooks/useWebAuthn";
-import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb, getUsers, saveUsers as saveUsersDb, uploadImage, deleteImage, logActivity, getCategories, upsertCategory, deleteCategory as deleteCategoryDb, saveWatermarkConfig, loadWatermarkConfig } from "@/lib/storage";
+import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb, getUsers, saveUsers as saveUsersDb, uploadImage, deleteImage, logActivity, getCategories, upsertCategory, deleteCategory as deleteCategoryDb, saveWatermarkConfig, loadWatermarkConfig, saveBannerConfig, loadBannerConfig } from "@/lib/storage";
 import { CATEGORIES, INITIAL_USERS } from "@/lib/constants";
 import { RecipeDetail } from "@/components/RecipeDetail";
 import { RecipeForm } from "@/components/RecipeForm";
@@ -63,6 +63,12 @@ export default function App() {
   ];
   const [showLangModal, setShowLangModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
+  const [showBannerConfig, setShowBannerConfig] = useState(false);
+  const [bannerActive, setBannerActive] = useState(false);
+  const [bannerImages, setBannerImages] = useState([]);
+  const [showBanner, setShowBanner] = useState(false);
+  const [bannerSlide, setBannerSlide] = useState(0);
+  const [bannerUploading, setBannerUploading] = useState(false);
   const [categoryModal, setCategoryModal] = useState(null); // { mode: "create"|"edit", initial? }
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
   const searchTimeoutRef = useRef(null);
@@ -156,6 +162,11 @@ export default function App() {
       if (savedNameColor) setBrandNameColor(savedNameColor);
       if (savedTaglineColor) setBrandTaglineColor(savedTaglineColor);
       setBrandDraft(draft);
+      const bannerCfg = await loadBannerConfig();
+      if (bannerCfg) {
+        setBannerActive(bannerCfg.active ?? false);
+        setBannerImages(bannerCfg.images ?? []);
+      }
       setLoading(false);
     }
     load();
@@ -168,6 +179,8 @@ export default function App() {
     if (!u) { setLoginError(t.login.error); return; }
     setCurrentUser(u); setScreen("app"); setLoginError("");
     logActivity(u.id, "login");
+    // Mostrar banner si está activo
+    setTimeout(() => setShowBanner(true), 300);
     // Ofrecer biometría en móvil si no tiene credencial registrada
     if (isMobile && biometricSupported && !hasBiometric) {
       setTimeout(() => setShowBiometricPrompt(true), 500);
@@ -181,6 +194,7 @@ export default function App() {
     if (user) {
       setCurrentUser(user); setScreen("app");
       logActivity(user.id, "login");
+      setTimeout(() => setShowBanner(true), 300);
     } else {
       setLoginError("No se pudo verificar la identidad biométrica");
     }
@@ -465,6 +479,10 @@ export default function App() {
                   <button onClick={()=>{setBrandDraft({label:brandLabel,name:brandName,tagline:companyTagline,icon:brandIcon,labelColor:brandLabelColor,nameColor:brandNameColor,taglineColor:brandTaglineColor});setShowBrandModal(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
                     onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
                     🏷️ {t.settings?.brand || "Nombre Marca"}
+                  </button>
+                  <button onClick={()=>{setShowBannerConfig(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
+                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
+                    📢 Banner de anuncios
                   </button>
                   <button onClick={()=>{setShowThemeModal(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
                     onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
@@ -816,6 +834,46 @@ export default function App() {
         </div>
       )}
 
+      {/* Banner de anuncios - mostrado al iniciar sesión */}
+      {showBanner && bannerActive && bannerImages.length > 0 && (
+        <div style={{ position:"fixed", inset:0, zIndex:10000, background:"rgba(0,0,0,0.92)", backdropFilter:"blur(12px)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
+          {/* Close button */}
+          <button onClick={() => { setShowBanner(false); setBannerSlide(0); }} style={{ position:"absolute", top:"20px", right:"20px", background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"50%", width:"44px", height:"44px", color:"#fff", fontSize:"22px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1 }}>×</button>
+
+          {/* Image */}
+          <div style={{ maxWidth:"90vw", maxHeight:"80vh", position:"relative", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <img
+              src={bannerImages[bannerSlide]}
+              alt="Banner"
+              style={{ maxWidth:"90vw", maxHeight:"80vh", objectFit:"contain", borderRadius:"16px", boxShadow:"0 20px 60px rgba(0,0,0,0.5)" }}
+            />
+            {/* Prev/Next arrows if multiple images */}
+            {bannerImages.length > 1 && (
+              <>
+                <button onClick={() => setBannerSlide(s => (s - 1 + bannerImages.length) % bannerImages.length)}
+                  style={{ position:"absolute", left:"-50px", background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"50%", width:"40px", height:"40px", color:"#fff", fontSize:"20px", cursor:"pointer" }}>‹</button>
+                <button onClick={() => setBannerSlide(s => (s + 1) % bannerImages.length)}
+                  style={{ position:"absolute", right:"-50px", background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"50%", width:"40px", height:"40px", color:"#fff", fontSize:"20px", cursor:"pointer" }}>›</button>
+              </>
+            )}
+          </div>
+
+          {/* Dots */}
+          {bannerImages.length > 1 && (
+            <div style={{ display:"flex", gap:"8px", marginTop:"20px" }}>
+              {bannerImages.map((_, i) => (
+                <div key={i} onClick={() => setBannerSlide(i)} style={{ width:"8px", height:"8px", borderRadius:"50%", background: i === bannerSlide ? "#fff" : "rgba(255,255,255,0.3)", cursor:"pointer", transition:"all 0.2s" }} />
+              ))}
+            </div>
+          )}
+
+          {/* Counter */}
+          {bannerImages.length > 1 && (
+            <div style={{ color:"rgba(255,255,255,0.5)", fontSize:"13px", marginTop:"10px" }}>{bannerSlide + 1} / {bannerImages.length}</div>
+          )}
+        </div>
+      )}
+
       {/* Modal Nombre Marca */}
       {showBrandModal && isAdmin && (
         <div style={{ position:"fixed", inset:0, zIndex:9995, background:"rgba(10,15,25,0.88)", backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
@@ -978,6 +1036,117 @@ export default function App() {
             >
               Ahora no
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de configuración del banner */}
+      {showBannerConfig && isAdmin && (
+        <div style={{ position:"fixed", inset:0, zIndex:9995, background:"rgba(10,15,25,0.88)", backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+          <div style={{ background:"#fff", borderRadius:"20px", width:"100%", maxWidth:"480px", maxHeight:"90vh", overflow:"hidden", display:"flex", flexDirection:"column", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
+            {/* Header */}
+            <div style={{ background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", padding:"18px 24px", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
+              <div>
+                <div style={{ color:"#D4721A", fontSize:"10px", fontWeight:"700", letterSpacing:"3px", fontFamily:"Georgia,serif" }}>DON TELMO® RECETARIO</div>
+                <div style={{ color:"#fff", fontFamily:"Georgia,serif", fontSize:"17px", fontWeight:"700", marginTop:"3px" }}>📢 Banner de Anuncios</div>
+              </div>
+              <button onClick={() => setShowBannerConfig(false)} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"18px" }}>×</button>
+            </div>
+
+            <div style={{ overflowY:"auto", flex:1, padding:"20px" }}>
+              {/* Toggle publicar */}
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:"#F7F3EE", borderRadius:"14px", padding:"16px 18px", marginBottom:"20px" }}>
+                <div>
+                  <div style={{ fontWeight:"700", fontSize:"14px", color:"var(--app-primary)" }}>Publicar banner</div>
+                  <div style={{ fontSize:"12px", color:"#888", marginTop:"2px" }}>Los usuarios verán el banner al iniciar sesión</div>
+                </div>
+                <div onClick={() => setBannerActive(v => !v)} style={{
+                  width:"51px", height:"31px", borderRadius:"16px", cursor:"pointer", transition:"all 0.3s",
+                  background: bannerActive ? "#34c759" : "#e0e0e0", position:"relative", flexShrink:0,
+                }}>
+                  <div style={{
+                    position:"absolute", top:"2px", width:"27px", height:"27px", borderRadius:"50%",
+                    background:"#fff", boxShadow:"0 2px 4px rgba(0,0,0,0.2)", transition:"all 0.3s",
+                    left: bannerActive ? "22px" : "2px",
+                  }} />
+                </div>
+              </div>
+
+              {/* Upload images */}
+              <div style={{ marginBottom:"16px" }}>
+                <div style={{ fontSize:"12px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1px", marginBottom:"10px" }}>IMÁGENES DEL BANNER</div>
+                <label style={{ display:"block", background:"var(--app-primary)", color:"#fff", padding:"12px", borderRadius:"10px", textAlign:"center", cursor:"pointer", fontWeight:"700", fontSize:"14px", marginBottom:"12px", opacity: bannerUploading ? 0.6 : 1 }}>
+                  {bannerUploading ? "⏳ Subiendo..." : "📤 Agregar imagen"}
+                  <input type="file" accept="image/*" multiple style={{ display:"none" }} disabled={bannerUploading} onChange={async (e) => {
+                    const files = Array.from(e.target.files || []);
+                    if (!files.length) return;
+                    setBannerUploading(true);
+                    const newUrls = [];
+                    for (const file of files) {
+                      // Preview local inmediato
+                      const localUrl = await new Promise(resolve => {
+                        const r = new FileReader();
+                        r.onload = ev => resolve(ev.target.result);
+                        r.readAsDataURL(file);
+                      });
+                      newUrls.push(localUrl);
+                      // Subir a Supabase
+                      try {
+                        const { supabase } = await import("@/lib/supabase");
+                        const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+                        const path = `banner/img-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+                        const { error } = await supabase.storage.from("recipe-images").upload(path, file, { upsert:false, cacheControl:"0" });
+                        if (!error) {
+                          const { data: urlData } = supabase.storage.from("recipe-images").getPublicUrl(path);
+                          newUrls[newUrls.length - 1] = urlData.publicUrl;
+                        }
+                      } catch {}
+                    }
+                    setBannerImages(prev => [...prev, ...newUrls]);
+                    setBannerUploading(false);
+                  }} />
+                </label>
+
+                {/* Grid de imágenes */}
+                {bannerImages.length === 0 ? (
+                  <div style={{ textAlign:"center", padding:"30px", color:"#bbb", fontSize:"13px", background:"#F7F3EE", borderRadius:"10px" }}>
+                    Sin imágenes aún. Sube imágenes para el banner.
+                  </div>
+                ) : (
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"10px" }}>
+                    {bannerImages.map((url, i) => (
+                      <div key={i} style={{ position:"relative", borderRadius:"10px", overflow:"hidden", aspectRatio:"16/9" }}>
+                        <img src={url} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                        <button onClick={() => setBannerImages(prev => prev.filter((_,idx) => idx !== i))}
+                          style={{ position:"absolute", top:"6px", right:"6px", background:"rgba(0,0,0,0.6)", border:"none", borderRadius:"50%", width:"28px", height:"28px", color:"#fff", cursor:"pointer", fontSize:"14px", display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
+                        <div style={{ position:"absolute", bottom:"4px", left:"6px", background:"rgba(0,0,0,0.5)", color:"#fff", fontSize:"10px", padding:"2px 6px", borderRadius:"6px" }}>{i + 1}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Preview button */}
+              {bannerImages.length > 0 && (
+                <button onClick={() => { setShowBannerConfig(false); setBannerSlide(0); setShowBanner(true); }}
+                  style={{ width:"100%", background:"#F0ECE6", border:"none", borderRadius:"10px", padding:"11px", cursor:"pointer", fontWeight:"600", fontSize:"13px", color:"var(--app-primary)", marginBottom:"10px" }}>
+                  👁️ Vista previa del banner
+                </button>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding:"14px 20px", borderTop:"1px solid #F0ECE6", display:"flex", gap:"10px", flexShrink:0 }}>
+              <button onClick={() => setShowBannerConfig(false)} style={{ flex:1, background:"#F0ECE6", border:"none", borderRadius:"10px", padding:"12px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b", fontSize:"14px" }}>
+                Cancelar
+              </button>
+              <button onClick={async () => {
+                await saveBannerConfig({ active: bannerActive, images: bannerImages });
+                setShowBannerConfig(false);
+              }} style={{ flex:2, background:"var(--app-primary)", border:"none", borderRadius:"10px", padding:"12px", cursor:"pointer", fontWeight:"700", color:"#fff", fontSize:"14px" }}>
+                Guardar
+              </button>
+            </div>
           </div>
         </div>
       )}
