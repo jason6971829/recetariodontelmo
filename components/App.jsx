@@ -114,7 +114,7 @@ export default function App() {
 
   const handleLogin = () => {
     const u = users.find(u => u.username.trim()===loginForm.username.trim() && u.password.trim()===loginForm.password.trim());
-    if (!u) { setLoginError("Usuario o contraseña incorrectos"); return; }
+    if (!u) { setLoginError(t.login.error); return; }
     setCurrentUser(u); setScreen("app"); setLoginError("");
     logActivity(u.id, "login");
     // Ofrecer biometría en móvil si no tiene credencial registrada
@@ -278,20 +278,20 @@ export default function App() {
             </div>
           ) : <>
             <div style={{ marginBottom:"14px" }}>
-              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"#1B3A5C", letterSpacing:"1.5px", marginBottom:"6px" }}>USUARIO</label>
+              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"#1B3A5C", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.login.usernameLabel}</label>
               <input style={{ width:"100%", padding:"13px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"15px", outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}
                 value={loginForm.username} onChange={e=>setLoginForm(f=>({...f,username:e.target.value}))}
-                onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="Usuario" autoFocus />
+                onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder={t.login.usernamePlaceholder} autoFocus />
             </div>
             <div style={{ marginBottom:"22px" }}>
-              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"#1B3A5C", letterSpacing:"1.5px", marginBottom:"6px" }}>CONTRASEÑA</label>
+              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"#1B3A5C", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.login.passwordLabel}</label>
               <input type="password" style={{ width:"100%", padding:"13px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"15px", outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}
                 value={loginForm.password} onChange={e=>setLoginForm(f=>({...f,password:e.target.value}))}
-                onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="Contraseña" />
+                onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder={t.login.passwordPlaceholder} />
             </div>
             {loginError && <div style={{ color:"#e74c3c", fontSize:"13px", marginBottom:"14px", textAlign:"center", background:"#fef0ef", padding:"10px", borderRadius:"8px" }}>{loginError}</div>}
             <button onClick={handleLogin} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#1B3A5C,#0d2340)", border:"none", borderRadius:"10px", color:"#fff", fontSize:"15px", fontWeight:"700", cursor:"pointer", fontFamily:"Georgia,serif", letterSpacing:"1px" }}>
-              INGRESAR AL RECETARIO
+              {t.login.button}
             </button>
 
             {/* Botón de acceso biométrico */}
@@ -309,11 +309,11 @@ export default function App() {
                   display:"flex", alignItems:"center", justifyContent:"center", gap:"8px"
                 }}
               >
-                {biometricLoading ? "⏳ Verificando..." : "🔐 Acceso con Face ID / Huella"}
+                {biometricLoading ? t.login.biometricLoading : t.login.biometric}
               </button>
             )}
 
-            <div style={{ textAlign:"center", marginTop:"18px", fontSize:"11px", color:"#bbb" }}>Acceso exclusivo personal Don Telmo</div>
+            <div style={{ textAlign:"center", marginTop:"18px", fontSize:"11px", color:"#bbb" }}>{t.login.tagline}</div>
           </>}
         </div>
       </div>
@@ -497,7 +497,7 @@ export default function App() {
                   fontSize: "13px", fontWeight: "600", marginTop: "4px"
                 }}
               >
-                ➕ Nueva Categoría
+                {t.newCategory}
               </button>
             )}
           </aside>
