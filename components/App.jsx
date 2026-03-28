@@ -1142,24 +1142,18 @@ export default function App() {
                     Sube hasta 5 imágenes para el banner
                   </div>
                 ) : (
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"8px" }}>
+                  <div style={{ display:"flex", gap:"6px" }}>
                     {bannerImages.map((url, i) => (
-                      <div key={i} style={{ position:"relative", borderRadius:"10px", overflow:"hidden", aspectRatio:"1/1", background:"#000", boxShadow:"0 2px 8px rgba(0,0,0,0.15)" }}>
+                      <div key={i} style={{ position:"relative", borderRadius:"8px", overflow:"hidden", width:"72px", height:"72px", flexShrink:0, background:"#000", boxShadow:"0 2px 6px rgba(0,0,0,0.2)" }}>
                         <img src={url} alt={`Banner ${i+1}`} style={{ width:"100%", height:"100%", objectFit:"cover", opacity:0.92 }} />
-                        {/* Número */}
-                        <div style={{ position:"absolute", top:"6px", left:"6px", background:"var(--app-primary)", color:"#fff", fontSize:"10px", fontWeight:"700", padding:"2px 7px", borderRadius:"8px" }}>{i + 1}</div>
-                        {/* Eliminar */}
-                        <button
-                          onClick={() => setBannerImages(prev => prev.filter((_,idx) => idx !== i))}
-                          style={{ position:"absolute", top:"4px", right:"4px", background:"rgba(231,76,60,0.9)", border:"none", borderRadius:"50%", width:"26px", height:"26px", color:"#fff", cursor:"pointer", fontSize:"14px", fontWeight:"700", display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1 }}>
-                          ×
-                        </button>
+                        <div style={{ position:"absolute", bottom:"3px", left:"3px", background:"var(--app-primary)", color:"#fff", fontSize:"9px", fontWeight:"700", padding:"1px 5px", borderRadius:"5px" }}>{i + 1}</div>
+                        <button onClick={() => setBannerImages(prev => prev.filter((_,idx) => idx !== i))}
+                          style={{ position:"absolute", top:"2px", right:"2px", background:"rgba(231,76,60,0.9)", border:"none", borderRadius:"50%", width:"20px", height:"20px", color:"#fff", cursor:"pointer", fontSize:"12px", fontWeight:"700", display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1 }}>×</button>
                       </div>
                     ))}
-                    {/* Slots vacíos */}
                     {Array.from({ length: 5 - bannerImages.length }).map((_, i) => (
-                      <div key={`empty-${i}`} style={{ borderRadius:"10px", aspectRatio:"1/1", background:"#F7F3EE", border:"2px dashed #E0D8CE", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                        <span style={{ fontSize:"20px", color:"#ddd" }}>+</span>
+                      <div key={`empty-${i}`} style={{ borderRadius:"8px", width:"72px", height:"72px", flexShrink:0, background:"#F7F3EE", border:"2px dashed #E0D8CE", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                        <span style={{ fontSize:"18px", color:"#ddd" }}>+</span>
                       </div>
                     ))}
                   </div>
