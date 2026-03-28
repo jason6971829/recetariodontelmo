@@ -586,14 +586,14 @@ export default function App() {
               Marca de Agua
             </div>
 
-            {/* Preview actual — fondo sólido, sin transparencia */}
-            <div style={{ background:"#e8e0d8", borderRadius:"12px", padding:"20px", marginBottom:"16px", textAlign:"center" }}>
+            {/* Preview actual — fondo blanco simula la página */}
+            <div style={{ background:"#fff", borderRadius:"12px", border:"1px solid #eee", padding:"20px", marginBottom:"16px", textAlign:"center", minHeight:"120px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
               <img
                 src={watermarkLogo || "https://nhqdsdmqmyoxuyzsdacj.supabase.co/storage/v1/object/public/recipe-images/watermark/logo-watermark.png"}
                 alt="Marca de agua actual"
-                style={{ width: watermarkSize + "%", maxWidth:"200px", opacity: watermarkOpacity }}
+                style={{ width: watermarkSize + "%", maxWidth:"220px", opacity: Math.max(watermarkOpacity, 0.15) }}
               />
-              <div style={{ color:"#888", fontSize:"12px", marginTop:"8px" }}>Vista previa</div>
+              <div style={{ color:"#bbb", fontSize:"11px", marginTop:"8px" }}>Vista previa (opacidad mínima 15% para visibilidad)</div>
             </div>
 
             {/* Slider de visibilidad */}
@@ -605,12 +605,17 @@ export default function App() {
               <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
                 <span style={{ fontSize:"11px", color:"#999", width:"40px" }}>Tenue</span>
                 <input type="range" min="1" max="40" value={Math.round(watermarkOpacity * 100)}
+                  onInput={e => {
+                    const val = parseInt(e.target.value) / 100;
+                    setWatermarkOpacity(val);
+                    localStorage.setItem("dontelmo:watermark_opacity", String(val));
+                  }}
                   onChange={e => {
                     const val = parseInt(e.target.value) / 100;
                     setWatermarkOpacity(val);
-                    localStorage.setItem("dontelmo:watermark_opacity", val);
+                    localStorage.setItem("dontelmo:watermark_opacity", String(val));
                   }}
-                  style={{ flex:1, accentColor:"#1B3A5C", cursor:"pointer", height:"6px" }}
+                  style={{ flex:1, accentColor:"#1B3A5C", cursor:"pointer", height:"20px", touchAction:"none" }}
                 />
                 <span style={{ fontSize:"11px", color:"#999", width:"40px", textAlign:"right" }}>Visible</span>
               </div>
@@ -625,12 +630,17 @@ export default function App() {
               <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
                 <span style={{ fontSize:"11px", color:"#999", width:"40px" }}>Pequeño</span>
                 <input type="range" min="10" max="90" value={watermarkSize}
+                  onInput={e => {
+                    const val = parseInt(e.target.value);
+                    setWatermarkSize(val);
+                    localStorage.setItem("dontelmo:watermark_size", String(val));
+                  }}
                   onChange={e => {
                     const val = parseInt(e.target.value);
                     setWatermarkSize(val);
-                    localStorage.setItem("dontelmo:watermark_size", val);
+                    localStorage.setItem("dontelmo:watermark_size", String(val));
                   }}
-                  style={{ flex:1, accentColor:"#1B3A5C", cursor:"pointer", height:"6px" }}
+                  style={{ flex:1, accentColor:"#1B3A5C", cursor:"pointer", height:"20px", touchAction:"none" }}
                 />
                 <span style={{ fontSize:"11px", color:"#999", width:"40px", textAlign:"right" }}>Grande</span>
               </div>
