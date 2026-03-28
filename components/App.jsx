@@ -1074,52 +1074,92 @@ export default function App() {
 
               {/* Upload images */}
               <div style={{ marginBottom:"16px" }}>
-                <div style={{ fontSize:"12px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1px", marginBottom:"10px" }}>IMÁGENES DEL BANNER</div>
-                <label style={{ display:"block", background:"var(--app-primary)", color:"#fff", padding:"12px", borderRadius:"10px", textAlign:"center", cursor:"pointer", fontWeight:"700", fontSize:"14px", marginBottom:"12px", opacity: bannerUploading ? 0.6 : 1 }}>
-                  {bannerUploading ? "⏳ Subiendo..." : "📤 Agregar imagen"}
-                  <input type="file" accept="image/*" multiple style={{ display:"none" }} disabled={bannerUploading} onChange={async (e) => {
-                    const files = Array.from(e.target.files || []);
-                    if (!files.length) return;
-                    setBannerUploading(true);
-                    const newUrls = [];
-                    for (const file of files) {
-                      // Preview local inmediato
-                      const localUrl = await new Promise(resolve => {
-                        const r = new FileReader();
-                        r.onload = ev => resolve(ev.target.result);
-                        r.readAsDataURL(file);
-                      });
-                      newUrls.push(localUrl);
-                      // Subir a Supabase
-                      try {
-                        const { supabase } = await import("@/lib/supabase");
-                        const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-                        const path = `banner/img-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-                        const { error } = await supabase.storage.from("recipe-images").upload(path, file, { upsert:false, cacheControl:"0" });
-                        if (!error) {
-                          const { data: urlData } = supabase.storage.from("recipe-images").getPublicUrl(path);
-                          newUrls[newUrls.length - 1] = urlData.publicUrl;
-                        }
-                      } catch {}
-                    }
-                    setBannerImages(prev => [...prev, ...newUrls]);
-                    setBannerUploading(false);
-                  }} />
-                </label>
+                {/* Header con contador */}
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"10px" }}>
+                  <div style={{ fontSize:"12px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1px" }}>IMÁGENES DEL BANNER</div>
+                  <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+                    {[1,2,3,4,5].map(n => (
+                      <div key={n} style={{
+                        width:"28px", height:"28px", borderRadius:"8px", fontSize:"11px", fontWeight:"700",
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        background: n <= bannerImages.length ? "var(--app-primary)" : "#F0ECE6",
+                        color: n <= bannerImages.length ? "#fff" : "#bbb",
+                        transition:"all 0.2s",
+                      }}>{n}</div>
+                    ))}
+                  </div>
+                </div>
 
-                {/* Grid de imágenes */}
+                {/* Contador de texto */}
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"10px" }}>
+                  <div style={{ fontSize:"12px", color:"#888" }}>
+                    {bannerImages.length === 0
+                      ? "Sin imágenes aún"
+                      : `${bannerImages.length} de 5 imagen${bannerImages.length !== 1 ? "es" : ""} subida${bannerImages.length !== 1 ? "s" : ""}`}
+                  </div>
+                  {bannerImages.length >= 5 && (
+                    <div style={{ fontSize:"11px", color:"#e74c3c", fontWeight:"700" }}>Límite alcanzado</div>
+                  )}
+                </div>
+
+                {/* Botón subir */}
+                {bannerImages.length < 5 && (
+                  <label style={{ display:"block", background: bannerUploading ? "#ccc" : "var(--app-primary)", color:"#fff", padding:"12px", borderRadius:"10px", textAlign:"center", cursor: bannerUploading ? "not-allowed" : "pointer", fontWeight:"700", fontSize:"14px", marginBottom:"12px" }}>
+                    {bannerUploading ? "⏳ Subiendo..." : `📤 Agregar imagen (${5 - bannerImages.length} disponible${5 - bannerImages.length !== 1 ? "s" : ""})`}
+                    <input type="file" accept="image/*" multiple style={{ display:"none" }} disabled={bannerUploading || bannerImages.length >= 5} onChange={async (e) => {
+                      const files = Array.from(e.target.files || []).slice(0, 5 - bannerImages.length);
+                      if (!files.length) return;
+                      setBannerUploading(true);
+                      const newUrls = [];
+                      for (const file of files) {
+                        const localUrl = await new Promise(resolve => {
+                          const r = new FileReader();
+                          r.onload = ev => resolve(ev.target.result);
+                          r.readAsDataURL(file);
+                        });
+                        newUrls.push(localUrl);
+                        try {
+                          const { supabase } = await import("@/lib/supabase");
+                          const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+                          const path = `banner/img-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+                          const { error } = await supabase.storage.from("recipe-images").upload(path, file, { upsert:false, cacheControl:"0" });
+                          if (!error) {
+                            const { data: urlData } = supabase.storage.from("recipe-images").getPublicUrl(path);
+                            newUrls[newUrls.length - 1] = urlData.publicUrl;
+                          }
+                        } catch {}
+                      }
+                      setBannerImages(prev => [...prev, ...newUrls]);
+                      setBannerUploading(false);
+                    }} />
+                  </label>
+                )}
+
+                {/* Grid miniaturas */}
                 {bannerImages.length === 0 ? (
-                  <div style={{ textAlign:"center", padding:"30px", color:"#bbb", fontSize:"13px", background:"#F7F3EE", borderRadius:"10px" }}>
-                    Sin imágenes aún. Sube imágenes para el banner.
+                  <div style={{ textAlign:"center", padding:"28px 20px", color:"#bbb", fontSize:"13px", background:"#F7F3EE", borderRadius:"12px", border:"2px dashed #E0D8CE" }}>
+                    <div style={{ fontSize:"28px", marginBottom:"8px" }}>🖼️</div>
+                    Sube hasta 5 imágenes para el banner
                   </div>
                 ) : (
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"10px" }}>
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"8px" }}>
                     {bannerImages.map((url, i) => (
-                      <div key={i} style={{ position:"relative", borderRadius:"10px", overflow:"hidden", aspectRatio:"16/9" }}>
-                        <img src={url} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
-                        <button onClick={() => setBannerImages(prev => prev.filter((_,idx) => idx !== i))}
-                          style={{ position:"absolute", top:"6px", right:"6px", background:"rgba(0,0,0,0.6)", border:"none", borderRadius:"50%", width:"28px", height:"28px", color:"#fff", cursor:"pointer", fontSize:"14px", display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
-                        <div style={{ position:"absolute", bottom:"4px", left:"6px", background:"rgba(0,0,0,0.5)", color:"#fff", fontSize:"10px", padding:"2px 6px", borderRadius:"6px" }}>{i + 1}</div>
+                      <div key={i} style={{ position:"relative", borderRadius:"10px", overflow:"hidden", aspectRatio:"1/1", background:"#000", boxShadow:"0 2px 8px rgba(0,0,0,0.15)" }}>
+                        <img src={url} alt={`Banner ${i+1}`} style={{ width:"100%", height:"100%", objectFit:"cover", opacity:0.92 }} />
+                        {/* Número */}
+                        <div style={{ position:"absolute", top:"6px", left:"6px", background:"var(--app-primary)", color:"#fff", fontSize:"10px", fontWeight:"700", padding:"2px 7px", borderRadius:"8px" }}>{i + 1}</div>
+                        {/* Eliminar */}
+                        <button
+                          onClick={() => setBannerImages(prev => prev.filter((_,idx) => idx !== i))}
+                          style={{ position:"absolute", top:"4px", right:"4px", background:"rgba(231,76,60,0.9)", border:"none", borderRadius:"50%", width:"26px", height:"26px", color:"#fff", cursor:"pointer", fontSize:"14px", fontWeight:"700", display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1 }}>
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    {/* Slots vacíos */}
+                    {Array.from({ length: 5 - bannerImages.length }).map((_, i) => (
+                      <div key={`empty-${i}`} style={{ borderRadius:"10px", aspectRatio:"1/1", background:"#F7F3EE", border:"2px dashed #E0D8CE", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                        <span style={{ fontSize:"20px", color:"#ddd" }}>+</span>
                       </div>
                     ))}
                   </div>
