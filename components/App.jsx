@@ -563,7 +563,6 @@ export default function App() {
               </button>
             )}
 
-            <div style={{ textAlign:"center", marginTop:"18px", fontSize:"11px", color:"#bbb" }}>{t.login.tagline}</div>
           </>}
         </div>
       </div>
