@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useWebAuthn } from "@/hooks/useWebAuthn";
-import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb, getUsers, saveUsers as saveUsersDb, uploadImage, deleteImage, logActivity, getCategories, upsertCategory, deleteCategory as deleteCategoryDb } from "@/lib/storage";
+import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb, getUsers, saveUsers as saveUsersDb, uploadImage, deleteImage, logActivity, getCategories, upsertCategory, deleteCategory as deleteCategoryDb, saveWatermarkConfig, loadWatermarkConfig } from "@/lib/storage";
 import { CATEGORIES, INITIAL_USERS } from "@/lib/constants";
 import { RecipeDetail } from "@/components/RecipeDetail";
 import { RecipeForm } from "@/components/RecipeForm";
@@ -46,6 +46,16 @@ export default function App() {
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
   const searchTimeoutRef = useRef(null);
   const settingsMenuRef = useRef(null);
+  const watermarkConfigRef = useRef({ logo: null, opacity: 0.07, size: 45 });
+
+  const saveWatermark = useCallback((updates) => {
+    const next = { ...watermarkConfigRef.current, ...updates };
+    watermarkConfigRef.current = next;
+    if (updates.logo !== undefined) { setWatermarkLogo(updates.logo); localStorage.setItem("dontelmo:watermark_url", updates.logo || ""); }
+    if (updates.opacity !== undefined) { setWatermarkOpacity(updates.opacity); localStorage.setItem("dontelmo:watermark_opacity", updates.opacity); }
+    if (updates.size !== undefined) { setWatermarkSize(updates.size); localStorage.setItem("dontelmo:watermark_size", updates.size); }
+    saveWatermarkConfig(next);
+  }, []);
 
   // Cerrar menú settings al hacer clic fuera
   useEffect(() => {
@@ -75,13 +85,22 @@ export default function App() {
       if (su && su.length > 0) setUsers(su);
       const cats = await getCategories();
       if (cats && cats.length > 0) setDbCategories(cats);
-      // Cargar watermark personalizado
-      const savedWatermark = localStorage.getItem("dontelmo:watermark_url");
-      if (savedWatermark) setWatermarkLogo(savedWatermark);
-      const savedOpacity = localStorage.getItem("dontelmo:watermark_opacity");
-      if (savedOpacity) setWatermarkOpacity(parseFloat(savedOpacity));
-      const savedSize = localStorage.getItem("dontelmo:watermark_size");
-      if (savedSize) setWatermarkSize(parseInt(savedSize));
+      // Cargar configuración watermark desde Supabase (sincronizado)
+      const wmConfig = await loadWatermarkConfig();
+      if (wmConfig) {
+        watermarkConfigRef.current = { logo: wmConfig.logo || null, opacity: wmConfig.opacity ?? 0.07, size: wmConfig.size ?? 45 };
+        if (wmConfig.logo) { setWatermarkLogo(wmConfig.logo); localStorage.setItem("dontelmo:watermark_url", wmConfig.logo); }
+        if (wmConfig.opacity != null) { setWatermarkOpacity(wmConfig.opacity); localStorage.setItem("dontelmo:watermark_opacity", wmConfig.opacity); }
+        if (wmConfig.size != null) { setWatermarkSize(wmConfig.size); localStorage.setItem("dontelmo:watermark_size", wmConfig.size); }
+      } else {
+        // Fallback a localStorage si no hay conexión
+        const savedWatermark = localStorage.getItem("dontelmo:watermark_url");
+        if (savedWatermark) setWatermarkLogo(savedWatermark);
+        const savedOpacity = localStorage.getItem("dontelmo:watermark_opacity");
+        if (savedOpacity) setWatermarkOpacity(parseFloat(savedOpacity));
+        const savedSize = localStorage.getItem("dontelmo:watermark_size");
+        if (savedSize) setWatermarkSize(parseInt(savedSize));
+      }
       setLoading(false);
     }
     load();
@@ -605,16 +624,8 @@ export default function App() {
               <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
                 <span style={{ fontSize:"11px", color:"#999", width:"40px" }}>Tenue</span>
                 <input type="range" min="1" max="40" value={Math.round(watermarkOpacity * 100)}
-                  onInput={e => {
-                    const val = parseInt(e.target.value) / 100;
-                    setWatermarkOpacity(val);
-                    localStorage.setItem("dontelmo:watermark_opacity", String(val));
-                  }}
-                  onChange={e => {
-                    const val = parseInt(e.target.value) / 100;
-                    setWatermarkOpacity(val);
-                    localStorage.setItem("dontelmo:watermark_opacity", String(val));
-                  }}
+                  onInput={e => saveWatermark({ opacity: parseInt(e.target.value) / 100 })}
+                  onChange={e => saveWatermark({ opacity: parseInt(e.target.value) / 100 })}
                   style={{ flex:1, accentColor:"#1B3A5C", cursor:"pointer", height:"20px", touchAction:"none" }}
                 />
                 <span style={{ fontSize:"11px", color:"#999", width:"40px", textAlign:"right" }}>Visible</span>
@@ -630,16 +641,8 @@ export default function App() {
               <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
                 <span style={{ fontSize:"11px", color:"#999", width:"40px" }}>Pequeño</span>
                 <input type="range" min="10" max="90" value={watermarkSize}
-                  onInput={e => {
-                    const val = parseInt(e.target.value);
-                    setWatermarkSize(val);
-                    localStorage.setItem("dontelmo:watermark_size", String(val));
-                  }}
-                  onChange={e => {
-                    const val = parseInt(e.target.value);
-                    setWatermarkSize(val);
-                    localStorage.setItem("dontelmo:watermark_size", String(val));
-                  }}
+                  onInput={e => saveWatermark({ size: parseInt(e.target.value) })}
+                  onChange={e => saveWatermark({ size: parseInt(e.target.value) })}
                   style={{ flex:1, accentColor:"#1B3A5C", cursor:"pointer", height:"20px", touchAction:"none" }}
                 />
                 <span style={{ fontSize:"11px", color:"#999", width:"40px", textAlign:"right" }}>Grande</span>
@@ -668,16 +671,11 @@ export default function App() {
                   if (error) throw error;
                   const { data: urlData } = supabase.storage.from("recipe-images").getPublicUrl(path);
                   const finalUrl = urlData.publicUrl + "?t=" + Date.now();
-                  setWatermarkLogo(finalUrl);
-                  localStorage.setItem("dontelmo:watermark_url", finalUrl);
+                  saveWatermark({ logo: finalUrl });
                 } catch (err) {
                   console.error("Watermark upload error:", err);
-                  // Fallback: usar Data URL local
                   const reader = new FileReader();
-                  reader.onload = () => {
-                    setWatermarkLogo(reader.result);
-                    localStorage.setItem("dontelmo:watermark_url", reader.result);
-                  };
+                  reader.onload = () => saveWatermark({ logo: reader.result });
                   reader.readAsDataURL(file);
                 }
               }} />
@@ -685,10 +683,7 @@ export default function App() {
 
             {/* Restaurar por defecto */}
             {watermarkLogo && (
-              <button onClick={() => {
-                setWatermarkLogo(null);
-                localStorage.removeItem("dontelmo:watermark_url");
-              }} style={{ width:"100%", background:"none", border:"1px solid #ddd", padding:"10px", borderRadius:"10px", cursor:"pointer", fontSize:"13px", color:"#888", marginBottom:"12px" }}>
+              <button onClick={() => saveWatermark({ logo: null })} style={{ width:"100%", background:"none", border:"1px solid #ddd", padding:"10px", borderRadius:"10px", cursor:"pointer", fontSize:"13px", color:"#888", marginBottom:"12px" }}>
                 Restaurar logo por defecto
               </button>
             )}
