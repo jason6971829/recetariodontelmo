@@ -51,7 +51,16 @@ export default function App() {
   const [brandName, setBrandName] = useState("Don Telmo®");
   const [companyTagline, setCompanyTagline] = useState("1958 — Company");
   const [brandIcon, setBrandIcon] = useState(null);
-  const [brandDraft, setBrandDraft] = useState({ label:"RECETARIO DIGITAL", name:"Don Telmo®", tagline:"1958 — Company", icon:null });
+  const [brandLabelColor, setBrandLabelColor] = useState("#D4721A");
+  const [brandNameColor, setBrandNameColor] = useState("#1B3A5C");
+  const [brandTaglineColor, setBrandTaglineColor] = useState("#888888");
+  const [brandDraft, setBrandDraft] = useState({ label:"RECETARIO DIGITAL", name:"Don Telmo®", tagline:"1958 — Company", icon:null, labelColor:"#D4721A", nameColor:"#1B3A5C", taglineColor:"#888888" });
+
+  const BRAND_COLORS = [
+    "#ffffff","#D4721A","#f0b429","#f39c12","#27ae60","#2ecc71",
+    "#3498db","#8BAACC","#9b59b6","#e74c3c","#e91e63","#aaaaaa",
+    "#1B3A5C","#1a1a1a","#2c3e50","#16a085",
+  ];
   const [showLangModal, setShowLangModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [categoryModal, setCategoryModal] = useState(null); // { mode: "create"|"edit", initial? }
@@ -127,16 +136,25 @@ export default function App() {
       const savedName = localStorage.getItem("dontelmo:brandName");
       const savedTagline = localStorage.getItem("dontelmo:tagline");
       const savedIcon = localStorage.getItem("dontelmo:brandIcon");
+      const savedLabelColor = localStorage.getItem("dontelmo:brandLabelColor");
+      const savedNameColor = localStorage.getItem("dontelmo:brandNameColor");
+      const savedTaglineColor = localStorage.getItem("dontelmo:brandTaglineColor");
       const draft = {
         label: savedLabel ?? "RECETARIO DIGITAL",
         name: savedName ?? "Don Telmo®",
         tagline: savedTagline ?? "1958 — Company",
         icon: savedIcon || null,
+        labelColor: savedLabelColor || "#D4721A",
+        nameColor: savedNameColor || "#1B3A5C",
+        taglineColor: savedTaglineColor || "#888888",
       };
       if (savedLabel !== null) setBrandLabel(savedLabel);
       if (savedName !== null) setBrandName(savedName);
       if (savedTagline !== null) setCompanyTagline(savedTagline);
       if (savedIcon) setBrandIcon(savedIcon);
+      if (savedLabelColor) setBrandLabelColor(savedLabelColor);
+      if (savedNameColor) setBrandNameColor(savedNameColor);
+      if (savedTaglineColor) setBrandTaglineColor(savedTaglineColor);
       setBrandDraft(draft);
       setLoading(false);
     }
@@ -303,9 +321,9 @@ export default function App() {
                 ? <img src={brandIcon} alt="logo" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
                 : <span style={{ fontSize:"30px" }}>🍽️</span>}
             </div>
-            <div style={{ color:"#D4721A", fontSize:"11px", fontWeight:"700", letterSpacing:"4px", marginBottom:"5px" }}>{brandLabel}</div>
-            <div style={{ color:"var(--app-primary)", fontSize:"26px", fontWeight:"700", lineHeight:"1.1" }}>{brandName}</div>
-            {companyTagline && <div style={{ color:"#888", fontSize:"13px", marginTop:"3px" }}>{companyTagline}</div>}
+            <div style={{ color:brandLabelColor, fontSize:"11px", fontWeight:"700", letterSpacing:"4px", marginBottom:"5px" }}>{brandLabel}</div>
+            <div style={{ color:brandNameColor, fontSize:"26px", fontWeight:"700", lineHeight:"1.1" }}>{brandName}</div>
+            {companyTagline && <div style={{ color:brandTaglineColor, fontSize:"13px", marginTop:"3px" }}>{companyTagline}</div>}
           </div>
           {loading ? (
             <div style={{ textAlign:"center", padding:"20px", color:"#888" }}>
@@ -387,8 +405,8 @@ export default function App() {
                 : <span style={{ fontSize:"14px" }}>🍽️</span>}
             </div>
             <div>
-              <div style={{ color:"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"3px", fontFamily:"Georgia,serif" }}>{brandLabel}</div>
-              <div style={{ color:"#fff", fontSize:"15px", fontWeight:"700", fontFamily:"Georgia,serif", lineHeight:"1" }}>{brandName} {companyTagline && <span style={{ color:"var(--app-primary-light)", fontSize:"11px" }}>{companyTagline}</span>}</div>
+              <div style={{ color:brandLabelColor, fontSize:"9px", fontWeight:"700", letterSpacing:"3px", fontFamily:"Georgia,serif" }}>{brandLabel}</div>
+              <div style={{ color:"#fff", fontSize:"15px", fontWeight:"700", fontFamily:"Georgia,serif", lineHeight:"1" }}>{brandName} {companyTagline && <span style={{ color:brandTaglineColor, fontSize:"11px" }}>{companyTagline}</span>}</div>
             </div>
           </div>
         )}
@@ -444,7 +462,7 @@ export default function App() {
                     onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
                     {t.settings.watermark}
                   </button>
-                  <button onClick={()=>{setBrandDraft({label:brandLabel,name:brandName,tagline:companyTagline});setShowBrandModal(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
+                  <button onClick={()=>{setBrandDraft({label:brandLabel,name:brandName,tagline:companyTagline,icon:brandIcon,labelColor:brandLabelColor,nameColor:brandNameColor,taglineColor:brandTaglineColor});setShowBrandModal(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
                     onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
                     🏷️ {t.settings?.brand || "Nombre Marca"}
                   </button>
@@ -814,9 +832,9 @@ export default function App() {
                   ? <img src={brandDraft.icon} alt="logo" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
                   : <span style={{ fontSize:"26px" }}>🍽️</span>}
               </div>
-              <div style={{ color:"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"3px" }}>{brandDraft.label || "RECETARIO DIGITAL"}</div>
-              <div style={{ color:"#fff", fontSize:"20px", fontWeight:"700", fontFamily:"Georgia,serif", marginTop:"2px" }}>{brandDraft.name || "Don Telmo®"}</div>
-              {brandDraft.tagline && <div style={{ color:"var(--app-primary-light)", fontSize:"12px", marginTop:"2px" }}>{brandDraft.tagline}</div>}
+              <div style={{ color:brandDraft.labelColor||"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"3px" }}>{brandDraft.label || "RECETARIO DIGITAL"}</div>
+              <div style={{ color:brandDraft.nameColor||"#ffffff", fontSize:"20px", fontWeight:"700", fontFamily:"Georgia,serif", marginTop:"2px" }}>{brandDraft.name || "Don Telmo®"}</div>
+              {brandDraft.tagline && <div style={{ color:brandDraft.taglineColor||"#8BAACC", fontSize:"12px", marginTop:"2px" }}>{brandDraft.tagline}</div>}
             </div>
 
             {/* Imagen del ícono */}
@@ -853,45 +871,53 @@ export default function App() {
               )}
             </div>
 
-            {/* Campo 1: etiqueta naranja */}
-            <div style={{ marginBottom:"14px" }}>
-              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"#D4721A", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.brand.labelField}</label>
-              <input
-                type="text"
-                value={brandDraft.label}
-                onChange={e => setBrandDraft(d => ({...d, label: e.target.value}))}
-                placeholder="RECETARIO DIGITAL"
-                style={{ width:"100%", padding:"11px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"14px", outline:"none", boxSizing:"border-box", fontFamily:"inherit", textTransform:"uppercase" }}
-                autoFocus
-              />
-            </div>
+            {/* Paleta de colores reutilizable */}
+            {(() => {
+              const ColorPalette = ({ value, onChange }) => (
+                <div style={{ display:"flex", flexWrap:"wrap", gap:"6px", marginTop:"8px" }}>
+                  {BRAND_COLORS.map(c => (
+                    <div key={c} onClick={() => onChange(c)} style={{
+                      width:"24px", height:"24px", borderRadius:"50%", background:c,
+                      cursor:"pointer", flexShrink:0,
+                      boxShadow: value === c ? `0 0 0 2px #fff, 0 0 0 4px ${c}` : "0 1px 3px rgba(0,0,0,0.2)",
+                      transform: value === c ? "scale(1.2)" : "scale(1)",
+                      transition:"all 0.15s",
+                      border: c === "#ffffff" ? "1px solid #ddd" : "none",
+                    }} />
+                  ))}
+                </div>
+              );
+              return (
+                <>
+                  {/* Campo 1: etiqueta */}
+                  <div style={{ marginBottom:"14px" }}>
+                    <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"#D4721A", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.brand.labelField}</label>
+                    <input type="text" value={brandDraft.label} onChange={e => setBrandDraft(d => ({...d, label: e.target.value}))} placeholder="RECETARIO DIGITAL"
+                      style={{ width:"100%", padding:"11px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"14px", outline:"none", boxSizing:"border-box", fontFamily:"inherit" }} autoFocus />
+                    <ColorPalette value={brandDraft.labelColor} onChange={c => setBrandDraft(d => ({...d, labelColor:c}))} />
+                  </div>
 
-            {/* Campo 2: nombre principal */}
-            <div style={{ marginBottom:"14px" }}>
-              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.brand.nameField}</label>
-              <input
-                type="text"
-                value={brandDraft.name}
-                onChange={e => setBrandDraft(d => ({...d, name: e.target.value}))}
-                placeholder="Don Telmo®"
-                style={{ width:"100%", padding:"11px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"14px", outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}
-              />
-            </div>
+                  {/* Campo 2: nombre principal */}
+                  <div style={{ marginBottom:"14px" }}>
+                    <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.brand.nameField}</label>
+                    <input type="text" value={brandDraft.name} onChange={e => setBrandDraft(d => ({...d, name: e.target.value}))} placeholder="Don Telmo®"
+                      style={{ width:"100%", padding:"11px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"14px", outline:"none", boxSizing:"border-box", fontFamily:"inherit" }} />
+                    <ColorPalette value={brandDraft.nameColor} onChange={c => setBrandDraft(d => ({...d, nameColor:c}))} />
+                  </div>
 
-            {/* Campo 3: subtítulo */}
-            <div style={{ marginBottom:"20px" }}>
-              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"#888", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.brand.taglineLabel}</label>
-              <input
-                type="text"
-                value={brandDraft.tagline}
-                onChange={e => setBrandDraft(d => ({...d, tagline: e.target.value}))}
-                placeholder="1958 — Company"
-                style={{ width:"100%", padding:"11px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"14px", outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}
-              />
-            </div>
+                  {/* Campo 3: subtítulo */}
+                  <div style={{ marginBottom:"20px" }}>
+                    <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"#888", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.brand.taglineLabel}</label>
+                    <input type="text" value={brandDraft.tagline} onChange={e => setBrandDraft(d => ({...d, tagline: e.target.value}))} placeholder="1958 — Company"
+                      style={{ width:"100%", padding:"11px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"14px", outline:"none", boxSizing:"border-box", fontFamily:"inherit" }} />
+                    <ColorPalette value={brandDraft.taglineColor} onChange={c => setBrandDraft(d => ({...d, taglineColor:c}))} />
+                  </div>
+                </>
+              );
+            })()}
 
             <div style={{ display:"flex", gap:"10px" }}>
-              <button onClick={() => { setBrandDraft({ label:brandLabel, name:brandName, tagline:companyTagline, icon:brandIcon }); setShowBrandModal(false); }} style={{ flex:1, background:"#F0ECE6", border:"none", borderRadius:"10px", padding:"12px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b", fontSize:"14px" }}>
+              <button onClick={() => { setBrandDraft({ label:brandLabel, name:brandName, tagline:companyTagline, icon:brandIcon, labelColor:brandLabelColor, nameColor:brandNameColor, taglineColor:brandTaglineColor }); setShowBrandModal(false); }} style={{ flex:1, background:"#F0ECE6", border:"none", borderRadius:"10px", padding:"12px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b", fontSize:"14px" }}>
                 {t.brand.cancel}
               </button>
               <button onClick={() => {
@@ -899,9 +925,15 @@ export default function App() {
                 setBrandName(brandDraft.name);
                 setCompanyTagline(brandDraft.tagline);
                 setBrandIcon(brandDraft.icon);
+                setBrandLabelColor(brandDraft.labelColor);
+                setBrandNameColor(brandDraft.nameColor);
+                setBrandTaglineColor(brandDraft.taglineColor);
                 localStorage.setItem("dontelmo:brandLabel", brandDraft.label);
                 localStorage.setItem("dontelmo:brandName", brandDraft.name);
                 localStorage.setItem("dontelmo:tagline", brandDraft.tagline);
+                localStorage.setItem("dontelmo:brandLabelColor", brandDraft.labelColor);
+                localStorage.setItem("dontelmo:brandNameColor", brandDraft.nameColor);
+                localStorage.setItem("dontelmo:brandTaglineColor", brandDraft.taglineColor);
                 if (brandDraft.icon) localStorage.setItem("dontelmo:brandIcon", brandDraft.icon);
                 else localStorage.removeItem("dontelmo:brandIcon");
                 setShowBrandModal(false);
