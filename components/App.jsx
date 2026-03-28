@@ -356,7 +356,7 @@ export default function App() {
                     👥 Gestión de Usuarios
                   </button>
                   <div style={{ height:"1px", background:"rgba(255,255,255,0.15)", margin:"4px 0" }} />
-                  <button onClick={()=>{setShowWatermarkUpload(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
+                  <button onMouseDown={(e)=>{e.stopPropagation();e.preventDefault();setShowWatermarkUpload(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
                     onMouseEnter={e=>e.target.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.target.style.background="none"}>
                     🖼️ Marca de Agua
                   </button>
