@@ -172,8 +172,8 @@ export default function App() {
     const el = bannerStripRef.current;
     if (!el) return;
     const vw = window.innerWidth;
-    const slideW = Math.round(vw * 0.78);          // cada slide ocupa 78% del ancho
-    const offsetX = Math.round((vw - slideW) / 2); // margen para centrar el slide activo
+    const slideW = vw * 0.78;          // 78vw exacto — mismo valor que usa el CSS
+    const offsetX = (vw - slideW) / 2; // margen para centrar el slide activo
     const px = offsetX - bannerStripPos * slideW;  // translateX que centra el slide activo
     if (!bannerCanTransition) {
       el.style.transition = "none";
@@ -1083,13 +1083,17 @@ export default function App() {
         const extImages = bannerImages.length > 1
           ? [bannerImages[bannerImages.length - 1], ...bannerImages, bannerImages[0]]
           : bannerImages;
-        const totalExt = extImages.length;
+        const total = bannerImages.length + 2; // clones incluidos (pos 0 = clon último, pos total-1 = clon primero)
         const stripPos = bannerImages.length > 1 ? bannerStripPos : 0;
-
         const navigate = (dir) => {
           clearInterval(bannerIntervalRef.current);
           setBannerCanTransition(true);
-          setBannerStripPos(p => p + dir);
+          // Clampear para no saltar por encima del clon — el loop seamless
+          // solo se dispara cuando pos === 0 o pos === total-1 exactamente.
+          setBannerStripPos(p => {
+            const next = p + dir;
+            return Math.min(Math.max(next, 0), total - 1);
+          });
           setBannerSlide(s => (s + dir + bannerImages.length) % bannerImages.length);
           bannerIntervalRef.current = setInterval(() => {
             setBannerStripPos(p => p + 1);
@@ -1135,7 +1139,7 @@ export default function App() {
                   const isActive = i === stripPos;
                   return (
                     <div key={i} style={{
-                      width:`${Math.round(typeof window!=="undefined" ? window.innerWidth * 0.78 : 300)}px`,
+                      width:"78vw",
                       flexShrink:0,
                       padding:"0 8px",
                       boxSizing:"border-box",
