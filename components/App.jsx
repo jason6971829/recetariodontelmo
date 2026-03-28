@@ -322,7 +322,7 @@ export default function App() {
   return (
     <div style={{ height:"100vh", display:"flex", flexDirection:"column", fontFamily:"'Segoe UI',sans-serif", overflow:"hidden", background:"#F4F0EB" }}>
       <ScreenProtection userName={currentUser?.name} />
-      {!selectedRecipe && !showForm && <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} customLogo={watermarkLogo} opacity={watermarkOpacity} size={watermarkSize} />}
+      {!selectedRecipe && !showForm && !showUsers && !showReport && !showProgress && !showWatermarkUpload && !categoryModal && !confirmModal && !showBiometricPrompt && <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} customLogo={watermarkLogo} opacity={watermarkOpacity} size={watermarkSize} />}
 
       {/* OFFLINE BANNER */}
       {!online && (
