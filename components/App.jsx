@@ -73,6 +73,7 @@ export default function App() {
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
   const searchTimeoutRef = useRef(null);
   const settingsMenuRef = useRef(null);
+  const bannerIntervalRef = useRef(null);
   const watermarkConfigRef = useRef({ logo: null, opacity: 0.07, size: 45 });
 
   const saveWatermark = useCallback((updates) => {
@@ -98,6 +99,18 @@ export default function App() {
 
   // En móvil: cerrar sidebar por defecto
   useEffect(() => { setSidebarOpen(!isMobile); }, [isMobile]);
+
+  // Auto-slide del banner: avanza cada 8s en loop mientras esté visible
+  useEffect(() => {
+    if (!showBanner || !bannerActive || bannerImages.length <= 1) {
+      clearInterval(bannerIntervalRef.current);
+      return;
+    }
+    bannerIntervalRef.current = setInterval(() => {
+      setBannerSlide(s => (s + 1) % bannerImages.length);
+    }, 8000);
+    return () => clearInterval(bannerIntervalRef.current);
+  }, [showBanner, bannerActive, bannerImages.length]);
 
   // Inyectar variables CSS del tema
   useEffect(() => {
@@ -837,39 +850,64 @@ export default function App() {
       {/* Banner de anuncios - mostrado al iniciar sesión */}
       {showBanner && bannerActive && bannerImages.length > 0 && (
         <div style={{ position:"fixed", inset:0, zIndex:10000, background:"rgba(0,0,0,0.92)", backdropFilter:"blur(12px)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
-          {/* Close button */}
-          <button onClick={() => { setShowBanner(false); setBannerSlide(0); }} style={{ position:"absolute", top:"20px", right:"20px", background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"50%", width:"44px", height:"44px", color:"#fff", fontSize:"22px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1 }}>×</button>
 
-          {/* Image */}
-          <div style={{ maxWidth:"90vw", maxHeight:"80vh", position:"relative", display:"flex", alignItems:"center", justifyContent:"center" }}>
+          {/* Barra de progreso animada (8s) */}
+          {bannerImages.length > 1 && (
+            <div style={{ position:"absolute", top:0, left:0, right:0, height:"3px", background:"rgba(255,255,255,0.1)" }}>
+              <div key={`${bannerSlide}-progress`} style={{
+                height:"100%", background:"#fff", borderRadius:"2px",
+                animation:"bannerProgress 8s linear forwards",
+              }} />
+              <style>{`@keyframes bannerProgress { from { width: 0% } to { width: 100% } }`}</style>
+            </div>
+          )}
+
+          {/* Botón cerrar */}
+          <button onClick={() => { setShowBanner(false); setBannerSlide(0); clearInterval(bannerIntervalRef.current); }}
+            style={{ position:"absolute", top:"20px", right:"20px", background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"50%", width:"44px", height:"44px", color:"#fff", fontSize:"22px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1, backdropFilter:"blur(4px)" }}>×</button>
+
+          {/* Imagen */}
+          <div style={{ maxWidth:"90vw", maxHeight:"78vh", position:"relative", display:"flex", alignItems:"center", justifyContent:"center" }}>
             <img
               src={bannerImages[bannerSlide]}
               alt="Banner"
-              style={{ maxWidth:"90vw", maxHeight:"80vh", objectFit:"contain", borderRadius:"16px", boxShadow:"0 20px 60px rgba(0,0,0,0.5)" }}
+              style={{ maxWidth:"90vw", maxHeight:"78vh", objectFit:"contain", borderRadius:"16px", boxShadow:"0 20px 60px rgba(0,0,0,0.5)" }}
             />
-            {/* Prev/Next arrows if multiple images */}
+            {/* Flechas manuales */}
             {bannerImages.length > 1 && (
               <>
-                <button onClick={() => setBannerSlide(s => (s - 1 + bannerImages.length) % bannerImages.length)}
-                  style={{ position:"absolute", left:"-50px", background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"50%", width:"40px", height:"40px", color:"#fff", fontSize:"20px", cursor:"pointer" }}>‹</button>
-                <button onClick={() => setBannerSlide(s => (s + 1) % bannerImages.length)}
-                  style={{ position:"absolute", right:"-50px", background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"50%", width:"40px", height:"40px", color:"#fff", fontSize:"20px", cursor:"pointer" }}>›</button>
+                <button onClick={() => {
+                  clearInterval(bannerIntervalRef.current);
+                  setBannerSlide(s => (s - 1 + bannerImages.length) % bannerImages.length);
+                  bannerIntervalRef.current = setInterval(() => setBannerSlide(s => (s + 1) % bannerImages.length), 8000);
+                }} style={{ position:"absolute", left:"-52px", background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"50%", width:"42px", height:"42px", color:"#fff", fontSize:"22px", cursor:"pointer", backdropFilter:"blur(4px)" }}>‹</button>
+                <button onClick={() => {
+                  clearInterval(bannerIntervalRef.current);
+                  setBannerSlide(s => (s + 1) % bannerImages.length);
+                  bannerIntervalRef.current = setInterval(() => setBannerSlide(s => (s + 1) % bannerImages.length), 8000);
+                }} style={{ position:"absolute", right:"-52px", background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"50%", width:"42px", height:"42px", color:"#fff", fontSize:"22px", cursor:"pointer", backdropFilter:"blur(4px)" }}>›</button>
               </>
             )}
           </div>
 
-          {/* Dots */}
+          {/* Dots + contador */}
           {bannerImages.length > 1 && (
-            <div style={{ display:"flex", gap:"8px", marginTop:"20px" }}>
-              {bannerImages.map((_, i) => (
-                <div key={i} onClick={() => setBannerSlide(i)} style={{ width:"8px", height:"8px", borderRadius:"50%", background: i === bannerSlide ? "#fff" : "rgba(255,255,255,0.3)", cursor:"pointer", transition:"all 0.2s" }} />
-              ))}
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:"10px", marginTop:"18px" }}>
+              <div style={{ display:"flex", gap:"8px" }}>
+                {bannerImages.map((_, i) => (
+                  <div key={i} onClick={() => {
+                    clearInterval(bannerIntervalRef.current);
+                    setBannerSlide(i);
+                    bannerIntervalRef.current = setInterval(() => setBannerSlide(s => (s + 1) % bannerImages.length), 8000);
+                  }} style={{
+                    width: i === bannerSlide ? "22px" : "8px", height:"8px",
+                    borderRadius:"4px", cursor:"pointer", transition:"all 0.3s",
+                    background: i === bannerSlide ? "#fff" : "rgba(255,255,255,0.3)",
+                  }} />
+                ))}
+              </div>
+              <div style={{ color:"rgba(255,255,255,0.4)", fontSize:"12px" }}>{bannerSlide + 1} / {bannerImages.length}</div>
             </div>
-          )}
-
-          {/* Counter */}
-          {bannerImages.length > 1 && (
-            <div style={{ color:"rgba(255,255,255,0.5)", fontSize:"13px", marginTop:"10px" }}>{bannerSlide + 1} / {bannerImages.length}</div>
           )}
         </div>
       )}
