@@ -45,6 +45,9 @@ export default function App() {
   const [watermarkOpacity, setWatermarkOpacity] = useState(0.07);
   const [watermarkSize, setWatermarkSize] = useState(45);
   const [showWatermarkUpload, setShowWatermarkUpload] = useState(false);
+  const [showBrandModal, setShowBrandModal] = useState(false);
+  const [companyTagline, setCompanyTagline] = useState("1958 — Company");
+  const [taglineDraft, setTaglineDraft] = useState("1958 — Company");
   const [showLangModal, setShowLangModal] = useState(false);
   const [categoryModal, setCategoryModal] = useState(null); // { mode: "create"|"edit", initial? }
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
@@ -105,6 +108,8 @@ export default function App() {
         const savedSize = localStorage.getItem("dontelmo:watermark_size");
         if (savedSize) setWatermarkSize(parseInt(savedSize));
       }
+      const savedTagline = localStorage.getItem("dontelmo:tagline");
+      if (savedTagline !== null) { setCompanyTagline(savedTagline); setTaglineDraft(savedTagline); }
       setLoading(false);
     }
     load();
@@ -270,7 +275,7 @@ export default function App() {
             </div>
             <div style={{ color:"#D4721A", fontSize:"11px", fontWeight:"700", letterSpacing:"4px", marginBottom:"5px" }}>RECETARIO DIGITAL</div>
             <div style={{ color:"#1B3A5C", fontSize:"26px", fontWeight:"700", lineHeight:"1.1" }}>Don Telmo®</div>
-            <div style={{ color:"#888", fontSize:"13px", marginTop:"3px" }}>1958 — Company</div>
+            {companyTagline && <div style={{ color:"#888", fontSize:"13px", marginTop:"3px" }}>{companyTagline}</div>}
           </div>
           {loading ? (
             <div style={{ textAlign:"center", padding:"20px", color:"#888" }}>
@@ -347,7 +352,7 @@ export default function App() {
         {!isMobile && (
           <div style={{ flexShrink:0 }}>
             <div style={{ color:"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"3px", fontFamily:"Georgia,serif" }}>RECETARIO DIGITAL</div>
-            <div style={{ color:"#fff", fontSize:"15px", fontWeight:"700", fontFamily:"Georgia,serif", lineHeight:"1" }}>Don Telmo® <span style={{ color:"#8BAACC", fontSize:"11px" }}>1958</span></div>
+            <div style={{ color:"#fff", fontSize:"15px", fontWeight:"700", fontFamily:"Georgia,serif", lineHeight:"1" }}>Don Telmo® {companyTagline && <span style={{ color:"#8BAACC", fontSize:"11px" }}>{companyTagline}</span>}</div>
           </div>
         )}
 
@@ -399,11 +404,15 @@ export default function App() {
                   </button>
                   <div style={{ height:"1px", background:"rgba(255,255,255,0.15)", margin:"4px 0" }} />
                   <button onClick={()=>{setShowWatermarkUpload(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
-                    onMouseEnter={e=>e.target.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.target.style.background="none"}>
+                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
                     {t.settings.watermark}
                   </button>
+                  <button onClick={()=>{setTaglineDraft(companyTagline);setShowBrandModal(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
+                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
+                    🏷️ {t.settings?.brand || "Nombre Marca"}
+                  </button>
                   <button onClick={()=>{setShowLangModal(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
-                    onMouseEnter={e=>e.target.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.target.style.background="none"}>
+                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
                     {t.settings.language}
                   </button>
                 </div>
@@ -744,6 +753,55 @@ export default function App() {
             }}>
               {t.watermark.close}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Nombre Marca */}
+      {showBrandModal && isAdmin && (
+        <div style={{ position:"fixed", inset:0, zIndex:9995, background:"rgba(10,15,25,0.88)", backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+          <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"400px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
+            <div style={{ textAlign:"center", marginBottom:"20px" }}>
+              <div style={{ fontSize:"32px", marginBottom:"8px" }}>🏷️</div>
+              <div style={{ color:"#D4721A", fontSize:"10px", fontWeight:"700", letterSpacing:"3px", fontFamily:"Georgia,serif" }}>DON TELMO® RECETARIO</div>
+              <div style={{ color:"#1B3A5C", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", marginTop:"4px" }}>{t.brand.title}</div>
+            </div>
+
+            {/* Preview */}
+            <div style={{ background:"linear-gradient(135deg,#0d2340,#1B3A5C)", borderRadius:"14px", padding:"24px", textAlign:"center", marginBottom:"20px" }}>
+              <div style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", width:"52px", height:"52px", background:"linear-gradient(135deg,#1B3A5C,#0d2340)", borderRadius:"14px", marginBottom:"10px", boxShadow:"0 4px 16px rgba(0,0,0,0.4)", border:"2px solid rgba(255,255,255,0.1)" }}>
+                <span style={{ fontSize:"22px" }}>🍽️</span>
+              </div>
+              <div style={{ color:"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"3px" }}>RECETARIO DIGITAL</div>
+              <div style={{ color:"#fff", fontSize:"20px", fontWeight:"700", fontFamily:"Georgia,serif", marginTop:"2px" }}>Don Telmo®</div>
+              {taglineDraft && <div style={{ color:"#8BAACC", fontSize:"12px", marginTop:"2px" }}>{taglineDraft}</div>}
+            </div>
+
+            {/* Campo editable */}
+            <div style={{ marginBottom:"20px" }}>
+              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"#1B3A5C", letterSpacing:"1.5px", marginBottom:"8px" }}>{t.brand.taglineLabel}</label>
+              <input
+                type="text"
+                value={taglineDraft}
+                onChange={e => setTaglineDraft(e.target.value)}
+                placeholder={t.brand.taglinePlaceholder}
+                style={{ width:"100%", padding:"12px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"15px", outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}
+                autoFocus
+              />
+            </div>
+
+            <div style={{ display:"flex", gap:"10px" }}>
+              <button onClick={() => setShowBrandModal(false)} style={{ flex:1, background:"#F0ECE6", border:"none", borderRadius:"10px", padding:"12px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b", fontSize:"14px" }}>
+                {t.brand.cancel}
+              </button>
+              <button onClick={() => {
+                setCompanyTagline(taglineDraft);
+                localStorage.setItem("dontelmo:tagline", taglineDraft);
+                setShowBrandModal(false);
+              }} style={{ flex:1, background:"#1B3A5C", border:"none", borderRadius:"10px", padding:"12px", cursor:"pointer", fontWeight:"700", color:"#fff", fontSize:"14px" }}>
+                {t.brand.save}
+              </button>
+            </div>
           </div>
         </div>
       )}

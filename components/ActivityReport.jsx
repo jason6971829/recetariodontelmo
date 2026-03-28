@@ -11,7 +11,7 @@ export function ActivityReport({ onClose }) {
   const [userFilter, setUserFilter] = useState("all");
   const [sedeFilter, setSedeFilter] = useState("all");
   const isMobile = useIsMobile();
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const SEDES = ["Almendros", "Hayuelos", "Capriani", "Campiña", "Felicidad", "Calera", "Granada", "Oficina"];
 
   useEffect(() => {
@@ -54,13 +54,16 @@ export function ActivityReport({ onClose }) {
 
   const actionLabels = t.report.actions;
 
+  const localeMap = { es: "es-CO", en: "en-US", pt: "pt-BR", fr: "fr-FR" };
+  const locale = localeMap[lang] || "es-CO";
+
   const formatDate = (d) => {
     const date = new Date(d);
     const hoy = new Date();
     const isToday = date.toDateString() === hoy.toDateString();
-    const time = date.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" });
-    if (isToday) return `Hoy ${time}`;
-    return date.toLocaleDateString("es-CO", { day: "numeric", month: "short" }) + ` ${time}`;
+    const time = date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+    if (isToday) return `${t.report.today} ${time}`;
+    return date.toLocaleDateString(locale, { day: "numeric", month: "short" }) + ` ${time}`;
   };
 
   const filterBtn = (val, label) => (
