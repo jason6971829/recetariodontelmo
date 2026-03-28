@@ -109,6 +109,7 @@ export default function App() {
   const searchTimeoutRef = useRef(null);
   const settingsMenuRef = useRef(null);
   const bannerIntervalRef = useRef(null);
+  const bannerStripRef = useRef(null);
   const watermarkConfigRef = useRef({ logo: null, opacity: 0.07, size: 45 });
 
   const saveWatermark = useCallback((updates) => {
@@ -163,6 +164,22 @@ export default function App() {
       return () => { clearTimeout(t1); clearTimeout(t2); };
     }
   }, [bannerStripPos, bannerImages.length]);
+
+  // Control directo del DOM para la animación del carrete
+  useEffect(() => {
+    const el = bannerStripRef.current;
+    if (!el) return;
+    const px = bannerStripPos * window.innerWidth;
+    if (!bannerCanTransition) {
+      el.style.transition = "none";
+      el.style.transform = `translateX(-${px}px)`;
+      // Forzar reflow para que el navegador aplique "none" antes de la siguiente transición
+      void el.offsetWidth;
+    } else {
+      el.style.transition = "transform 0.55s cubic-bezier(0.25,0.46,0.45,0.94)";
+      el.style.transform = `translateX(-${px}px)`;
+    }
+  }, [bannerStripPos, bannerCanTransition]);
 
   // Inyectar variables CSS del tema
   useEffect(() => {
@@ -1106,14 +1123,15 @@ export default function App() {
 
             {/* CARRETE: track full-screen */}
             <div style={{ position:"absolute", inset:0, overflow:"hidden" }}>
-              {/* Strip que se desliza */}
-              <div style={{
-                display:"flex",
-                height:"100%",
-                transform:`translateX(calc(-${stripPos} * 100vw))`,
-                transition: bannerCanTransition ? "transform 0.55s cubic-bezier(0.25,0.46,0.45,0.94)" : "none",
-                willChange:"transform",
-              }}>
+              {/* Strip que se desliza — transform controlado por useEffect+ref */}
+              <div
+                ref={bannerStripRef}
+                style={{
+                  display:"flex",
+                  height:"100%",
+                  willChange:"transform",
+                }}
+              >
                 {extImages.map((url, i) => (
                   <div key={i} style={{ width:"100vw", flexShrink:0, height:"100%", display:"flex", alignItems:"center", justifyContent:"center", padding:"60px 60px 120px 60px", boxSizing:"border-box" }}>
                     <img src={url} alt="" style={{ maxWidth:"100%", maxHeight:"100%", objectFit:"contain", borderRadius:"16px", boxShadow:"0 24px 64px rgba(0,0,0,0.6)", userSelect:"none", pointerEvents:"none" }} />
