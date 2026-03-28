@@ -588,24 +588,30 @@ export default function App() {
               <input type="file" accept="image/*" style={{ display:"none" }} onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
-                const { uploadImage } = await import("@/lib/storage");
-                const url = await uploadImage(file);
-                if (url) {
-                  // Guardar como watermark en Supabase Storage
+                try {
                   const { supabase } = await import("@/lib/supabase");
-                  const ext = file.name.split(".").pop();
+                  const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+                  const path = `watermark/custom-watermark.${ext}`;
+                  // Eliminar archivo anterior si existe
+                  await supabase.storage.from("recipe-images").remove([path]);
+                  // Subir nuevo
                   const { error } = await supabase.storage
                     .from("recipe-images")
-                    .upload("watermark/logo-watermark." + ext, file, { upsert: true, cacheControl: "0" });
-                  if (!error) {
-                    const { data: urlData } = supabase.storage.from("recipe-images").getPublicUrl("watermark/logo-watermark." + ext);
-                    const finalUrl = urlData.publicUrl + "?t=" + Date.now();
-                    setWatermarkLogo(finalUrl);
-                    localStorage.setItem("dontelmo:watermark_url", finalUrl);
-                  } else {
-                    setWatermarkLogo(url);
-                    localStorage.setItem("dontelmo:watermark_url", url);
-                  }
+                    .upload(path, file, { upsert: true, cacheControl: "0" });
+                  if (error) throw error;
+                  const { data: urlData } = supabase.storage.from("recipe-images").getPublicUrl(path);
+                  const finalUrl = urlData.publicUrl + "?t=" + Date.now();
+                  setWatermarkLogo(finalUrl);
+                  localStorage.setItem("dontelmo:watermark_url", finalUrl);
+                } catch (err) {
+                  console.error("Watermark upload error:", err);
+                  // Fallback: usar Data URL local
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    setWatermarkLogo(reader.result);
+                    localStorage.setItem("dontelmo:watermark_url", reader.result);
+                  };
+                  reader.readAsDataURL(file);
                 }
               }} />
             </label>
