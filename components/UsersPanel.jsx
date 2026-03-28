@@ -37,7 +37,7 @@ export function UsersPanel({ users, onSave, onClose }) {
   return (
     <div style={{ position:"fixed", inset:0, zIndex:400, background:"rgba(10,15,25,0.88)", display:"flex", alignItems:"center", justifyContent:"center", padding:"16px" }}>
       <div style={{ background:"#fff", borderRadius:"16px", width:"100%", maxWidth:"620px", maxHeight:"90vh", overflow:"hidden", display:"flex", flexDirection:"column", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
-        <div style={{ background:"linear-gradient(135deg,#1B3A5C,#0d2340)", padding:"18px 24px", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
+        <div style={{ background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", padding:"18px 24px", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
           <div>
             <div style={{ color:"#D4721A", fontSize:"10px", fontWeight:"700", letterSpacing:"3px", fontFamily:"Georgia,serif" }}>{t.admin}</div>
             <div style={{ color:"#fff", fontFamily:"Georgia,serif", fontSize:"17px", fontWeight:"700", marginTop:"3px" }}>{t.users.title}</div>
@@ -72,18 +72,18 @@ export function UsersPanel({ users, onSave, onClose }) {
                 /* MODO VISUALIZACIÓN */
                 <>
                   <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
-                    <div style={{ width:"36px", height:"36px", borderRadius:"50%", background:u.role==="admin"?"#1B3A5C":"#D4721A", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontWeight:"700", fontSize:"14px", flexShrink:0 }}>
+                    <div style={{ width:"36px", height:"36px", borderRadius:"50%", background:u.role==="admin"?"var(--app-primary)":"#D4721A", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontWeight:"700", fontSize:"14px", flexShrink:0 }}>
                       {u.name[0].toUpperCase()}
                     </div>
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontWeight:"700", fontSize:"14px", color:"#1B3A5C" }}>{u.name}</div>
+                      <div style={{ fontWeight:"700", fontSize:"14px", color:"var(--app-primary)" }}>{u.name}</div>
                       <div style={{ fontSize:"12px", color:"#888", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                        @{u.username} • {t.users.passwordShort}: {u.password} • <span style={{ color:u.role==="admin"?"#1B3A5C":"#D4721A", fontWeight:"600" }}>{u.role==="admin"?t.users.roleAdminShort:t.users.roleChefShort}</span>
+                        @{u.username} • {t.users.passwordShort}: {u.password} • <span style={{ color:u.role==="admin"?"var(--app-primary)":"#D4721A", fontWeight:"600" }}>{u.role==="admin"?t.users.roleAdminShort:t.users.roleChefShort}</span>
                         {u.sede && <span> • 📍 {u.sede}</span>}
                       </div>
                     </div>
                     <div style={{ display:"flex", gap:"6px", flexShrink:0 }}>
-                      <button onClick={()=>startEdit(u)} style={{ background:"none", border:"1px solid #1B3A5C", color:"#1B3A5C", borderRadius:"6px", padding:"5px 10px", cursor:"pointer", fontSize:"12px" }}>{t.users.edit}</button>
+                      <button onClick={()=>startEdit(u)} style={{ background:"none", border:"1px solid var(--app-primary)", color:"var(--app-primary)", borderRadius:"6px", padding:"5px 10px", cursor:"pointer", fontSize:"12px" }}>{t.users.edit}</button>
                       {u.username!=="admin"&&<button onClick={()=>removeUser(u.id)} style={{ background:"none", border:"1px solid #e74c3c", color:"#e74c3c", borderRadius:"6px", padding:"5px 10px", cursor:"pointer", fontSize:"12px" }}>🗑️</button>}
                     </div>
                   </div>
@@ -92,7 +92,7 @@ export function UsersPanel({ users, onSave, onClose }) {
             </div>
           ))}
           <div style={{ borderTop:"2px dashed #E0D8CE", paddingTop:"16px", marginTop:"10px" }}>
-            <div style={{ fontSize:"12px", fontWeight:"700", color:"#1B3A5C", letterSpacing:"1.5px", marginBottom:"12px" }}>{t.users.addSection}</div>
+            <div style={{ fontSize:"12px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"12px" }}>{t.users.addSection}</div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"10px" }}>
               <input style={inp} placeholder={t.users.fullName} value={newUser.name} onChange={e=>setNewUser(n=>({...n,name:e.target.value}))} />
               <input style={inp} placeholder={t.users.username} value={newUser.username} onChange={e=>setNewUser(n=>({...n,username:e.target.value}))} />
@@ -111,7 +111,7 @@ export function UsersPanel({ users, onSave, onClose }) {
         </div>
         <div style={{ padding:"14px 20px", borderTop:"1px solid #F0ECE6", display:"flex", justifyContent:"flex-end", gap:"10px", flexShrink:0 }}>
           <button onClick={onClose} style={{ background:"#F0ECE6", border:"none", borderRadius:"8px", padding:"10px 16px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b" }}>{t.users.cancel}</button>
-          <button onClick={()=>{onSave(list);onClose();}} style={{ background:"#1B3A5C", border:"none", borderRadius:"8px", padding:"10px 18px", cursor:"pointer", fontWeight:"700", color:"#fff" }}>{t.users.save}</button>
+          <button onClick={()=>{onSave(list);onClose();}} style={{ background:"var(--app-primary)", border:"none", borderRadius:"8px", padding:"10px 18px", cursor:"pointer", fontWeight:"700", color:"#fff" }}>{t.users.save}</button>
         </div>
       </div>
     </div>

@@ -48,7 +48,7 @@ export function VoiceTextarea({ value, onChange, placeholder, minHeight = "110px
             width: isMobile ? "44px" : "30px", height: isMobile ? "44px" : "30px",
             borderRadius: "50%",
             border: "none", cursor: "pointer",
-            background: listening ? "#e74c3c" : "#1B3A5C",
+            background: listening ? "#e74c3c" : "var(--app-primary)",
             color: "#fff", fontSize: isMobile ? "20px" : "14px",
             display: "flex", alignItems: "center", justifyContent: "center",
             boxShadow: listening ? "0 0 0 4px rgba(231,76,60,0.25)" : "none",

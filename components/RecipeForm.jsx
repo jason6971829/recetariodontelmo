@@ -47,12 +47,12 @@ export function RecipeForm({ initial, categories, onSave, onCancel }) {
   };
 
   const inp = { width:"100%", padding:"10px 12px", border:"1.5px solid #E0D8CE", borderRadius:"8px", fontSize:"13px", outline:"none", boxSizing:"border-box", fontFamily:"inherit", background:"#fff" };
-  const lbl = { fontSize:"11px", fontWeight:"700", color:"#1B3A5C", letterSpacing:"1.5px", display:"block", marginBottom:"5px" };
+  const lbl = { fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", display:"block", marginBottom:"5px" };
 
   return (
     <div style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(10,15,25,0.88)", backdropFilter:"blur(8px)", display:"flex", alignItems: isMobile?"flex-end":"center", justifyContent:"center", padding: isMobile?"0":"16px" }}>
       <div style={{ background:"#fff", borderRadius: isMobile?"20px 20px 0 0":"16px", width:"100%", maxWidth:"700px", maxHeight: isMobile?"95vh":"92vh", overflow:"hidden", display:"flex", flexDirection:"column", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
-        <div style={{ background:"linear-gradient(135deg,#1B3A5C,#0d2340)", padding:"18px 24px", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
+        <div style={{ background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", padding:"18px 24px", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
           <div>
             <div style={{ color:"#D4721A", fontSize:"10px", fontWeight:"700", letterSpacing:"3px", fontFamily:"Georgia,serif" }}>DON TELMO® RECETARIO</div>
             <div style={{ color:"#fff", fontFamily:"Georgia,serif", fontSize:"17px", fontWeight:"700", marginTop:"3px" }}>{initial ? t.form.editTitle : t.form.newTitle}</div>
@@ -177,7 +177,7 @@ export function RecipeForm({ initial, categories, onSave, onCancel }) {
 
         <div style={{ padding:"14px 20px", borderTop:"1px solid #F0ECE6", display:"flex", gap:"10px", justifyContent:"flex-end", flexShrink:0 }}>
           <button onClick={onCancel} disabled={uploading} style={{ background:"#F0ECE6", border:"none", borderRadius:"8px", padding:"10px 18px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b", opacity: uploading ? 0.5 : 1 }}>{t.form.cancel}</button>
-          <button onClick={handleSave} disabled={uploading} style={{ background:"#1B3A5C", border:"none", borderRadius:"8px", padding:"10px 22px", cursor:"pointer", fontWeight:"700", color:"#fff", fontSize:"14px", opacity: uploading ? 0.7 : 1 }}>{uploading ? t.form.saving : t.form.save}</button>
+          <button onClick={handleSave} disabled={uploading} style={{ background:"var(--app-primary)", border:"none", borderRadius:"8px", padding:"10px 22px", cursor:"pointer", fontWeight:"700", color:"#fff", fontSize:"14px", opacity: uploading ? 0.7 : 1 }}>{uploading ? t.form.saving : t.form.save}</button>
         </div>
       </div>
     </div>

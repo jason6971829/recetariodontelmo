@@ -79,7 +79,7 @@ export function ScreenProtection({ userName }) {
           <div style={{ color: "#fff", fontFamily: "Georgia,serif", fontSize: "18px", fontWeight: "700", textAlign: "center" }}>
             Contenido Protegido
           </div>
-          <div style={{ color: "#8BAACC", fontSize: "13px", textAlign: "center", maxWidth: "280px", lineHeight: "1.6" }}>
+          <div style={{ color: "var(--app-primary-light)", fontSize: "13px", textAlign: "center", maxWidth: "280px", lineHeight: "1.6" }}>
             Las capturas de pantalla están restringidas.
             {userName && <><br />Usuario: <strong style={{ color: "#D4721A" }}>{userName}</strong></>}
           </div>

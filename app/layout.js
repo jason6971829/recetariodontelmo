@@ -13,6 +13,7 @@ export default function RootLayout({ children }) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="manifest" href="/manifest.json" />
+        <style>{`:root { --app-primary: #1B3A5C; --app-primary-dark: #0d2340; --app-primary-light: #8BAACC; --app-primary-rgb: 27,58,92; }`}</style>
       </head>
       <body style={{ margin: 0 }}>
         {children}

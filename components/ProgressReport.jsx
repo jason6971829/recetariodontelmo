@@ -65,7 +65,7 @@ export function ProgressReport({ recipes, onClose }) {
       onClick={() => setViewMode(val)}
       style={{
         padding: "7px 16px", border: "none", borderRadius: "8px", cursor: "pointer",
-        background: viewMode === val ? "#1B3A5C" : "#F0ECE6",
+        background: viewMode === val ? "var(--app-primary)" : "#F0ECE6",
         color: viewMode === val ? "#fff" : "#5a3e2b",
         fontSize: "12px", fontWeight: "600",
       }}
@@ -84,7 +84,7 @@ export function ProgressReport({ recipes, onClose }) {
         boxShadow: "0 30px 80px rgba(0,0,0,0.5)"
       }}>
         {/* Header */}
-        <div style={{ background: "linear-gradient(135deg,#1B3A5C,#0d2340)", padding: "18px 24px", flexShrink: 0 }}>
+        <div style={{ background: "linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", padding: "18px 24px", flexShrink: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div style={{ color: "#D4721A", fontSize: "10px", fontWeight: "700", letterSpacing: "3px", fontFamily: "Georgia,serif" }}>{t.admin}</div>
@@ -95,13 +95,13 @@ export function ProgressReport({ recipes, onClose }) {
           {/* Progreso general */}
           <div style={{ marginTop: "14px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-              <span style={{ color: "#8BAACC", fontSize: "12px", fontWeight: "600" }}>{t.progress.general}</span>
+              <span style={{ color: "var(--app-primary-light)", fontSize: "12px", fontWeight: "600" }}>{t.progress.general}</span>
               <span style={{ color: "#fff", fontSize: "20px", fontWeight: "700", fontFamily: "Georgia,serif" }}>{pctCompletas}%</span>
             </div>
             <div style={{ width: "100%", height: "10px", background: "rgba(255,255,255,0.15)", borderRadius: "5px", overflow: "hidden" }}>
               <div style={{ width: pctCompletas + "%", height: "100%", background: "linear-gradient(90deg, #D4721A, #f39c12)", borderRadius: "5px", transition: "width 0.5s ease" }} />
             </div>
-            <div style={{ color: "#8BAACC", fontSize: "11px", marginTop: "4px" }}>
+            <div style={{ color: "var(--app-primary-light)", fontSize: "11px", marginTop: "4px" }}>
               {stats.completas} {t.progress.of} {stats.total} {t.progress.complete}
             </div>
           </div>
@@ -122,7 +122,7 @@ export function ProgressReport({ recipes, onClose }) {
                 {Object.entries(stats.counts).map(([key, s]) => (
                   <div key={key} style={{ background: "#F7F3EE", borderRadius: "12px", padding: "16px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                      <span style={{ fontSize: "14px", fontWeight: "700", color: "#1B3A5C" }}>{s.icon} {s.label}</span>
+                      <span style={{ fontSize: "14px", fontWeight: "700", color: "var(--app-primary)" }}>{s.icon} {s.label}</span>
                       <span style={{ fontSize: "18px", fontWeight: "700", color: s.pct === 100 ? "#27ae60" : s.pct > 50 ? "#D4721A" : "#e74c3c", fontFamily: "Georgia,serif" }}>{s.pct}%</span>
                     </div>
                     <ProgressBar pct={s.pct} color="#D4721A" />
@@ -143,7 +143,7 @@ export function ProgressReport({ recipes, onClose }) {
                 return (
                   <div key={cat} style={{ background: "#F7F3EE", borderRadius: "12px", padding: "14px", marginBottom: "8px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                      <span style={{ fontSize: "14px", fontWeight: "700", color: "#1B3A5C" }}>{cat} <span style={{ fontSize: "11px", color: "#888", fontWeight: "400" }}>({s.total})</span></span>
+                      <span style={{ fontSize: "14px", fontWeight: "700", color: "var(--app-primary)" }}>{cat} <span style={{ fontSize: "11px", color: "#888", fontWeight: "400" }}>({s.total})</span></span>
                       <span style={{ fontSize: "16px", fontWeight: "700", color: catPct === 100 ? "#27ae60" : catPct > 50 ? "#D4721A" : "#e74c3c", fontFamily: "Georgia,serif" }}>{catPct}%</span>
                     </div>
                     <ProgressBar pct={catPct} color="#D4721A" />

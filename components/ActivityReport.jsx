@@ -71,7 +71,7 @@ export function ActivityReport({ onClose }) {
       onClick={() => setFilter(val)}
       style={{
         padding: "6px 14px", border: "none", borderRadius: "8px", cursor: "pointer",
-        background: filter === val ? "#1B3A5C" : "#F0ECE6",
+        background: filter === val ? "var(--app-primary)" : "#F0ECE6",
         color: filter === val ? "#fff" : "#5a3e2b",
         fontSize: "12px", fontWeight: "600", transition: "all 0.15s",
       }}
@@ -90,7 +90,7 @@ export function ActivityReport({ onClose }) {
         boxShadow: "0 30px 80px rgba(0,0,0,0.5)"
       }}>
         {/* Header */}
-        <div style={{ background: "linear-gradient(135deg,#1B3A5C,#0d2340)", padding: "18px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+        <div style={{ background: "linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", padding: "18px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
           <div>
             <div style={{ color: "#D4721A", fontSize: "10px", fontWeight: "700", letterSpacing: "3px", fontFamily: "Georgia,serif" }}>{t.admin}</div>
             <div style={{ color: "#fff", fontFamily: "Georgia,serif", fontSize: "17px", fontWeight: "700", marginTop: "3px" }}>{t.report.title}</div>
@@ -135,7 +135,7 @@ export function ActivityReport({ onClose }) {
             {/* Resumen */}
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: "12px", marginBottom: "20px" }}>
               {[
-                { label: t.report.activeUsers, value: uniqueUsers.length, icon: "👥", color: "#1B3A5C" },
+                { label: t.report.activeUsers, value: uniqueUsers.length, icon: "👥", color: "var(--app-primary)" },
                 { label: t.report.recipesViewed, value: filtered.filter(a => a.action === "view_recipe").length, icon: "👁️", color: "#27ae60" },
                 { label: t.report.ttsReadings, value: filtered.filter(a => a.action === "tts_play").length, icon: "🔊", color: "#D4721A" },
                 { label: t.report.searches, value: filtered.filter(a => a.action === "search").length, icon: "🔍", color: "#8e44ad" },
@@ -150,7 +150,7 @@ export function ActivityReport({ onClose }) {
 
             {/* Tabla de usuarios */}
             <div style={{ marginBottom: "20px" }}>
-              <div style={{ fontSize: "13px", fontWeight: "700", color: "#1B3A5C", letterSpacing: "1px", marginBottom: "10px", fontFamily: "Georgia,serif" }}>
+              <div style={{ fontSize: "13px", fontWeight: "700", color: "var(--app-primary)", letterSpacing: "1px", marginBottom: "10px", fontFamily: "Georgia,serif" }}>
                 {t.report.activityByUser} ({allUsers.length})
               </div>
             <div style={{ maxHeight: "240px", overflowY: "auto", borderRadius: "10px" }}>
@@ -158,15 +158,15 @@ export function ActivityReport({ onClose }) {
                 <div style={{ textAlign: "center", padding: "30px", color: "#888", fontSize: "13px" }}>{t.report.noActivity}</div>
               ) : (
                 allUsers.map(u => (
-                  <div key={u.id} onClick={() => setUserFilter(userFilter === u.id ? "all" : u.id)} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px", background: userFilter === u.id ? "#E8F0FA" : "#F7F3EE", borderRadius: "10px", marginBottom: "6px", cursor: "pointer", border: userFilter === u.id ? "2px solid #1B3A5C" : "2px solid transparent", transition: "all 0.15s" }}>
-                    <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: u.role === "admin" ? "#1B3A5C" : "#D4721A", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: "700", fontSize: "14px", flexShrink: 0 }}>
+                  <div key={u.id} onClick={() => setUserFilter(userFilter === u.id ? "all" : u.id)} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px", background: userFilter === u.id ? "#E8F0FA" : "#F7F3EE", borderRadius: "10px", marginBottom: "6px", cursor: "pointer", border: userFilter === u.id ? "2px solid var(--app-primary)" : "2px solid transparent", transition: "all 0.15s" }}>
+                    <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: u.role === "admin" ? "var(--app-primary)" : "#D4721A", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: "700", fontSize: "14px", flexShrink: 0 }}>
                       {u.name[0].toUpperCase()}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: "700", fontSize: "14px", color: "#1B3A5C" }}>
+                      <div style={{ fontWeight: "700", fontSize: "14px", color: "var(--app-primary)" }}>
                         {u.name}
                         {u.sede && <span style={{ fontSize: "11px", color: "#888", fontWeight: "400", marginLeft: "8px" }}>📍 {u.sede}</span>}
-                        {userFilter === u.id && <span style={{ fontSize: "10px", color: "#1B3A5C", fontWeight: "700", marginLeft: "8px", background: "#D4E8FF", padding: "2px 8px", borderRadius: "10px" }}>{t.report.selected}</span>}
+                        {userFilter === u.id && <span style={{ fontSize: "10px", color: "var(--app-primary)", fontWeight: "700", marginLeft: "8px", background: "#D4E8FF", padding: "2px 8px", borderRadius: "10px" }}>{t.report.selected}</span>}
                       </div>
                       <div style={{ fontSize: "12px", color: "#888", marginTop: "2px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
                         <span>👁️ {u.views} {t.report.views}</span>
@@ -183,14 +183,14 @@ export function ActivityReport({ onClose }) {
 
             {/* Historial reciente */}
             <div>
-              <div style={{ fontSize: "13px", fontWeight: "700", color: "#1B3A5C", letterSpacing: "1px", marginBottom: "10px", fontFamily: "Georgia,serif" }}>
+              <div style={{ fontSize: "13px", fontWeight: "700", color: "var(--app-primary)", letterSpacing: "1px", marginBottom: "10px", fontFamily: "Georgia,serif" }}>
                 {t.report.recentHistory}
               </div>
               {filtered.slice(0, 50).map(a => (
                 <div key={a.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 12px", borderBottom: "1px solid #F0ECE6", fontSize: "13px" }}>
                   <div style={{ color: "#888", fontSize: "11px", flexShrink: 0, minWidth: "80px" }}>{formatDate(a.created_at)}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ fontWeight: "600", color: "#1B3A5C" }}>{a.users?.name || "?"}</span>
+                    <span style={{ fontWeight: "600", color: "var(--app-primary)" }}>{a.users?.name || "?"}</span>
                     {a.users?.sede && <span style={{ fontSize: "10px", color: "#aaa", marginLeft: "4px" }}>({a.users.sede})</span>}
                     <span style={{ color: "#666", marginLeft: "6px" }}>{actionLabels[a.action] || a.action}</span>
                     {a.recipe_name && <span style={{ color: "#D4721A", fontWeight: "600", marginLeft: "4px" }}>"{a.recipe_name}"</span>}

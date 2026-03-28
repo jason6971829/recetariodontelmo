@@ -15,11 +15,12 @@ import { GlobalWatermark } from "@/components/Watermark";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useLang, LangProvider } from "@/lib/LangContext";
 import { LANGUAGES } from "@/lib/i18n";
+import { THEMES } from "@/lib/themes";
 
 export default function App() {
   const isMobile = useIsMobile();
   const { online, syncing, pendingCount } = useOnlineStatus();
-  const { lang, setLang, t } = useLang();
+  const { lang, setLang, t, themeId, setTheme } = useLang();
   const { isSupported: biometricSupported, hasCredential: hasBiometric, register: registerBiometric, authenticate: authBiometric, clearCredential } = useWebAuthn();
   const [screen, setScreen] = useState("login");
   const [currentUser, setCurrentUser] = useState(null);
@@ -52,6 +53,7 @@ export default function App() {
   const [brandIcon, setBrandIcon] = useState(null);
   const [brandDraft, setBrandDraft] = useState({ label:"RECETARIO DIGITAL", name:"Don Telmo®", tagline:"1958 — Company", icon:null });
   const [showLangModal, setShowLangModal] = useState(false);
+  const [showThemeModal, setShowThemeModal] = useState(false);
   const [categoryModal, setCategoryModal] = useState(null); // { mode: "create"|"edit", initial? }
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
   const searchTimeoutRef = useRef(null);
@@ -81,6 +83,16 @@ export default function App() {
 
   // En móvil: cerrar sidebar por defecto
   useEffect(() => { setSidebarOpen(!isMobile); }, [isMobile]);
+
+  // Inyectar variables CSS del tema
+  useEffect(() => {
+    const theme = THEMES.find(t => t.id === themeId) || THEMES[0];
+    const root = document.documentElement;
+    root.style.setProperty("--app-primary", theme.primary);
+    root.style.setProperty("--app-primary-dark", theme.dark);
+    root.style.setProperty("--app-primary-light", theme.light);
+    root.style.setProperty("--app-primary-rgb", theme.rgb);
+  }, [themeId]);
 
   useEffect(() => {
     async function load() {
@@ -283,16 +295,16 @@ export default function App() {
   // ══ LOGIN ═══════════════════════════════════════════════════════
   if (screen==="login" || loading) {
     return (
-      <div style={{ height:"100vh", background:"linear-gradient(135deg,#0d2340 0%,#1B3A5C 50%,#0d2340 100%)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px", fontFamily:"Georgia,serif" }}>
+      <div style={{ height:"100vh", background:"linear-gradient(135deg,var(--app-primary-dark) 0%,var(--app-primary) 50%,var(--app-primary-dark) 100%)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px", fontFamily:"Georgia,serif" }}>
         <div style={{ background:"#fff", borderRadius:"24px", padding: isMobile?"36px 28px":"48px 44px", width:"100%", maxWidth:"420px", boxShadow:"0 40px 100px rgba(0,0,0,0.5)" }}>
           <div style={{ textAlign:"center", marginBottom:"32px" }}>
-            <div style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", width:"72px", height:"72px", background:"linear-gradient(135deg,#1B3A5C,#0d2340)", borderRadius:"18px", marginBottom:"14px", boxShadow:"0 8px 24px rgba(27,58,92,0.4)", overflow:"hidden" }}>
+            <div style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", width:"72px", height:"72px", background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", borderRadius:"18px", marginBottom:"14px", boxShadow:"0 8px 24px rgba(var(--app-primary-rgb),0.4)", overflow:"hidden" }}>
               {brandIcon
                 ? <img src={brandIcon} alt="logo" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
                 : <span style={{ fontSize:"30px" }}>🍽️</span>}
             </div>
             <div style={{ color:"#D4721A", fontSize:"11px", fontWeight:"700", letterSpacing:"4px", marginBottom:"5px" }}>{brandLabel}</div>
-            <div style={{ color:"#1B3A5C", fontSize:"26px", fontWeight:"700", lineHeight:"1.1" }}>{brandName}</div>
+            <div style={{ color:"var(--app-primary)", fontSize:"26px", fontWeight:"700", lineHeight:"1.1" }}>{brandName}</div>
             {companyTagline && <div style={{ color:"#888", fontSize:"13px", marginTop:"3px" }}>{companyTagline}</div>}
           </div>
           {loading ? (
@@ -301,19 +313,19 @@ export default function App() {
             </div>
           ) : <>
             <div style={{ marginBottom:"14px" }}>
-              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"#1B3A5C", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.login.usernameLabel}</label>
+              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.login.usernameLabel}</label>
               <input style={{ width:"100%", padding:"13px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"15px", outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}
                 value={loginForm.username} onChange={e=>setLoginForm(f=>({...f,username:e.target.value}))}
                 onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder={t.login.usernamePlaceholder} autoFocus />
             </div>
             <div style={{ marginBottom:"22px" }}>
-              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"#1B3A5C", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.login.passwordLabel}</label>
+              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.login.passwordLabel}</label>
               <input type="password" style={{ width:"100%", padding:"13px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"15px", outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}
                 value={loginForm.password} onChange={e=>setLoginForm(f=>({...f,password:e.target.value}))}
                 onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder={t.login.passwordPlaceholder} />
             </div>
             {loginError && <div style={{ color:"#e74c3c", fontSize:"13px", marginBottom:"14px", textAlign:"center", background:"#fef0ef", padding:"10px", borderRadius:"8px" }}>{loginError}</div>}
-            <button onClick={handleLogin} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,#1B3A5C,#0d2340)", border:"none", borderRadius:"10px", color:"#fff", fontSize:"15px", fontWeight:"700", cursor:"pointer", fontFamily:"Georgia,serif", letterSpacing:"1px" }}>
+            <button onClick={handleLogin} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", border:"none", borderRadius:"10px", color:"#fff", fontSize:"15px", fontWeight:"700", cursor:"pointer", fontFamily:"Georgia,serif", letterSpacing:"1px" }}>
               {t.login.button}
             </button>
 
@@ -364,19 +376,19 @@ export default function App() {
       )}
 
       {/* HEADER */}
-      <header style={{ height:"58px", flexShrink:0, background:"linear-gradient(135deg,#1B3A5C,#0d2340)", display:"flex", alignItems:"center", gap:"12px", padding:"0 14px", boxShadow:"0 4px 20px rgba(0,0,0,0.3)", zIndex:50 }}>
+      <header style={{ height:"58px", flexShrink:0, background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", display:"flex", alignItems:"center", gap:"12px", padding:"0 14px", boxShadow:"0 4px 20px rgba(0,0,0,0.3)", zIndex:50 }}>
         <button onClick={()=>setSidebarOpen(o=>!o)} style={{ background:"rgba(255,255,255,0.1)", border:"none", borderRadius:"8px", color:"#fff", width:"36px", height:"36px", cursor:"pointer", fontSize:"16px", flexShrink:0 }}>☰</button>
 
         {!isMobile && (
           <div style={{ flexShrink:0, display:"flex", alignItems:"center", gap:"10px" }}>
-            <div style={{ width:"32px", height:"32px", borderRadius:"8px", background:"linear-gradient(135deg,#1B3A5C,#0d2340)", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", flexShrink:0, border:"1px solid rgba(255,255,255,0.15)" }}>
+            <div style={{ width:"32px", height:"32px", borderRadius:"8px", background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", flexShrink:0, border:"1px solid rgba(255,255,255,0.15)" }}>
               {brandIcon
                 ? <img src={brandIcon} alt="logo" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
                 : <span style={{ fontSize:"14px" }}>🍽️</span>}
             </div>
             <div>
               <div style={{ color:"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"3px", fontFamily:"Georgia,serif" }}>{brandLabel}</div>
-              <div style={{ color:"#fff", fontSize:"15px", fontWeight:"700", fontFamily:"Georgia,serif", lineHeight:"1" }}>{brandName} {companyTagline && <span style={{ color:"#8BAACC", fontSize:"11px" }}>{companyTagline}</span>}</div>
+              <div style={{ color:"#fff", fontSize:"15px", fontWeight:"700", fontFamily:"Georgia,serif", lineHeight:"1" }}>{brandName} {companyTagline && <span style={{ color:"var(--app-primary-light)", fontSize:"11px" }}>{companyTagline}</span>}</div>
             </div>
           </div>
         )}
@@ -411,7 +423,7 @@ export default function App() {
               <button onClick={()=>setShowSettingsMenu(v=>!v)} title="Configuración" style={{ background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"16px" }}>⚙️</button>
               {showSettingsMenu && (
                 <div style={{
-                  position:"absolute", top:"42px", right:0, background:"#1B3A5C", borderRadius:"12px",
+                  position:"absolute", top:"42px", right:0, background:"var(--app-primary)", borderRadius:"12px",
                   boxShadow:"0 8px 32px rgba(0,0,0,0.4)", padding:"8px", zIndex:9999, minWidth:"200px",
                   border:"1px solid rgba(255,255,255,0.15)",
                 }}>
@@ -435,6 +447,10 @@ export default function App() {
                   <button onClick={()=>{setBrandDraft({label:brandLabel,name:brandName,tagline:companyTagline});setShowBrandModal(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
                     onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
                     🏷️ {t.settings?.brand || "Nombre Marca"}
+                  </button>
+                  <button onClick={()=>{setShowThemeModal(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
+                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
+                    🎨 Tema de color
                   </button>
                   <button onClick={()=>{setShowLangModal(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
                     onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
@@ -462,7 +478,7 @@ export default function App() {
         {/* SIDEBAR */}
         {sidebarOpen && (
           <aside style={{
-            width:"240px", flexShrink:0, background:"#1B3A5C",
+            width:"240px", flexShrink:0, background:"var(--app-primary)",
             overflowY:"auto", overflowX:"hidden",
             display:"flex", flexDirection:"column",
             position: isMobile ? "absolute" : "relative",
@@ -500,7 +516,7 @@ export default function App() {
                     {isAdmin && cat.id !== "all" && (
                       <span
                         onClick={(e) => { e.stopPropagation(); setCategoryModal({ mode: "edit", initial: cat }); }}
-                        style={{ background:"rgba(255,255,255,0.1)", borderRadius:"6px", padding:"2px 5px", fontSize:"11px", cursor:"pointer", color:"#8BAACC", lineHeight:1, opacity:0.5, transition:"opacity 0.2s" }}
+                        style={{ background:"rgba(255,255,255,0.1)", borderRadius:"6px", padding:"2px 5px", fontSize:"11px", cursor:"pointer", color:"var(--app-primary-light)", lineHeight:1, opacity:0.5, transition:"opacity 0.2s" }}
                         onMouseEnter={e => e.currentTarget.style.opacity = "1"}
                         onMouseLeave={e => e.currentTarget.style.opacity = "0.5"}
                         title={`Editar categoría ${cat.label}`}
@@ -541,7 +557,7 @@ export default function App() {
         <main style={{ flex:1, overflowY:"auto", padding: isMobile ? "14px" : "22px", minWidth:0 }}>
           {/* Título */}
           <div style={{ marginBottom:"18px" }}>
-            <h1 style={{ margin:0, color:"#1B3A5C", fontFamily:"Georgia,serif", fontSize: isMobile?"18px":"21px", fontWeight:"700" }}>
+            <h1 style={{ margin:0, color:"var(--app-primary)", fontFamily:"Georgia,serif", fontSize: isMobile?"18px":"21px", fontWeight:"700" }}>
               {allCategories.find(c=>c.id===selectedCat)?.icon} {allCategories.find(c=>c.id===selectedCat)?.label}
             </h1>
             <div style={{ color:"#888", fontSize:"13px", marginTop:"3px" }}>
@@ -554,7 +570,7 @@ export default function App() {
             <div style={{ textAlign:"center", padding:"60px 20px", color:"#888" }}>
               <div style={{ fontSize:"48px" }}>🔍</div>
               <div style={{ marginTop:"12px", fontSize:"15px" }}>{t.noResults}</div>
-              {search && <button onClick={()=>setSearch("")} style={{ marginTop:"10px", background:"#1B3A5C", border:"none", borderRadius:"8px", color:"#fff", padding:"8px 16px", cursor:"pointer" }}>{t.clearSearch}</button>}
+              {search && <button onClick={()=>setSearch("")} style={{ marginTop:"10px", background:"var(--app-primary)", border:"none", borderRadius:"8px", color:"#fff", padding:"8px 16px", cursor:"pointer" }}>{t.clearSearch}</button>}
             </div>
           ) : (
             <div style={{ display:"grid", gridTemplateColumns: isMobile ? "repeat(auto-fill,minmax(150px,1fr))" : "repeat(auto-fill,minmax(210px,1fr))", gap: isMobile?"12px":"16px" }}>
@@ -580,7 +596,7 @@ export default function App() {
                     <div style={{ background:"#F7F3EE", borderRadius:"5px", padding:"2px 7px", fontSize:"9px", fontWeight:"700", color:"#D4721A", display:"inline-block", marginBottom:"5px", letterSpacing:"0.5px" }}>
                       {r.category.toUpperCase()}
                     </div>
-                    <div style={{ fontWeight:"700", color:"#1B3A5C", fontSize: isMobile?"12px":"13px", lineHeight:"1.3", fontFamily:"Georgia,serif" }}>{r.name}</div>
+                    <div style={{ fontWeight:"700", color:"var(--app-primary)", fontSize: isMobile?"12px":"13px", lineHeight:"1.3", fontFamily:"Georgia,serif" }}>{r.name}</div>
                     <div style={{ color:"#aaa", fontSize:"11px", marginTop:"6px" }}>{t.ingredients_count(r.ingredients.length)}</div>
                   </div>
                 </div>
@@ -644,7 +660,7 @@ export default function App() {
           <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"360px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)", position:"relative" }}>
             <button onClick={() => setShowLangModal(false)} style={{ position:"absolute", top:"14px", right:"14px", background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"8px", width:"32px", height:"32px", cursor:"pointer", fontSize:"18px", color:"#555", lineHeight:"1" }}>×</button>
             <div style={{ fontSize:"32px", textAlign:"center", marginBottom:"6px" }}>🌐</div>
-            <div style={{ color:"#1B3A5C", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", textAlign:"center", marginBottom:"6px" }}>
+            <div style={{ color:"var(--app-primary)", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", textAlign:"center", marginBottom:"6px" }}>
               {t.language.title}
             </div>
             <div style={{ color:"#888", fontSize:"13px", textAlign:"center", marginBottom:"24px" }}>
@@ -655,20 +671,20 @@ export default function App() {
                 <button key={l.code} onClick={() => setLang(l.code)} style={{
                   display:"flex", alignItems:"center", gap:"14px",
                   padding:"14px 18px", borderRadius:"12px", border:"2px solid",
-                  borderColor: lang === l.code ? "#1B3A5C" : "#eee",
+                  borderColor: lang === l.code ? "var(--app-primary)" : "#eee",
                   background: lang === l.code ? "#f0f4f8" : "#fff",
                   cursor:"pointer", textAlign:"left",
                 }}>
                   <span style={{ fontSize:"28px" }}>{l.flag}</span>
                   <div>
-                    <div style={{ fontWeight:"700", color:"#1B3A5C", fontSize:"15px" }}>{l.label}</div>
+                    <div style={{ fontWeight:"700", color:"var(--app-primary)", fontSize:"15px" }}>{l.label}</div>
                   </div>
-                  {lang === l.code && <span style={{ marginLeft:"auto", color:"#1B3A5C", fontSize:"18px" }}>✓</span>}
+                  {lang === l.code && <span style={{ marginLeft:"auto", color:"var(--app-primary)", fontSize:"18px" }}>✓</span>}
                 </button>
               ))}
             </div>
             <button onClick={() => setShowLangModal(false)} style={{
-              width:"100%", background:"#1B3A5C", border:"none", padding:"13px", borderRadius:"12px",
+              width:"100%", background:"var(--app-primary)", border:"none", padding:"13px", borderRadius:"12px",
               color:"#fff", cursor:"pointer", fontWeight:"700", fontSize:"15px",
             }}>
               {t.language.save}
@@ -679,10 +695,10 @@ export default function App() {
 
       {/* Modal para cambiar marca de agua */}
       {showWatermarkUpload && isAdmin && (
-        <div style={{ position:"fixed", inset:0, zIndex:9995, background:"#0d2340", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+        <div style={{ position:"fixed", inset:0, zIndex:9995, background:"var(--app-primary-dark)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
           <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"440px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
             <div style={{ fontSize:"28px", marginBottom:"4px", textAlign:"center" }}>🖼️</div>
-            <div style={{ color:"#1B3A5C", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", marginBottom:"16px", textAlign:"center" }}>
+            <div style={{ color:"var(--app-primary)", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", marginBottom:"16px", textAlign:"center" }}>
               {t.watermark.title}
             </div>
 
@@ -700,14 +716,14 @@ export default function App() {
             <div style={{ background:"#f8f8f8", borderRadius:"10px", padding:"12px 14px", marginBottom:"10px" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
                 <span style={{ fontSize:"13px", color:"#333", fontWeight:"600" }}>{t.watermark.visibility}</span>
-                <span style={{ fontSize:"13px", color:"#1B3A5C", fontWeight:"700" }}>{Math.round(watermarkOpacity * 100)}%</span>
+                <span style={{ fontSize:"13px", color:"var(--app-primary)", fontWeight:"700" }}>{Math.round(watermarkOpacity * 100)}%</span>
               </div>
               <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
                 <span style={{ fontSize:"11px", color:"#999", width:"40px" }}>{t.watermark.faint}</span>
                 <input type="range" min="1" max="40" value={Math.round(watermarkOpacity * 100)}
                   onInput={e => saveWatermark({ opacity: parseInt(e.target.value) / 100 })}
                   onChange={e => saveWatermark({ opacity: parseInt(e.target.value) / 100 })}
-                  style={{ flex:1, accentColor:"#1B3A5C", cursor:"pointer", height:"20px", touchAction:"none" }}
+                  style={{ flex:1, accentColor:"var(--app-primary)", cursor:"pointer", height:"20px", touchAction:"none" }}
                 />
                 <span style={{ fontSize:"11px", color:"#999", width:"40px", textAlign:"right" }}>{t.watermark.visible}</span>
               </div>
@@ -717,14 +733,14 @@ export default function App() {
             <div style={{ background:"#f8f8f8", borderRadius:"10px", padding:"12px 14px", marginBottom:"16px" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
                 <span style={{ fontSize:"13px", color:"#333", fontWeight:"600" }}>{t.watermark.size}</span>
-                <span style={{ fontSize:"13px", color:"#1B3A5C", fontWeight:"700" }}>{watermarkSize}%</span>
+                <span style={{ fontSize:"13px", color:"var(--app-primary)", fontWeight:"700" }}>{watermarkSize}%</span>
               </div>
               <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
                 <span style={{ fontSize:"11px", color:"#999", width:"40px" }}>{t.watermark.small}</span>
                 <input type="range" min="10" max="90" value={watermarkSize}
                   onInput={e => saveWatermark({ size: parseInt(e.target.value) })}
                   onChange={e => saveWatermark({ size: parseInt(e.target.value) })}
-                  style={{ flex:1, accentColor:"#1B3A5C", cursor:"pointer", height:"20px", touchAction:"none" }}
+                  style={{ flex:1, accentColor:"var(--app-primary)", cursor:"pointer", height:"20px", touchAction:"none" }}
                 />
                 <span style={{ fontSize:"11px", color:"#999", width:"40px", textAlign:"right" }}>{t.watermark.large}</span>
               </div>
@@ -732,7 +748,7 @@ export default function App() {
 
             {/* Subir nueva imagen */}
             <label style={{
-              display:"block", background:"#1B3A5C", color:"#fff", padding:"12px", borderRadius:"10px",
+              display:"block", background:"var(--app-primary)", color:"#fff", padding:"12px", borderRadius:"10px",
               textAlign:"center", cursor:"pointer", fontWeight:"700", fontSize:"14px", marginBottom:"12px",
             }}>
               {t.watermark.upload}
@@ -788,25 +804,25 @@ export default function App() {
           <div style={{ background:"#fff", borderRadius:"20px", padding:"28px 24px", width:"100%", maxWidth:"420px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)", maxHeight:"90vh", overflowY:"auto" }}>
             <div style={{ textAlign:"center", marginBottom:"18px" }}>
               <div style={{ fontSize:"28px", marginBottom:"6px" }}>🏷️</div>
-              <div style={{ color:"#1B3A5C", fontSize:"17px", fontWeight:"700", fontFamily:"Georgia,serif" }}>{t.brand.title}</div>
+              <div style={{ color:"var(--app-primary)", fontSize:"17px", fontWeight:"700", fontFamily:"Georgia,serif" }}>{t.brand.title}</div>
             </div>
 
             {/* Preview en tiempo real */}
-            <div style={{ background:"linear-gradient(135deg,#0d2340,#1B3A5C)", borderRadius:"14px", padding:"22px", textAlign:"center", marginBottom:"20px" }}>
-              <div style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", width:"62px", height:"62px", background:"linear-gradient(135deg,#1B3A5C,#0d2340)", borderRadius:"16px", marginBottom:"10px", boxShadow:"0 4px 16px rgba(0,0,0,0.4)", border:"2px solid rgba(255,255,255,0.1)", overflow:"hidden" }}>
+            <div style={{ background:"linear-gradient(135deg,var(--app-primary-dark),var(--app-primary))", borderRadius:"14px", padding:"22px", textAlign:"center", marginBottom:"20px" }}>
+              <div style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", width:"62px", height:"62px", background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", borderRadius:"16px", marginBottom:"10px", boxShadow:"0 4px 16px rgba(0,0,0,0.4)", border:"2px solid rgba(255,255,255,0.1)", overflow:"hidden" }}>
                 {brandDraft.icon
                   ? <img src={brandDraft.icon} alt="logo" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
                   : <span style={{ fontSize:"26px" }}>🍽️</span>}
               </div>
               <div style={{ color:"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"3px" }}>{brandDraft.label || "RECETARIO DIGITAL"}</div>
               <div style={{ color:"#fff", fontSize:"20px", fontWeight:"700", fontFamily:"Georgia,serif", marginTop:"2px" }}>{brandDraft.name || "Don Telmo®"}</div>
-              {brandDraft.tagline && <div style={{ color:"#8BAACC", fontSize:"12px", marginTop:"2px" }}>{brandDraft.tagline}</div>}
+              {brandDraft.tagline && <div style={{ color:"var(--app-primary-light)", fontSize:"12px", marginTop:"2px" }}>{brandDraft.tagline}</div>}
             </div>
 
             {/* Imagen del ícono */}
             <div style={{ marginBottom:"14px" }}>
-              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"#1B3A5C", letterSpacing:"1.5px", marginBottom:"8px" }}>🖼️ ÍCONO / LOGO</label>
-              <label style={{ display:"block", background:"#1B3A5C", color:"#fff", padding:"11px", borderRadius:"10px", textAlign:"center", cursor:"pointer", fontWeight:"700", fontSize:"13px", marginBottom:"6px" }}>
+              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"8px" }}>🖼️ ÍCONO / LOGO</label>
+              <label style={{ display:"block", background:"var(--app-primary)", color:"#fff", padding:"11px", borderRadius:"10px", textAlign:"center", cursor:"pointer", fontWeight:"700", fontSize:"13px", marginBottom:"6px" }}>
                 📤 Subir imagen
                 <input type="file" accept="image/*" style={{ display:"none" }} onChange={async (e) => {
                   const file = e.target.files?.[0];
@@ -852,7 +868,7 @@ export default function App() {
 
             {/* Campo 2: nombre principal */}
             <div style={{ marginBottom:"14px" }}>
-              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"#1B3A5C", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.brand.nameField}</label>
+              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.brand.nameField}</label>
               <input
                 type="text"
                 value={brandDraft.name}
@@ -889,7 +905,7 @@ export default function App() {
                 if (brandDraft.icon) localStorage.setItem("dontelmo:brandIcon", brandDraft.icon);
                 else localStorage.removeItem("dontelmo:brandIcon");
                 setShowBrandModal(false);
-              }} style={{ flex:1, background:"#1B3A5C", border:"none", borderRadius:"10px", padding:"12px", cursor:"pointer", fontWeight:"700", color:"#fff", fontSize:"14px" }}>
+              }} style={{ flex:1, background:"var(--app-primary)", border:"none", borderRadius:"10px", padding:"12px", cursor:"pointer", fontWeight:"700", color:"#fff", fontSize:"14px" }}>
                 {t.brand.save}
               </button>
             </div>
@@ -902,7 +918,7 @@ export default function App() {
         <div style={{ position:"fixed", inset:0, zIndex:500, background:"rgba(10,15,25,0.88)", backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
           <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"360px", textAlign:"center", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
             <div style={{ fontSize:"48px", marginBottom:"16px" }}>🔐</div>
-            <div style={{ color:"#1B3A5C", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", marginBottom:"8px" }}>
+            <div style={{ color:"var(--app-primary)", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", marginBottom:"8px" }}>
               Acceso Biométrico
             </div>
             <div style={{ color:"#666", fontSize:"13px", lineHeight:"1.6", marginBottom:"24px" }}>
@@ -934,12 +950,47 @@ export default function App() {
         </div>
       )}
 
+      {/* iOS-style theme picker modal */}
+      {showThemeModal && (
+        <div style={{ position:"fixed", inset:0, zIndex:9996, background:"rgba(0,0,0,0.6)", backdropFilter:"blur(20px)", display:"flex", alignItems:"flex-end", justifyContent:"center", padding:"0" }}>
+          <div style={{ background:"rgba(28,28,30,0.95)", borderRadius:"28px 28px 0 0", width:"100%", maxWidth:"480px", padding:"12px 0 40px", boxShadow:"0 -20px 60px rgba(0,0,0,0.5)" }}>
+            {/* Handle */}
+            <div style={{ width:"36px", height:"4px", background:"rgba(255,255,255,0.3)", borderRadius:"2px", margin:"0 auto 20px" }} />
+            <div style={{ color:"#fff", fontSize:"17px", fontWeight:"700", textAlign:"center", marginBottom:"6px", letterSpacing:"0.3px" }}>Tema de Color</div>
+            <div style={{ color:"rgba(255,255,255,0.5)", fontSize:"13px", textAlign:"center", marginBottom:"24px" }}>Elige el color principal de la app</div>
+            {/* Grid de temas */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"16px", padding:"0 24px", marginBottom:"24px" }}>
+              {THEMES.map(theme => (
+                <div key={theme.id} onClick={() => setTheme(theme.id)} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:"8px", cursor:"pointer" }}>
+                  <div style={{
+                    width:"64px", height:"64px", borderRadius:"20px",
+                    background:`linear-gradient(135deg, ${theme.primary}, ${theme.dark})`,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    boxShadow: themeId === theme.id ? `0 0 0 3px #fff, 0 0 0 5px ${theme.primary}` : "0 4px 12px rgba(0,0,0,0.4)",
+                    transition:"all 0.2s",
+                    transform: themeId === theme.id ? "scale(1.08)" : "scale(1)",
+                  }}>
+                    {themeId === theme.id && <div style={{ color:"#fff", fontSize:"22px", fontWeight:"700" }}>✓</div>}
+                  </div>
+                  <span style={{ color: themeId === theme.id ? "#fff" : "rgba(255,255,255,0.6)", fontSize:"12px", fontWeight: themeId === theme.id ? "700" : "400", transition:"all 0.2s" }}>{theme.label}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ padding:"0 24px" }}>
+              <button onClick={() => setShowThemeModal(false)} style={{ width:"100%", background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"14px", padding:"14px", color:"#fff", fontSize:"15px", fontWeight:"600", cursor:"pointer" }}>
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de confirmación */}
       {confirmModal && (
         <div style={{ position:"fixed", inset:0, zIndex:600, background:"rgba(10,15,25,0.88)", backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
           <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"400px", textAlign:"center", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
             <div style={{ fontSize:"48px", marginBottom:"16px" }}>⚠️</div>
-            <div style={{ color:"#1B3A5C", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", marginBottom:"8px" }}>
+            <div style={{ color:"var(--app-primary)", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", marginBottom:"8px" }}>
               {confirmModal.title}
             </div>
             <div style={{ color:"#666", fontSize:"14px", lineHeight:"1.6", marginBottom:"24px" }}>

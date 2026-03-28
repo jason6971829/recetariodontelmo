@@ -35,7 +35,7 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onTogglePublis
         }}
       >
         {/* Header */}
-        <div style={{ background:"linear-gradient(135deg,#1B3A5C,#0d2340)", padding:"18px 22px 14px", flexShrink:0, position:"relative", zIndex:10 }}>
+        <div style={{ background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", padding:"18px 22px 14px", flexShrink:0, position:"relative", zIndex:10 }}>
           <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:"12px" }}>
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ color:"#D4721A", fontSize:"10px", fontWeight:"700", letterSpacing:"3px", marginBottom:"4px", fontFamily:"Georgia,serif" }}>
@@ -44,7 +44,7 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onTogglePublis
               <div style={{ color:"#fff", fontFamily:"Georgia,serif", fontSize: isMobile?"18px":"22px", fontWeight:"700", lineHeight:"1.2", wordBreak:"break-word" }}>
                 {recipe.name}
               </div>
-              <div style={{ color:"#8BAACC", fontSize:"11px", marginTop:"4px", letterSpacing:"2px" }}>
+              <div style={{ color:"var(--app-primary-light)", fontSize:"11px", marginTop:"4px", letterSpacing:"2px" }}>
                 {recipe.category.toUpperCase()}
               </div>
             </div>
@@ -63,7 +63,7 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onTogglePublis
           <div style={{ display:"flex", gap:"10px", marginTop:"12px", flexWrap:"wrap" }}>
             {[[`⏱ ${t.detail.prep}`, recipe.prepTime||"—"],[`🔥 ${t.detail.cook}`, recipe.cookTime||"—"],[`🍽 ${t.detail.portions}`, recipe.portions||"—"]].map(([l,v])=>(
               <div key={l} style={{ background:"rgba(255,255,255,0.09)", borderRadius:"8px", padding:"6px 12px" }}>
-                <div style={{ color:"#8BAACC", fontSize:"10px", fontWeight:"600", letterSpacing:"1px" }}>{l}</div>
+                <div style={{ color:"var(--app-primary-light)", fontSize:"10px", fontWeight:"600", letterSpacing:"1px" }}>{l}</div>
                 <div style={{ color:"#fff", fontWeight:"600", fontSize:"13px", marginTop:"2px" }}>{v}</div>
               </div>
             ))}
@@ -91,7 +91,7 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onTogglePublis
               </div>
 
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"10px" }}>
-                <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"#1B3A5C", letterSpacing:"1px" }}>{t.detail.ingredients}</div>
+                <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"var(--app-primary)", letterSpacing:"1px" }}>{t.detail.ingredients}</div>
                 <TextToSpeech text={recipe.ingredients.join(". ")} label="ingredientes" userId={currentUser?.id} />
               </div>
               {recipe.ingredients.length > 0
@@ -109,7 +109,7 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onTogglePublis
             {/* Derecha: preparación + recomendaciones + video */}
             <div style={{ padding:"20px" }}>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"10px" }}>
-                <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"#1B3A5C", letterSpacing:"1px" }}>{t.detail.preparation}</div>
+                <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"var(--app-primary)", letterSpacing:"1px" }}>{t.detail.preparation}</div>
                 <TextToSpeech text={recipe.preparation} label="preparación" userId={currentUser?.id} />
               </div>
               <div style={{ background:"#F7F3EE", borderRadius:"10px", padding:"14px", fontSize:"13px", color:"#333", lineHeight:"1.9", marginBottom:"18px", minHeight:"100px", whiteSpace:"pre-wrap" }}>
@@ -119,7 +119,7 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onTogglePublis
               {/* Descripción */}
               {recipe.description && <>
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"10px" }}>
-                  <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"#1B3A5C", letterSpacing:"1px" }}>{t.detail.description}</div>
+                  <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"var(--app-primary)", letterSpacing:"1px" }}>{t.detail.description}</div>
                   <TextToSpeech text={recipe.description} label="descripción" userId={currentUser?.id} />
                 </div>
                 <div style={{ background:"#F0F4F8", border:"1px solid #C8D6E5", borderRadius:"10px", padding:"14px", fontSize:"13px", color:"#2c3e50", lineHeight:"1.7", marginBottom:"18px", whiteSpace:"pre-wrap" }}>
@@ -129,7 +129,7 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onTogglePublis
 
               {recipe.recommendations && <>
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"10px" }}>
-                  <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"#1B3A5C", letterSpacing:"1px" }}>{t.detail.recommendations}</div>
+                  <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"var(--app-primary)", letterSpacing:"1px" }}>{t.detail.recommendations}</div>
                   <TextToSpeech text={recipe.recommendations} label="recomendaciones" userId={currentUser?.id} />
                 </div>
                 <div style={{ background:"#FFF8F2", border:"1px solid #E8C9A0", borderRadius:"10px", padding:"14px", fontSize:"13px", color:"#5a3e2b", lineHeight:"1.7", marginBottom:"18px" }}>
@@ -149,7 +149,7 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onTogglePublis
               </>}
 
               {recipe.video && <>
-                <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"#1B3A5C", marginBottom:"10px", letterSpacing:"1px" }}>{t.detail.video}</div>
+                <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"var(--app-primary)", marginBottom:"10px", letterSpacing:"1px" }}>{t.detail.video}</div>
                 {ytId
                   ? <div style={{ borderRadius:"10px", overflow:"hidden", aspectRatio:"16/9" }}>
                       <iframe src={`https://www.youtube.com/embed/${ytId}`} style={{ width:"100%", height:"100%", border:"none" }} allowFullScreen title="Video" />

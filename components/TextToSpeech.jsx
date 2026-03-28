@@ -224,8 +224,8 @@ export function TextToSpeech({ text, label, userId }) {
           onClick={() => setShowSpeedMenu(s => !s)}
           title="Velocidad de lectura"
           style={{
-            background: showSpeedMenu ? "#1B3A5C" : "#F0ECE6",
-            color: showSpeedMenu ? "#fff" : "#1B3A5C",
+            background: showSpeedMenu ? "var(--app-primary)" : "#F0ECE6",
+            color: showSpeedMenu ? "#fff" : "var(--app-primary)",
             border:"none", borderRadius:"8px",
             padding: isMobile ? "8px 12px" : "3px 7px",
             cursor:"pointer", fontSize: isMobile ? "14px" : "11px", fontWeight:"700",
@@ -260,7 +260,7 @@ export function TextToSpeech({ text, label, userId }) {
                   border:"none", borderRadius:"8px",
                   cursor:"pointer", fontSize: isMobile ? "15px" : "12px", fontWeight:"600",
                   fontFamily:"monospace",
-                  background: speed === opt.value ? "#1B3A5C" : "transparent",
+                  background: speed === opt.value ? "var(--app-primary)" : "transparent",
                   color: speed === opt.value ? "#fff" : "#333",
                   transition:"all 0.1s",
                   WebkitTapHighlightColor:"transparent",
