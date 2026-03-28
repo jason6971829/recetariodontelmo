@@ -274,7 +274,7 @@ export default function App() {
           </div>
           {loading ? (
             <div style={{ textAlign:"center", padding:"20px", color:"#888" }}>
-              <div style={{ fontSize:"24px", marginBottom:"10px" }}>⏳</div>Cargando recetario...
+              <div style={{ fontSize:"24px", marginBottom:"10px" }}>⏳</div>{t.loading}
             </div>
           ) : <>
             <div style={{ marginBottom:"14px" }}>
@@ -511,7 +511,7 @@ export default function App() {
               {allCategories.find(c=>c.id===selectedCat)?.icon} {allCategories.find(c=>c.id===selectedCat)?.label}
             </h1>
             <div style={{ color:"#888", fontSize:"13px", marginTop:"3px" }}>
-              {filtered.length} receta{filtered.length!==1?"s":""}{search && ` — "${search}"`}
+              {filtered.length} {filtered.length!==1 ? t.recipes : t.recipe}{search && ` — "${search}"`}
             </div>
           </div>
 
@@ -519,8 +519,8 @@ export default function App() {
           {filtered.length===0 ? (
             <div style={{ textAlign:"center", padding:"60px 20px", color:"#888" }}>
               <div style={{ fontSize:"48px" }}>🔍</div>
-              <div style={{ marginTop:"12px", fontSize:"15px" }}>No se encontraron recetas</div>
-              {search && <button onClick={()=>setSearch("")} style={{ marginTop:"10px", background:"#1B3A5C", border:"none", borderRadius:"8px", color:"#fff", padding:"8px 16px", cursor:"pointer" }}>Limpiar búsqueda</button>}
+              <div style={{ marginTop:"12px", fontSize:"15px" }}>{t.noResults}</div>
+              {search && <button onClick={()=>setSearch("")} style={{ marginTop:"10px", background:"#1B3A5C", border:"none", borderRadius:"8px", color:"#fff", padding:"8px 16px", cursor:"pointer" }}>{t.clearSearch}</button>}
             </div>
           ) : (
             <div style={{ display:"grid", gridTemplateColumns: isMobile ? "repeat(auto-fill,minmax(150px,1fr))" : "repeat(auto-fill,minmax(210px,1fr))", gap: isMobile?"12px":"16px" }}>
@@ -540,14 +540,14 @@ export default function App() {
                         </div>
                     }
                     {r.video && <div style={{ position:"absolute", top:"6px", right:"6px", background:"#e74c3c", borderRadius:"5px", padding:"2px 6px", fontSize:"10px", color:"#fff", fontWeight:"700" }}>▶</div>}
-                    {isAdmin && !r.published && <div style={{ position:"absolute", top:"6px", left:"6px", background:"#7f8c8d", borderRadius:"5px", padding:"2px 6px", fontSize:"10px", color:"#fff", fontWeight:"700" }}>📝 Borrador</div>}
+                    {isAdmin && !r.published && <div style={{ position:"absolute", top:"6px", left:"6px", background:"#7f8c8d", borderRadius:"5px", padding:"2px 6px", fontSize:"10px", color:"#fff", fontWeight:"700" }}>📝 {t.draft}</div>}
                   </div>
                   <div style={{ padding: isMobile?"10px":"13px" }}>
                     <div style={{ background:"#F7F3EE", borderRadius:"5px", padding:"2px 7px", fontSize:"9px", fontWeight:"700", color:"#D4721A", display:"inline-block", marginBottom:"5px", letterSpacing:"0.5px" }}>
                       {r.category.toUpperCase()}
                     </div>
                     <div style={{ fontWeight:"700", color:"#1B3A5C", fontSize: isMobile?"12px":"13px", lineHeight:"1.3", fontFamily:"Georgia,serif" }}>{r.name}</div>
-                    <div style={{ color:"#aaa", fontSize:"11px", marginTop:"6px" }}>{r.ingredients.length} ingredientes</div>
+                    <div style={{ color:"#aaa", fontSize:"11px", marginTop:"6px" }}>{t.ingredients_count(r.ingredients.length)}</div>
                   </div>
                 </div>
               ))}
