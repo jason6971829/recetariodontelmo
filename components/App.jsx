@@ -155,15 +155,14 @@ export default function App() {
     const total = bannerImages.length + 2;
     let t1, t2;
     if (bannerStripPos === total - 1) {
-      // t1: saltar sin transición (ambos setState en el mismo tick → React los batcha en un solo render)
-      t1 = setTimeout(() => { setBannerCanTransition(false); setBannerStripPos(1); }, 560);
-      // t2: reactivar transición en el siguiente tick
-      t2 = setTimeout(() => setBannerCanTransition(true), 600);
+      // Esperar que termine la transición (500ms) + buffer holgado
+      t1 = setTimeout(() => { setBannerCanTransition(false); setBannerStripPos(1); }, 650);
+      t2 = setTimeout(() => setBannerCanTransition(true), 700);
       return () => { clearTimeout(t1); clearTimeout(t2); };
     }
     if (bannerStripPos === 0) {
-      t1 = setTimeout(() => { setBannerCanTransition(false); setBannerStripPos(bannerImages.length); }, 560);
-      t2 = setTimeout(() => setBannerCanTransition(true), 600);
+      t1 = setTimeout(() => { setBannerCanTransition(false); setBannerStripPos(bannerImages.length); }, 650);
+      t2 = setTimeout(() => setBannerCanTransition(true), 700);
       return () => { clearTimeout(t1); clearTimeout(t2); };
     }
   }, [bannerStripPos, bannerImages.length]);
@@ -1144,8 +1143,11 @@ export default function App() {
                       transform: isActive ? "scale(1)" : "scale(0.88)",
                       opacity: isActive ? 1 : 0.55,
                     }}>
-                      <div style={{ borderRadius:"22px", overflow:"hidden", boxShadow: isActive ? "0 32px 80px rgba(0,0,0,0.8)" : "0 12px 32px rgba(0,0,0,0.5)", height:"72vh", background:"#111" }}>
-                        <img src={url} alt="" style={{ width:"100%", height:"100%", objectFit:"cover", userSelect:"none", pointerEvents:"none", display:"block" }} />
+                      <div style={{ borderRadius:"22px", overflow:"hidden", boxShadow: isActive ? "0 32px 80px rgba(0,0,0,0.8)" : "0 12px 32px rgba(0,0,0,0.5)", height:"78vh", background:"#000", position:"relative" }}>
+                        {/* Fondo difuminado — llena los bordes para imágenes verticales en desktop */}
+                        <img src={url} alt="" aria-hidden="true" style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover", filter:"blur(24px) brightness(0.35)", transform:"scale(1.08)", userSelect:"none", pointerEvents:"none" }} />
+                        {/* Imagen principal completa — sin recorte */}
+                        <img src={url} alt="" style={{ position:"relative", zIndex:1, width:"100%", height:"100%", objectFit:"contain", userSelect:"none", pointerEvents:"none", display:"block" }} />
                       </div>
                     </div>
                   );
