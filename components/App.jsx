@@ -897,33 +897,35 @@ export default function App() {
         };
 
         return (
-          <div style={{ position:"fixed", inset:0, zIndex:10000, background:"rgba(0,0,0,0.95)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
+          <div style={{ position:"fixed", inset:0, zIndex:10000, background:"rgba(0,0,0,0.95)" }}>
             <style>{`
               @keyframes bannerProgress { from { width:0% } to { width:100% } }
             `}</style>
 
             {/* Barra de progreso */}
             {bannerImages.length > 1 && (
-              <div style={{ position:"absolute", top:0, left:0, right:0, height:"3px", background:"rgba(255,255,255,0.08)" }}>
+              <div style={{ position:"absolute", top:0, left:0, right:0, height:"3px", background:"rgba(255,255,255,0.08)", zIndex:3 }}>
                 <div key={`prog-${bannerSlide}`} style={{ height:"100%", background:"#fff", animation:"bannerProgress 8s linear forwards" }} />
               </div>
             )}
 
             {/* Botón cerrar */}
             <button onClick={() => { setShowBanner(false); setBannerSlide(0); setBannerStripPos(1); setBannerCanTransition(true); clearInterval(bannerIntervalRef.current); }}
-              style={{ position:"absolute", top:"18px", right:"18px", background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"50%", width:"44px", height:"44px", color:"#fff", fontSize:"22px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:2 }}>×</button>
+              style={{ position:"absolute", top:"18px", right:"18px", background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"50%", width:"44px", height:"44px", color:"#fff", fontSize:"22px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:4 }}>×</button>
 
-            {/* CARRETE: tira de imágenes */}
-            <div style={{ width:"100vw", overflow:"hidden", position:"relative" }}>
+            {/* CARRETE: track full-screen */}
+            <div style={{ position:"absolute", inset:0, overflow:"hidden" }}>
+              {/* Strip que se desliza */}
               <div style={{
                 display:"flex",
-                width:`${totalExt * 100}vw`,
-                transform:`translateX(-${(stripPos / totalExt) * 100}%)`,
+                height:"100%",
+                transform:`translateX(calc(-${stripPos} * 100vw))`,
                 transition: bannerCanTransition ? "transform 0.55s cubic-bezier(0.25,0.46,0.45,0.94)" : "none",
+                willChange:"transform",
               }}>
                 {extImages.map((url, i) => (
-                  <div key={i} style={{ width:"100vw", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", padding:"0 40px", boxSizing:"border-box" }}>
-                    <img src={url} alt="" style={{ maxWidth:"100%", maxHeight:"80vh", objectFit:"contain", borderRadius:"16px", boxShadow:"0 24px 64px rgba(0,0,0,0.6)", userSelect:"none" }} />
+                  <div key={i} style={{ width:"100vw", flexShrink:0, height:"100%", display:"flex", alignItems:"center", justifyContent:"center", padding:"60px 60px 120px 60px", boxSizing:"border-box" }}>
+                    <img src={url} alt="" style={{ maxWidth:"100%", maxHeight:"100%", objectFit:"contain", borderRadius:"16px", boxShadow:"0 24px 64px rgba(0,0,0,0.6)", userSelect:"none", pointerEvents:"none" }} />
                   </div>
                 ))}
               </div>
@@ -931,25 +933,25 @@ export default function App() {
               {/* Flechas */}
               {bannerImages.length > 1 && (
                 <>
-                  <button onClick={() => navigate(-1)} style={{ position:"absolute", left:"16px", top:"50%", transform:"translateY(-50%)", background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"50%", width:"48px", height:"48px", color:"#fff", fontSize:"26px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:2 }}>‹</button>
-                  <button onClick={() => navigate(1)} style={{ position:"absolute", right:"16px", top:"50%", transform:"translateY(-50%)", background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"50%", width:"48px", height:"48px", color:"#fff", fontSize:"26px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:2 }}>›</button>
+                  <button onClick={() => navigate(-1)} style={{ position:"absolute", left:"16px", top:"50%", transform:"translateY(-50%)", background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"50%", width:"52px", height:"52px", color:"#fff", fontSize:"30px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:2 }}>‹</button>
+                  <button onClick={() => navigate(1)} style={{ position:"absolute", right:"16px", top:"50%", transform:"translateY(-50%)", background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"50%", width:"52px", height:"52px", color:"#fff", fontSize:"30px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:2 }}>›</button>
                 </>
               )}
             </div>
 
-            {/* Dots + contador */}
+            {/* Dots + contador — sobre el track */}
             {bannerImages.length > 1 && (
-              <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:"10px", marginTop:"20px" }}>
+              <div style={{ position:"absolute", bottom:"28px", left:0, right:0, display:"flex", flexDirection:"column", alignItems:"center", gap:"10px", zIndex:3 }}>
                 <div style={{ display:"flex", gap:"8px" }}>
                   {bannerImages.map((_, i) => (
                     <div key={i} onClick={() => goTo(i)} style={{
                       width: i === bannerSlide ? "24px" : "8px", height:"8px",
                       borderRadius:"4px", cursor:"pointer", transition:"all 0.3s",
-                      background: i === bannerSlide ? "#fff" : "rgba(255,255,255,0.3)",
+                      background: i === bannerSlide ? "#fff" : "rgba(255,255,255,0.35)",
                     }} />
                   ))}
                 </div>
-                <div style={{ color:"rgba(255,255,255,0.35)", fontSize:"12px", letterSpacing:"1px" }}>{bannerSlide + 1} / {bannerImages.length}</div>
+                <div style={{ color:"rgba(255,255,255,0.4)", fontSize:"12px", letterSpacing:"1px" }}>{bannerSlide + 1} / {bannerImages.length}</div>
               </div>
             )}
           </div>
