@@ -40,8 +40,8 @@ export function ActivityReport({ onClose }) {
   const uniqueUsers = [...new Set(filtered.map(a => a.user_id))];
   const userStats = {};
   filtered.forEach(a => {
-    const name = a.users?.name || "Desconocido";
-    const sede = a.users?.sede || "Sin sede";
+    const name = a.users?.name || t.report.unknown;
+    const sede = a.users?.sede || t.report.noLocation;
     const key = a.user_id;
     if (!userStats[key]) userStats[key] = { name, sede, role: a.users?.role, views: 0, logins: 0, tts: 0, searches: 0, recipes: new Set() };
     if (a.action === "view_recipe") { userStats[key].views++; userStats[key].recipes.add(a.recipe_name); }
@@ -52,15 +52,7 @@ export function ActivityReport({ onClose }) {
 
   const allUsers = Object.entries(userStats).map(([id, s]) => ({ id, ...s, recipeCount: s.recipes.size })).sort((a, b) => b.views - a.views);
 
-  const actionLabels = {
-    login: "🔑 Inició sesión",
-    view_recipe: "👁️ Vio receta",
-    tts_play: "🔊 Escuchó lectura",
-    search: "🔍 Buscó",
-    edit_recipe: "✏️ Editó receta",
-    create_recipe: "➕ Creó receta",
-    delete_recipe: "🗑️ Eliminó receta",
-  };
+  const actionLabels = t.report.actions;
 
   const formatDate = (d) => {
     const date = new Date(d);
@@ -171,13 +163,13 @@ export function ActivityReport({ onClose }) {
                       <div style={{ fontWeight: "700", fontSize: "14px", color: "#1B3A5C" }}>
                         {u.name}
                         {u.sede && <span style={{ fontSize: "11px", color: "#888", fontWeight: "400", marginLeft: "8px" }}>📍 {u.sede}</span>}
-                        {userFilter === u.id && <span style={{ fontSize: "10px", color: "#1B3A5C", fontWeight: "700", marginLeft: "8px", background: "#D4E8FF", padding: "2px 8px", borderRadius: "10px" }}>✓ Seleccionado</span>}
+                        {userFilter === u.id && <span style={{ fontSize: "10px", color: "#1B3A5C", fontWeight: "700", marginLeft: "8px", background: "#D4E8FF", padding: "2px 8px", borderRadius: "10px" }}>{t.report.selected}</span>}
                       </div>
                       <div style={{ fontSize: "12px", color: "#888", marginTop: "2px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                        <span>👁️ {u.views} vistas</span>
-                        <span>📖 {u.recipeCount} recetas únicas</span>
-                        <span>🔊 {u.tts} lecturas</span>
-                        <span>🔑 {u.logins} sesiones</span>
+                        <span>👁️ {u.views} {t.report.views}</span>
+                        <span>📖 {u.recipeCount} {t.report.uniqueRecipes}</span>
+                        <span>🔊 {u.tts} {t.report.readings}</span>
+                        <span>🔑 {u.logins} {t.report.sessions}</span>
                       </div>
                     </div>
                   </div>

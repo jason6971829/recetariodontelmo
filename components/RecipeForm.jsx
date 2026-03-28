@@ -170,7 +170,7 @@ export function RecipeForm({ initial, categories, onSave, onCancel }) {
             <div>
               <label style={lbl}>{t.form.videoLabel}</label>
               <input style={inp} value={form.video} onChange={e=>set("video",e.target.value)} placeholder={t.form.videoPlaceholder} />
-              <div style={{ fontSize:"11px", color:"#aaa", marginTop:"6px", lineHeight:"1.5" }}>Pega el link de YouTube con el tutorial de preparación</div>
+              <div style={{ fontSize:"11px", color:"#aaa", marginTop:"6px", lineHeight:"1.5" }}>{t.form.videoHint}</div>
             </div>
           </div>
         </div>

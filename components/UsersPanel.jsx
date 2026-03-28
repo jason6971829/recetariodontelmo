@@ -78,7 +78,7 @@ export function UsersPanel({ users, onSave, onClose }) {
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontWeight:"700", fontSize:"14px", color:"#1B3A5C" }}>{u.name}</div>
                       <div style={{ fontSize:"12px", color:"#888", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                        @{u.username} • Clave: {u.password} • <span style={{ color:u.role==="admin"?"#1B3A5C":"#D4721A", fontWeight:"600" }}>{u.role==="admin"?"Admin":"Cocinero"}</span>
+                        @{u.username} • {t.users.passwordShort}: {u.password} • <span style={{ color:u.role==="admin"?"#1B3A5C":"#D4721A", fontWeight:"600" }}>{u.role==="admin"?t.users.roleAdminShort:t.users.roleChefShort}</span>
                         {u.sede && <span> • 📍 {u.sede}</span>}
                       </div>
                     </div>
