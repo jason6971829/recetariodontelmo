@@ -670,8 +670,11 @@ export default function App() {
                     .upload(path, file, { upsert: true, cacheControl: "0" });
                   if (error) throw error;
                   const { data: urlData } = supabase.storage.from("recipe-images").getPublicUrl(path);
-                  const finalUrl = urlData.publicUrl + "?t=" + Date.now();
-                  saveWatermark({ logo: finalUrl });
+                  // Guardar URL sin timestamp para que sea estable entre dispositivos
+                  const stableUrl = urlData.publicUrl;
+                  saveWatermark({ logo: stableUrl });
+                  // Mostrar con timestamp para forzar recarga en este dispositivo
+                  setWatermarkLogo(stableUrl + "?t=" + Date.now());
                 } catch (err) {
                   console.error("Watermark upload error:", err);
                   const reader = new FileReader();
