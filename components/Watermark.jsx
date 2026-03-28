@@ -28,8 +28,9 @@ export function Watermark({ username, customLogo, opacity }) {
 }
 
 // Marca de agua global — un solo logo grande centrado
-export function GlobalWatermark({ username, sede, customLogo, opacity }) {
+export function GlobalWatermark({ username, sede, customLogo, opacity, size }) {
   const logo = customLogo || DEFAULT_LOGO;
+  const sz = size ?? 45;
   return (
     <div style={{
       position:"fixed", inset:0, overflow:"hidden",
@@ -41,7 +42,7 @@ export function GlobalWatermark({ username, sede, customLogo, opacity }) {
         src={logo}
         alt=""
         style={{
-          width:"45vw",
+          width: sz + "vw",
           maxWidth:"800px",
           height:"auto",
           objectFit:"contain",

@@ -40,6 +40,7 @@ export default function App() {
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [watermarkLogo, setWatermarkLogo] = useState(null);
   const [watermarkOpacity, setWatermarkOpacity] = useState(0.07);
+  const [watermarkSize, setWatermarkSize] = useState(45);
   const [showWatermarkUpload, setShowWatermarkUpload] = useState(false);
   const [categoryModal, setCategoryModal] = useState(null); // { mode: "create"|"edit", initial? }
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
@@ -79,6 +80,8 @@ export default function App() {
       if (savedWatermark) setWatermarkLogo(savedWatermark);
       const savedOpacity = localStorage.getItem("dontelmo:watermark_opacity");
       if (savedOpacity) setWatermarkOpacity(parseFloat(savedOpacity));
+      const savedSize = localStorage.getItem("dontelmo:watermark_size");
+      if (savedSize) setWatermarkSize(parseInt(savedSize));
       setLoading(false);
     }
     load();
@@ -300,7 +303,7 @@ export default function App() {
   return (
     <div style={{ height:"100vh", display:"flex", flexDirection:"column", fontFamily:"'Segoe UI',sans-serif", overflow:"hidden", background:"#F4F0EB" }}>
       <ScreenProtection userName={currentUser?.name} />
-      <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} customLogo={watermarkLogo} opacity={watermarkOpacity} />
+      <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} customLogo={watermarkLogo} opacity={watermarkOpacity} size={watermarkSize} />
 
       {/* OFFLINE BANNER */}
       {!online && (
@@ -576,40 +579,60 @@ export default function App() {
 
       {/* Modal para cambiar marca de agua */}
       {showWatermarkUpload && isAdmin && (
-        <div style={{ position:"fixed", inset:0, zIndex:500, background:"rgba(10,15,25,0.88)", backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-          <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"420px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
+        <div style={{ position:"fixed", inset:0, zIndex:500, background:"#0d2340", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+          <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"440px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
             <div style={{ fontSize:"28px", marginBottom:"4px", textAlign:"center" }}>🖼️</div>
             <div style={{ color:"#1B3A5C", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", marginBottom:"16px", textAlign:"center" }}>
               Marca de Agua
             </div>
 
-            {/* Preview actual */}
-            <div style={{ background:"#f5f0eb", borderRadius:"12px", padding:"20px", marginBottom:"16px", textAlign:"center" }}>
+            {/* Preview actual — fondo sólido, sin transparencia */}
+            <div style={{ background:"#e8e0d8", borderRadius:"12px", padding:"20px", marginBottom:"16px", textAlign:"center" }}>
               <img
                 src={watermarkLogo || "https://nhqdsdmqmyoxuyzsdacj.supabase.co/storage/v1/object/public/recipe-images/watermark/logo-watermark.png"}
                 alt="Marca de agua actual"
-                style={{ width:"60%", maxWidth:"200px", opacity: watermarkOpacity }}
+                style={{ width: watermarkSize + "%", maxWidth:"200px", opacity: watermarkOpacity }}
               />
               <div style={{ color:"#888", fontSize:"12px", marginTop:"8px" }}>Vista previa</div>
             </div>
 
-            {/* Slider de opacidad */}
-            <div style={{ marginBottom:"16px" }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
-                <span style={{ fontSize:"13px", color:"#555", fontWeight:"600" }}>Transparencia</span>
+            {/* Slider de visibilidad */}
+            <div style={{ background:"#f8f8f8", borderRadius:"10px", padding:"12px 14px", marginBottom:"10px" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
+                <span style={{ fontSize:"13px", color:"#333", fontWeight:"600" }}>Visibilidad</span>
                 <span style={{ fontSize:"13px", color:"#1B3A5C", fontWeight:"700" }}>{Math.round(watermarkOpacity * 100)}%</span>
               </div>
               <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-                <span style={{ fontSize:"11px", color:"#aaa" }}>Menos</span>
+                <span style={{ fontSize:"11px", color:"#999", width:"40px" }}>Tenue</span>
                 <input type="range" min="1" max="40" value={Math.round(watermarkOpacity * 100)}
                   onChange={e => {
                     const val = parseInt(e.target.value) / 100;
                     setWatermarkOpacity(val);
                     localStorage.setItem("dontelmo:watermark_opacity", val);
                   }}
-                  style={{ flex:1, accentColor:"#1B3A5C", cursor:"pointer" }}
+                  style={{ flex:1, accentColor:"#1B3A5C", cursor:"pointer", height:"6px" }}
                 />
-                <span style={{ fontSize:"11px", color:"#aaa" }}>Más</span>
+                <span style={{ fontSize:"11px", color:"#999", width:"40px", textAlign:"right" }}>Visible</span>
+              </div>
+            </div>
+
+            {/* Slider de tamaño */}
+            <div style={{ background:"#f8f8f8", borderRadius:"10px", padding:"12px 14px", marginBottom:"16px" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
+                <span style={{ fontSize:"13px", color:"#333", fontWeight:"600" }}>Tamaño</span>
+                <span style={{ fontSize:"13px", color:"#1B3A5C", fontWeight:"700" }}>{watermarkSize}%</span>
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+                <span style={{ fontSize:"11px", color:"#999", width:"40px" }}>Pequeño</span>
+                <input type="range" min="10" max="90" value={watermarkSize}
+                  onChange={e => {
+                    const val = parseInt(e.target.value);
+                    setWatermarkSize(val);
+                    localStorage.setItem("dontelmo:watermark_size", val);
+                  }}
+                  style={{ flex:1, accentColor:"#1B3A5C", cursor:"pointer", height:"6px" }}
+                />
+                <span style={{ fontSize:"11px", color:"#999", width:"40px", textAlign:"right" }}>Grande</span>
               </div>
             </div>
 
