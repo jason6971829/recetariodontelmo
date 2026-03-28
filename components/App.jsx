@@ -168,21 +168,22 @@ export default function App() {
     }
   }, [bannerStripPos, bannerImages.length]);
 
-  // Control directo del DOM para la animación del carrete
-  // useLayoutEffect: corre antes del paint → sin flash visual en posición inicial
+  // Control directo del DOM — carrete estilo iOS (peek de slides adyacentes)
   useLayoutEffect(() => {
     const el = bannerStripRef.current;
     if (!el) return;
-    const px = bannerStripPos * window.innerWidth;
+    const vw = window.innerWidth;
+    const slideW = Math.round(vw * 0.78);          // cada slide ocupa 78% del ancho
+    const offsetX = Math.round((vw - slideW) / 2); // margen para centrar el slide activo
+    const px = offsetX - bannerStripPos * slideW;  // translateX que centra el slide activo
     if (!bannerCanTransition) {
       el.style.transition = "none";
-      el.style.transform = `translateX(-${px}px)`;
-      void el.offsetWidth; // forzar reflow
+      el.style.transform = `translateX(${px}px)`;
+      void el.offsetWidth;
     } else {
-      el.style.transition = "transform 0.55s cubic-bezier(0.25,0.46,0.45,0.94)";
-      el.style.transform = `translateX(-${px}px)`;
+      el.style.transition = "transform 0.5s cubic-bezier(0.25,0.46,0.45,0.94)";
+      el.style.transform = `translateX(${px}px)`;
     }
-  // showBanner en deps: cuando el banner aparece el ref se adjunta y este effect posiciona el strip
   }, [bannerStripPos, bannerCanTransition, showBanner]);
 
   // Inyectar variables CSS del tema
@@ -1109,62 +1110,70 @@ export default function App() {
         };
 
         return (
-          <div style={{ position:"fixed", inset:0, zIndex:10000, background:"rgba(0,0,0,0.95)" }}>
+          <div style={{ position:"fixed", inset:0, zIndex:10000, background:"rgba(0,0,0,0.92)" }}>
             <style>{`
               @keyframes bannerProgress { from { width:0% } to { width:100% } }
             `}</style>
 
             {/* Barra de progreso */}
             {bannerImages.length > 1 && (
-              <div style={{ position:"absolute", top:0, left:0, right:0, height:"3px", background:"rgba(255,255,255,0.08)", zIndex:3 }}>
-                <div key={`prog-${bannerSlide}`} style={{ height:"100%", background:"#fff", animation:"bannerProgress 8s linear forwards" }} />
+              <div style={{ position:"absolute", top:0, left:0, right:0, height:"3px", background:"rgba(255,255,255,0.1)", zIndex:3 }}>
+                <div key={`prog-${bannerSlide}`} style={{ height:"100%", background:"rgba(255,255,255,0.9)", animation:"bannerProgress 8s linear forwards" }} />
               </div>
             )}
 
             {/* Botón cerrar */}
             <button onClick={() => { setShowBanner(false); setBannerSlide(0); setBannerStripPos(1); setBannerCanTransition(true); clearInterval(bannerIntervalRef.current); }}
-              style={{ position:"absolute", top:"18px", right:"18px", background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"50%", width:"44px", height:"44px", color:"#fff", fontSize:"22px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:4 }}>×</button>
+              style={{ position:"absolute", top:"18px", right:"18px", background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"50%", width:"40px", height:"40px", color:"#fff", fontSize:"20px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:4, backdropFilter:"blur(8px)" }}>×</button>
 
-            {/* CARRETE: track full-screen */}
-            <div style={{ position:"absolute", inset:0, overflow:"hidden" }}>
-              {/* Strip que se desliza — transform controlado por useEffect+ref */}
+            {/* CARRETE estilo iOS — overflow visible para que se vean los slides adyacentes */}
+            <div style={{ position:"absolute", inset:0, overflow:"visible", display:"flex", alignItems:"center" }}>
               <div
                 ref={bannerStripRef}
-                style={{
-                  display:"flex",
-                  height:"100%",
-                  willChange:"transform",
-                }}
+                style={{ display:"flex", alignItems:"center", willChange:"transform" }}
               >
-                {extImages.map((url, i) => (
-                  <div key={i} style={{ width:"100vw", flexShrink:0, height:"100%", display:"flex", alignItems:"center", justifyContent:"center", padding:"60px 60px 120px 60px", boxSizing:"border-box" }}>
-                    <img src={url} alt="" style={{ maxWidth:"100%", maxHeight:"100%", objectFit:"contain", borderRadius:"16px", boxShadow:"0 24px 64px rgba(0,0,0,0.6)", userSelect:"none", pointerEvents:"none" }} />
-                  </div>
-                ))}
+                {extImages.map((url, i) => {
+                  const isActive = i === stripPos;
+                  return (
+                    <div key={i} style={{
+                      width:`${Math.round(typeof window!=="undefined" ? window.innerWidth * 0.78 : 300)}px`,
+                      flexShrink:0,
+                      padding:"0 8px",
+                      boxSizing:"border-box",
+                      transition: bannerCanTransition ? "transform 0.5s ease, opacity 0.5s ease" : "none",
+                      transform: isActive ? "scale(1)" : "scale(0.88)",
+                      opacity: isActive ? 1 : 0.55,
+                    }}>
+                      <div style={{ borderRadius:"22px", overflow:"hidden", boxShadow: isActive ? "0 32px 80px rgba(0,0,0,0.8)" : "0 12px 32px rgba(0,0,0,0.5)", height:"72vh", background:"#111" }}>
+                        <img src={url} alt="" style={{ width:"100%", height:"100%", objectFit:"cover", userSelect:"none", pointerEvents:"none", display:"block" }} />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-
-              {/* Flechas */}
-              {bannerImages.length > 1 && (
-                <>
-                  <button onClick={() => navigate(-1)} style={{ position:"absolute", left:"16px", top:"50%", transform:"translateY(-50%)", background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"50%", width:"52px", height:"52px", color:"#fff", fontSize:"30px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:2 }}>‹</button>
-                  <button onClick={() => navigate(1)} style={{ position:"absolute", right:"16px", top:"50%", transform:"translateY(-50%)", background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"50%", width:"52px", height:"52px", color:"#fff", fontSize:"30px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:2 }}>›</button>
-                </>
-              )}
             </div>
 
-            {/* Dots + contador — sobre el track */}
+            {/* Flechas */}
             {bannerImages.length > 1 && (
-              <div style={{ position:"absolute", bottom:"28px", left:0, right:0, display:"flex", flexDirection:"column", alignItems:"center", gap:"10px", zIndex:3 }}>
-                <div style={{ display:"flex", gap:"8px" }}>
+              <>
+                <button onClick={() => navigate(-1)} style={{ position:"absolute", left:"8px", top:"50%", transform:"translateY(-50%)", background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"50%", width:"44px", height:"44px", color:"#fff", fontSize:"26px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:5, backdropFilter:"blur(8px)" }}>‹</button>
+                <button onClick={() => navigate(1)} style={{ position:"absolute", right:"8px", top:"50%", transform:"translateY(-50%)", background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"50%", width:"44px", height:"44px", color:"#fff", fontSize:"26px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:5, backdropFilter:"blur(8px)" }}>›</button>
+              </>
+            )}
+
+            {/* Dots + contador */}
+            {bannerImages.length > 1 && (
+              <div style={{ position:"absolute", bottom:"32px", left:0, right:0, display:"flex", flexDirection:"column", alignItems:"center", gap:"10px", zIndex:3 }}>
+                <div style={{ display:"flex", gap:"6px" }}>
                   {bannerImages.map((_, i) => (
                     <div key={i} onClick={() => goTo(i)} style={{
-                      width: i === bannerSlide ? "24px" : "8px", height:"8px",
-                      borderRadius:"4px", cursor:"pointer", transition:"all 0.3s",
-                      background: i === bannerSlide ? "#fff" : "rgba(255,255,255,0.35)",
+                      width: i === bannerSlide ? "22px" : "7px", height:"7px",
+                      borderRadius:"4px", cursor:"pointer", transition:"all 0.35s ease",
+                      background: i === bannerSlide ? "#fff" : "rgba(255,255,255,0.3)",
                     }} />
                   ))}
                 </div>
-                <div style={{ color:"rgba(255,255,255,0.4)", fontSize:"12px", letterSpacing:"1px" }}>{bannerSlide + 1} / {bannerImages.length}</div>
+                <div style={{ color:"rgba(255,255,255,0.35)", fontSize:"11px", letterSpacing:"2px" }}>{bannerSlide + 1} / {bannerImages.length}</div>
               </div>
             )}
           </div>
