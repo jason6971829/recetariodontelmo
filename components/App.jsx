@@ -811,21 +811,23 @@ export default function App() {
                 <input type="file" accept="image/*" style={{ display:"none" }} onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
+                  // Mostrar preview local inmediatamente
+                  const reader = new FileReader();
+                  reader.onload = ev => setBrandDraft(d => ({...d, icon: ev.target.result}));
+                  reader.readAsDataURL(file);
+                  // Subir a Supabase en segundo plano
                   try {
                     const { supabase } = await import("@/lib/supabase");
                     const ext = file.name.split(".").pop()?.toLowerCase() || "png";
                     const path = `brand/brand-icon.${ext}`;
                     await supabase.storage.from("recipe-images").remove([path]);
                     const { error } = await supabase.storage.from("recipe-images").upload(path, file, { upsert:true, cacheControl:"0" });
-                    if (error) throw error;
-                    const { data: urlData } = supabase.storage.from("recipe-images").getPublicUrl(path);
-                    const url = urlData.publicUrl + "?t=" + Date.now();
-                    setBrandDraft(d => ({...d, icon: url}));
-                  } catch {
-                    const reader = new FileReader();
-                    reader.onload = () => setBrandDraft(d => ({...d, icon: reader.result}));
-                    reader.readAsDataURL(file);
-                  }
+                    if (!error) {
+                      const { data: urlData } = supabase.storage.from("recipe-images").getPublicUrl(path);
+                      const url = urlData.publicUrl + "?t=" + Date.now();
+                      setBrandDraft(d => ({...d, icon: url}));
+                    }
+                  } catch { /* mantiene el preview local base64 */ }
                 }} />
               </label>
               {brandDraft.icon && (
