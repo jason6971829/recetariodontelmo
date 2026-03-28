@@ -338,7 +338,7 @@ export default function App() {
             <div style={{ position:"relative" }}>
               <button onClick={()=>setShowSettingsMenu(v=>!v)} title="Configuración" style={{ background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"16px" }}>⚙️</button>
               {showSettingsMenu && (
-                <div style={{
+                <div onClick={e=>e.stopPropagation()} onMouseDown={e=>e.stopPropagation()} style={{
                   position:"absolute", top:"42px", right:0, background:"#1B3A5C", borderRadius:"12px",
                   boxShadow:"0 8px 32px rgba(0,0,0,0.4)", padding:"8px", zIndex:9999, minWidth:"200px",
                   border:"1px solid rgba(255,255,255,0.15)",
@@ -356,7 +356,7 @@ export default function App() {
                     👥 Gestión de Usuarios
                   </button>
                   <div style={{ height:"1px", background:"rgba(255,255,255,0.15)", margin:"4px 0" }} />
-                  <button onMouseDown={(e)=>{e.stopPropagation();e.preventDefault();setShowWatermarkUpload(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
+                  <button onClick={()=>{setShowWatermarkUpload(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
                     onMouseEnter={e=>e.target.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.target.style.background="none"}>
                     🖼️ Marca de Agua
                   </button>
