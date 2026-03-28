@@ -39,6 +39,7 @@ export default function App() {
   const [showProgress, setShowProgress] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [watermarkLogo, setWatermarkLogo] = useState(null);
+  const [watermarkOpacity, setWatermarkOpacity] = useState(0.07);
   const [showWatermarkUpload, setShowWatermarkUpload] = useState(false);
   const [categoryModal, setCategoryModal] = useState(null); // { mode: "create"|"edit", initial? }
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
@@ -76,6 +77,8 @@ export default function App() {
       // Cargar watermark personalizado
       const savedWatermark = localStorage.getItem("dontelmo:watermark_url");
       if (savedWatermark) setWatermarkLogo(savedWatermark);
+      const savedOpacity = localStorage.getItem("dontelmo:watermark_opacity");
+      if (savedOpacity) setWatermarkOpacity(parseFloat(savedOpacity));
       setLoading(false);
     }
     load();
@@ -297,7 +300,7 @@ export default function App() {
   return (
     <div style={{ height:"100vh", display:"flex", flexDirection:"column", fontFamily:"'Segoe UI',sans-serif", overflow:"hidden", background:"#F4F0EB" }}>
       <ScreenProtection userName={currentUser?.name} />
-      <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} customLogo={watermarkLogo} />
+      <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} customLogo={watermarkLogo} opacity={watermarkOpacity} />
 
       {/* OFFLINE BANNER */}
       {!online && (
@@ -585,9 +588,29 @@ export default function App() {
               <img
                 src={watermarkLogo || "https://nhqdsdmqmyoxuyzsdacj.supabase.co/storage/v1/object/public/recipe-images/watermark/logo-watermark.png"}
                 alt="Marca de agua actual"
-                style={{ width:"60%", maxWidth:"200px", opacity:0.3 }}
+                style={{ width:"60%", maxWidth:"200px", opacity: watermarkOpacity }}
               />
               <div style={{ color:"#888", fontSize:"12px", marginTop:"8px" }}>Vista previa</div>
+            </div>
+
+            {/* Slider de opacidad */}
+            <div style={{ marginBottom:"16px" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
+                <span style={{ fontSize:"13px", color:"#555", fontWeight:"600" }}>Transparencia</span>
+                <span style={{ fontSize:"13px", color:"#1B3A5C", fontWeight:"700" }}>{Math.round(watermarkOpacity * 100)}%</span>
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+                <span style={{ fontSize:"11px", color:"#aaa" }}>Menos</span>
+                <input type="range" min="1" max="40" value={Math.round(watermarkOpacity * 100)}
+                  onChange={e => {
+                    const val = parseInt(e.target.value) / 100;
+                    setWatermarkOpacity(val);
+                    localStorage.setItem("dontelmo:watermark_opacity", val);
+                  }}
+                  style={{ flex:1, accentColor:"#1B3A5C", cursor:"pointer" }}
+                />
+                <span style={{ fontSize:"11px", color:"#aaa" }}>Más</span>
+              </div>
             </div>
 
             {/* Subir nueva imagen */}
