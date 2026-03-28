@@ -43,6 +43,19 @@ export default function App() {
   const [categoryModal, setCategoryModal] = useState(null); // { mode: "create"|"edit", initial? }
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
   const searchTimeoutRef = useRef(null);
+  const settingsMenuRef = useRef(null);
+
+  // Cerrar menú settings al hacer clic fuera
+  useEffect(() => {
+    if (!showSettingsMenu) return;
+    const handler = (e) => {
+      if (settingsMenuRef.current && !settingsMenuRef.current.contains(e.target)) {
+        setShowSettingsMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showSettingsMenu]);
 
   // En móvil: cerrar sidebar por defecto
   useEffect(() => { setSidebarOpen(!isMobile); }, [isMobile]);
@@ -335,10 +348,10 @@ export default function App() {
         <div style={{ display:"flex", gap:"8px", alignItems:"center", flexShrink:0 }}>
           {isAdmin && <>
             <button onClick={handleCreate} style={{ background:"#D4721A", border:"none", borderRadius:"8px", color:"#fff", padding:"7px 12px", cursor:"pointer", fontWeight:"700", fontSize:"13px", whiteSpace:"nowrap" }}>+ Nueva</button>
-            <div style={{ position:"relative" }}>
+            <div style={{ position:"relative" }} ref={settingsMenuRef}>
               <button onClick={()=>setShowSettingsMenu(v=>!v)} title="Configuración" style={{ background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"16px" }}>⚙️</button>
               {showSettingsMenu && (
-                <div onClick={e=>e.stopPropagation()} onMouseDown={e=>e.stopPropagation()} style={{
+                <div style={{
                   position:"absolute", top:"42px", right:0, background:"#1B3A5C", borderRadius:"12px",
                   boxShadow:"0 8px 32px rgba(0,0,0,0.4)", padding:"8px", zIndex:9999, minWidth:"200px",
                   border:"1px solid rgba(255,255,255,0.15)",
@@ -370,8 +383,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* Cerrar menú settings al hacer clic fuera */}
-      {showSettingsMenu && <div style={{ position:"fixed", inset:0, zIndex:9998 }} onClick={()=>setShowSettingsMenu(false)} />}
 
       {/* BODY */}
       <div style={{ flex:1, display:"flex", overflow:"hidden", position:"relative" }}>
