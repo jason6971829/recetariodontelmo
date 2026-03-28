@@ -1,6 +1,5 @@
 "use client";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { Watermark } from "@/components/Watermark";
 import { TextToSpeech } from "@/components/TextToSpeech";
 
 export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onTogglePublish, currentUser }) {
@@ -33,8 +32,6 @@ export function RecipeDetail({ recipe, onClose, onEdit, onDelete, onTogglePublis
           boxShadow:"0 30px 80px rgba(0,0,0,0.5)", position:"relative"
         }}
       >
-        <Watermark username={currentUser.name} />
-
         {/* Header */}
         <div style={{ background:"linear-gradient(135deg,#1B3A5C,#0d2340)", padding:"18px 22px 14px", flexShrink:0, position:"relative", zIndex:10 }}>
           <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:"12px" }}>
