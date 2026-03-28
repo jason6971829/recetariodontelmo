@@ -412,9 +412,9 @@ export default function App() {
             </button>
 
             {/* Link recuperar contraseña */}
-            <div style={{ textAlign:"right", marginTop:"-10px", marginBottom:"16px" }}>
+            <div style={{ textAlign:"center", marginTop:"12px" }}>
               <button onClick={() => { setShowRecover(true); setRecoverEmail(""); setRecoverState("idle"); }}
-                style={{ background:"none", border:"none", color:"var(--app-primary)", fontSize:"13px", cursor:"pointer", textDecoration:"underline", padding:0 }}>
+                style={{ background:"none", border:"none", color:"#aaa", fontSize:"12px", cursor:"pointer", textDecoration:"none", padding:0, letterSpacing:"0.3px" }}>
                 {t.login.forgotPassword}
               </button>
             </div>
