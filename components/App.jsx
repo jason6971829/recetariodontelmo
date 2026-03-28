@@ -607,7 +607,8 @@ export default function App() {
       {/* Modal de idioma */}
       {showLangModal && (
         <div style={{ position:"fixed", inset:0, zIndex:600, background:"rgba(10,15,25,0.92)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-          <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"360px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
+          <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"360px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)", position:"relative" }}>
+            <button onClick={() => setShowLangModal(false)} style={{ position:"absolute", top:"14px", right:"14px", background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"8px", width:"32px", height:"32px", cursor:"pointer", fontSize:"18px", color:"#555", lineHeight:"1" }}>×</button>
             <div style={{ fontSize:"32px", textAlign:"center", marginBottom:"6px" }}>🌐</div>
             <div style={{ color:"#1B3A5C", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", textAlign:"center", marginBottom:"6px" }}>
               {t.language.title}
