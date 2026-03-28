@@ -2,7 +2,7 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useWebAuthn } from "@/hooks/useWebAuthn";
-import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb, getUsers, saveUsers as saveUsersDb, uploadImage, deleteImage, logActivity, getCategories, upsertCategory, deleteCategory as deleteCategoryDb, saveWatermarkConfig, loadWatermarkConfig, saveBannerConfig, loadBannerConfig, saveProfileConfig, loadProfileConfig } from "@/lib/storage";
+import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb, getUsers, saveUsers as saveUsersDb, uploadImage, deleteImage, logActivity, getCategories, upsertCategory, deleteCategory as deleteCategoryDb, saveWatermarkConfig, loadWatermarkConfig, saveBannerConfig, loadBannerConfig, saveProfileConfig, loadProfileConfig, saveAppConfig, loadAppConfig } from "@/lib/storage";
 import { sha256, DEFAULT_PROFILE_HASH, isLockedOut, getLockoutSecondsLeft, registerFailedAttempt, resetLoginAttempts, getLoginAttempts, touchActivity, isSessionExpired, INACTIVITY_MS } from "@/lib/security";
 import { CATEGORIES, INITIAL_USERS } from "@/lib/constants";
 import { RecipeDetail } from "@/components/RecipeDetail";
@@ -258,6 +258,30 @@ export default function App() {
         setProfileData(profCfg);
         setProfileDraft(profCfg);
         if (profCfg.profileHash) setProfileHash(profCfg.profileHash);
+      }
+      // Cargar tema + marca desde Supabase (sincronizado entre dispositivos)
+      const appCfg = await loadAppConfig();
+      if (appCfg) {
+        if (appCfg.themeId) setTheme(appCfg.themeId);
+        if (appCfg.brand) {
+          const b = appCfg.brand;
+          if (b.label  != null) { setBrandLabel(b.label);           localStorage.setItem("dontelmo:brandLabel",      b.label); }
+          if (b.name   != null) { setBrandName(b.name);             localStorage.setItem("dontelmo:brandName",       b.name); }
+          if (b.tagline!= null) { setCompanyTagline(b.tagline);     localStorage.setItem("dontelmo:tagline",         b.tagline); }
+          if (b.icon)           { setBrandIcon(b.icon);             localStorage.setItem("dontelmo:brandIcon",       b.icon); }
+          if (b.labelColor)     { setBrandLabelColor(b.labelColor); localStorage.setItem("dontelmo:brandLabelColor", b.labelColor); }
+          if (b.nameColor)      { setBrandNameColor(b.nameColor);   localStorage.setItem("dontelmo:brandNameColor",  b.nameColor); }
+          if (b.taglineColor)   { setBrandTaglineColor(b.taglineColor); localStorage.setItem("dontelmo:brandTaglineColor", b.taglineColor); }
+          setBrandDraft({
+            label:      b.label      ?? "RECETARIO DIGITAL",
+            name:       b.name       ?? "Don Telmo®",
+            tagline:    b.tagline    ?? "1958 — Company",
+            icon:       b.icon       || null,
+            labelColor: b.labelColor || "#D4721A",
+            nameColor:  b.nameColor  || "#1B3A5C",
+            taglineColor: b.taglineColor || "#888888",
+          });
+        }
       }
       setLoading(false);
     }
@@ -1305,6 +1329,8 @@ export default function App() {
                 localStorage.setItem("dontelmo:brandTaglineColor", brandDraft.taglineColor);
                 if (brandDraft.icon) localStorage.setItem("dontelmo:brandIcon", brandDraft.icon);
                 else localStorage.removeItem("dontelmo:brandIcon");
+                // Sincronizar con Supabase para que todos los dispositivos lo vean
+                saveAppConfig({ themeId, brand: brandDraft });
                 setShowBrandModal(false);
               }} style={{ flex:1, background:"var(--app-primary)", border:"none", borderRadius:"10px", padding:"12px", cursor:"pointer", fontWeight:"700", color:"#fff", fontSize:"14px" }}>
                 {t.brand.save}
@@ -1507,7 +1533,11 @@ export default function App() {
             {/* Grid de temas */}
             <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"16px", padding:"0 24px", marginBottom:"24px" }}>
               {THEMES.map(theme => (
-                <div key={theme.id} onClick={() => setTheme(theme.id)} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:"8px", cursor:"pointer" }}>
+                <div key={theme.id} onClick={() => {
+                  setTheme(theme.id);
+                  // Sincronizar con Supabase para que todos los dispositivos vean el mismo tema
+                  saveAppConfig({ themeId: theme.id, brand: { label: brandLabel, name: brandName, tagline: companyTagline, icon: brandIcon, labelColor: brandLabelColor, nameColor: brandNameColor, taglineColor: brandTaglineColor } });
+                }} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:"8px", cursor:"pointer" }}>
                   <div style={{
                     width:"64px", height:"64px", borderRadius:"20px",
                     background:`linear-gradient(135deg, ${theme.primary}, ${theme.dark})`,
