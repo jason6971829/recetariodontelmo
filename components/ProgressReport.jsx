@@ -3,6 +3,12 @@ import { useState, useMemo } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useLang } from "@/lib/LangContext";
 
+const fmtBytes = (b) => {
+  if (!b || b < 1024) return `${b || 0} B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+  return `${(b / (1024 * 1024)).toFixed(2)} MB`;
+};
+
 export function ProgressReport({ recipes, onClose }) {
   const isMobile = useIsMobile();
   const { t } = useLang();
@@ -49,7 +55,22 @@ export function ProgressReport({ recipes, onClose }) {
     const sinDescripcion = recipes.filter(r => !fields.description.check(r)).map(r => ({ id: r.id, name: r.name, category: r.category }));
     const sinSalesPitch = recipes.filter(r => !fields.salesPitch.check(r)).map(r => ({ id: r.id, name: r.name, category: r.category }));
 
-    return { total, counts, completas, cats, sinImagen, sinDescripcion, sinSalesPitch };
+    // ── Peso de datos (texto) ─────────────────────────────────────
+    const str = (v) => (v || "").toString();
+    const blobSize = (s) => { try { return new Blob([s]).size; } catch { return s.length; } };
+    const weightFields = [
+      { key: "description",     icon: "📝", label: "Descripciones",      bytes: blobSize(recipes.map(r => str(r.description)).join("")) },
+      { key: "preparation",     icon: "🍳", label: "Preparación",        bytes: blobSize(recipes.map(r => str(r.preparation)).join("")) },
+      { key: "ingredients",     icon: "🥕", label: "Ingredientes",       bytes: blobSize(JSON.stringify(recipes.map(r => r.ingredients || []))) },
+      { key: "recommendations", icon: "💡", label: "Recomendaciones",    bytes: blobSize(recipes.map(r => str(r.recommendations)).join("")) },
+      { key: "salesPitch",      icon: "🎯", label: "Aprende a Vender",   bytes: blobSize(recipes.map(r => str(r.salesPitch)).join("")) },
+      { key: "image",           icon: "📷", label: "Imágenes",           bytes: blobSize(recipes.map(r => str(r.image)).join("")), isMedia: true, count: recipes.filter(r => fields.image.check(r)).length },
+      { key: "video",           icon: "🎥", label: "Videos",             bytes: blobSize(recipes.map(r => str(r.video)).join("")),  isMedia: true, count: recipes.filter(r => fields.video.check(r)).length },
+    ];
+    const totalTextBytes = weightFields.reduce((acc, f) => acc + f.bytes, 0);
+    const maxFieldBytes = Math.max(...weightFields.map(f => f.bytes));
+
+    return { total, counts, completas, cats, sinImagen, sinDescripcion, sinSalesPitch, weightFields, totalTextBytes, maxFieldBytes };
   }, [recipes, t]);
 
   const pctCompletas = Math.round((stats.completas / stats.total) * 100);
@@ -118,7 +139,7 @@ export function ProgressReport({ recipes, onClose }) {
           {/* Vista General */}
           {viewMode === "general" && (
             <div>
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "12px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "12px", marginBottom: "20px" }}>
                 {Object.entries(stats.counts).map(([key, s]) => (
                   <div key={key} style={{ background: "#F7F3EE", borderRadius: "12px", padding: "16px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
@@ -131,6 +152,68 @@ export function ProgressReport({ recipes, onClose }) {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* ── Peso del recetario ── */}
+              <div style={{ background: "linear-gradient(135deg,#0d1f0d,#1a3a1a)", borderRadius: "14px", padding: "18px" }}>
+                {/* Encabezado */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ fontSize: "20px" }}>⚖️</span>
+                    <div>
+                      <div style={{ color: "#7fff7f", fontSize: "11px", fontWeight: "700", letterSpacing: "2px" }}>PESO DEL RECETARIO</div>
+                      <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "10px" }}>Solo contenido de texto · Imágenes y videos en Supabase Storage</div>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ color: "#fff", fontSize: "22px", fontWeight: "700", fontFamily: "Georgia,serif" }}>
+                      {fmtBytes(stats.totalTextBytes)}
+                    </div>
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "10px" }}>total texto</div>
+                  </div>
+                </div>
+
+                {/* Barras por campo */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {stats.weightFields.map(f => {
+                    const pct = stats.maxFieldBytes > 0 ? Math.round((f.bytes / stats.maxFieldBytes) * 100) : 0;
+                    const barColor = f.isMedia ? "#5b8dd9" : "#D4721A";
+                    return (
+                      <div key={f.key}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "3px" }}>
+                          <span style={{ color: "rgba(255,255,255,0.8)", fontSize: "12px" }}>{f.icon} {f.label}</span>
+                          <div style={{ textAlign: "right" }}>
+                            <span style={{ color: "#fff", fontSize: "12px", fontWeight: "700" }}>{fmtBytes(f.bytes)}</span>
+                            {f.isMedia && <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "10px", marginLeft: "6px" }}>· {f.count} archivos en nube</span>}
+                          </div>
+                        </div>
+                        <div style={{ width: "100%", height: "5px", background: "rgba(255,255,255,0.1)", borderRadius: "3px", overflow: "hidden" }}>
+                          <div style={{ width: pct + "%", height: "100%", background: barColor, borderRadius: "3px", transition: "width 0.6s ease" }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Nota pie */}
+                <div style={{ marginTop: "14px", paddingTop: "12px", borderTop: "1px solid rgba(255,255,255,0.1)", display: "flex", gap: "20px", flexWrap: "wrap" }}>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ color: "#fff", fontWeight: "700", fontSize: "16px" }}>{stats.total}</div>
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "10px" }}>recetas</div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ color: "#fff", fontWeight: "700", fontSize: "16px" }}>{fmtBytes(Math.round(stats.totalTextBytes / stats.total))}</div>
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "10px" }}>promedio / receta</div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ color: "#5b8dd9", fontWeight: "700", fontSize: "16px" }}>{stats.weightFields.find(f=>f.key==="image")?.count || 0}</div>
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "10px" }}>imgs en nube</div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ color: "#5b8dd9", fontWeight: "700", fontSize: "16px" }}>{stats.weightFields.find(f=>f.key==="video")?.count || 0}</div>
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "10px" }}>videos en nube</div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
