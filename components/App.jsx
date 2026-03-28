@@ -13,10 +13,13 @@ import { CategoryModal } from "@/components/CategoryModal";
 import { ScreenProtection } from "@/components/ScreenProtection";
 import { GlobalWatermark } from "@/components/Watermark";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { useLang, LangProvider } from "@/lib/LangContext";
+import { LANGUAGES } from "@/lib/i18n";
 
 export default function App() {
   const isMobile = useIsMobile();
   const { online, syncing, pendingCount } = useOnlineStatus();
+  const { lang, setLang, t } = useLang();
   const { isSupported: biometricSupported, hasCredential: hasBiometric, register: registerBiometric, authenticate: authBiometric, clearCredential } = useWebAuthn();
   const [screen, setScreen] = useState("login");
   const [currentUser, setCurrentUser] = useState(null);
@@ -42,6 +45,7 @@ export default function App() {
   const [watermarkOpacity, setWatermarkOpacity] = useState(0.07);
   const [watermarkSize, setWatermarkSize] = useState(45);
   const [showWatermarkUpload, setShowWatermarkUpload] = useState(false);
+  const [showLangModal, setShowLangModal] = useState(false);
   const [categoryModal, setCategoryModal] = useState(null); // { mode: "create"|"edit", initial? }
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
   const searchTimeoutRef = useRef(null);
@@ -245,7 +249,7 @@ export default function App() {
   // Categorías: de Supabase si hay, sino del archivo constants
   const allCategories = useMemo(() => {
     const base = dbCategories.length > 0
-      ? [{ id: "all", label: "Todas las Recetas", icon: "🍽️" }, ...dbCategories]
+      ? [{ id: "all", label: t.allRecipes, icon: "🍽️" }, ...dbCategories]
       : CATEGORIES;
     // Agregar categorías que existan en recetas pero no en la lista
     const baseIds = base.map(c => c.id);
@@ -322,7 +326,7 @@ export default function App() {
   return (
     <div style={{ height:"100vh", display:"flex", flexDirection:"column", fontFamily:"'Segoe UI',sans-serif", overflow:"hidden", background:"#F4F0EB" }}>
       <ScreenProtection userName={currentUser?.name} />
-      {!selectedRecipe && !showForm && !showUsers && !showReport && !showProgress && !showWatermarkUpload && !categoryModal && !confirmModal && !showBiometricPrompt && <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} customLogo={watermarkLogo} opacity={watermarkOpacity} size={watermarkSize} />}
+      {!selectedRecipe && !showForm && !showUsers && !showReport && !showProgress && !showWatermarkUpload && !showLangModal && !categoryModal && !confirmModal && !showBiometricPrompt && <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} customLogo={watermarkLogo} opacity={watermarkOpacity} size={watermarkSize} />}
 
       {/* OFFLINE BANNER */}
       {!online && (
@@ -352,7 +356,7 @@ export default function App() {
           <span style={{ position:"absolute", left:"11px", top:"50%", transform:"translateY(-50%)", color:"rgba(255,255,255,0.5)", fontSize:"13px" }}>🔍</span>
           <input
             style={{ width:"100%", padding:"8px 12px 8px 34px", border:"none", borderRadius:"20px", background:"rgba(255,255,255,0.13)", color:"#fff", fontSize:"13px", outline:"none", boxSizing:"border-box" }}
-            placeholder="Buscar receta..."
+            placeholder={t.searchPlaceholder}
             value={search}
             onChange={e => {
               setSearch(e.target.value);
@@ -372,7 +376,7 @@ export default function App() {
         {/* Acciones */}
         <div style={{ display:"flex", gap:"8px", alignItems:"center", flexShrink:0 }}>
           {isAdmin && <>
-            <button onClick={handleCreate} style={{ background:"#D4721A", border:"none", borderRadius:"8px", color:"#fff", padding:"7px 12px", cursor:"pointer", fontWeight:"700", fontSize:"13px", whiteSpace:"nowrap" }}>+ Nueva</button>
+            <button onClick={handleCreate} style={{ background:"#D4721A", border:"none", borderRadius:"8px", color:"#fff", padding:"7px 12px", cursor:"pointer", fontWeight:"700", fontSize:"13px", whiteSpace:"nowrap" }}>{t.newRecipe}</button>
             <div style={{ position:"relative" }} ref={settingsMenuRef}>
               <button onClick={()=>setShowSettingsMenu(v=>!v)} title="Configuración" style={{ background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"16px" }}>⚙️</button>
               {showSettingsMenu && (
@@ -383,27 +387,31 @@ export default function App() {
                 }}>
                   <button onClick={()=>{setShowProgress(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
                     onMouseEnter={e=>e.target.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.target.style.background="none"}>
-                    🎯 Estado del Recetario
+                    {t.settings.status}
                   </button>
                   <button onClick={()=>{setShowReport(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
                     onMouseEnter={e=>e.target.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.target.style.background="none"}>
-                    📊 Reporte de Actividad
+                    {t.settings.report}
                   </button>
                   <button onClick={()=>{setShowUsers(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
                     onMouseEnter={e=>e.target.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.target.style.background="none"}>
-                    👥 Gestión de Usuarios
+                    {t.settings.users}
                   </button>
                   <div style={{ height:"1px", background:"rgba(255,255,255,0.15)", margin:"4px 0" }} />
                   <button onClick={()=>{setShowWatermarkUpload(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
                     onMouseEnter={e=>e.target.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.target.style.background="none"}>
-                    🖼️ Marca de Agua
+                    {t.settings.watermark}
+                  </button>
+                  <button onClick={()=>{setShowLangModal(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
+                    onMouseEnter={e=>e.target.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.target.style.background="none"}>
+                    {t.settings.language}
                   </button>
                 </div>
               )}
             </div>
           </>}
           <button onClick={handleLogout} title="Cerrar sesión" style={{ display:"flex", alignItems:"center", gap:"8px", background:"#c0392b", border:"none", borderRadius:"8px", color:"#fff", padding:"8px 14px", cursor:"pointer", fontSize:"13px", fontWeight:"700", letterSpacing:"0.5px" }}>
-            🚪 Cerrar Sesión
+            🚪 {t.logout}
           </button>
         </div>
       </header>
@@ -596,56 +604,94 @@ export default function App() {
         />
       )}
 
+      {/* Modal de idioma */}
+      {showLangModal && (
+        <div style={{ position:"fixed", inset:0, zIndex:600, background:"rgba(10,15,25,0.92)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+          <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"360px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
+            <div style={{ fontSize:"32px", textAlign:"center", marginBottom:"6px" }}>🌐</div>
+            <div style={{ color:"#1B3A5C", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", textAlign:"center", marginBottom:"6px" }}>
+              {t.language.title}
+            </div>
+            <div style={{ color:"#888", fontSize:"13px", textAlign:"center", marginBottom:"24px" }}>
+              {t.language.subtitle}
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:"10px", marginBottom:"24px" }}>
+              {LANGUAGES.map(l => (
+                <button key={l.code} onClick={() => setLang(l.code)} style={{
+                  display:"flex", alignItems:"center", gap:"14px",
+                  padding:"14px 18px", borderRadius:"12px", border:"2px solid",
+                  borderColor: lang === l.code ? "#1B3A5C" : "#eee",
+                  background: lang === l.code ? "#f0f4f8" : "#fff",
+                  cursor:"pointer", textAlign:"left",
+                }}>
+                  <span style={{ fontSize:"28px" }}>{l.flag}</span>
+                  <div>
+                    <div style={{ fontWeight:"700", color:"#1B3A5C", fontSize:"15px" }}>{l.label}</div>
+                  </div>
+                  {lang === l.code && <span style={{ marginLeft:"auto", color:"#1B3A5C", fontSize:"18px" }}>✓</span>}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setShowLangModal(false)} style={{
+              width:"100%", background:"#1B3A5C", border:"none", padding:"13px", borderRadius:"12px",
+              color:"#fff", cursor:"pointer", fontWeight:"700", fontSize:"15px",
+            }}>
+              {t.language.save}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Modal para cambiar marca de agua */}
       {showWatermarkUpload && isAdmin && (
         <div style={{ position:"fixed", inset:0, zIndex:9995, background:"#0d2340", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
           <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"440px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
             <div style={{ fontSize:"28px", marginBottom:"4px", textAlign:"center" }}>🖼️</div>
             <div style={{ color:"#1B3A5C", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", marginBottom:"16px", textAlign:"center" }}>
-              Marca de Agua
+              {t.watermark.title}
             </div>
 
             {/* Preview actual — fondo blanco simula la página */}
             <div style={{ background:"#fff", borderRadius:"12px", border:"1px solid #eee", padding:"20px", marginBottom:"16px", textAlign:"center", minHeight:"120px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
               <img
                 src={watermarkLogo || "https://nhqdsdmqmyoxuyzsdacj.supabase.co/storage/v1/object/public/recipe-images/watermark/logo-watermark.png"}
-                alt="Marca de agua actual"
+                alt={t.watermark.preview}
                 style={{ width: watermarkSize + "%", maxWidth:"220px", opacity: Math.max(watermarkOpacity, 0.15) }}
               />
-              <div style={{ color:"#bbb", fontSize:"11px", marginTop:"8px" }}>Vista previa (opacidad mínima 15% para visibilidad)</div>
+              <div style={{ color:"#bbb", fontSize:"11px", marginTop:"8px" }}>{t.watermark.previewNote}</div>
             </div>
 
             {/* Slider de visibilidad */}
             <div style={{ background:"#f8f8f8", borderRadius:"10px", padding:"12px 14px", marginBottom:"10px" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
-                <span style={{ fontSize:"13px", color:"#333", fontWeight:"600" }}>Visibilidad</span>
+                <span style={{ fontSize:"13px", color:"#333", fontWeight:"600" }}>{t.watermark.visibility}</span>
                 <span style={{ fontSize:"13px", color:"#1B3A5C", fontWeight:"700" }}>{Math.round(watermarkOpacity * 100)}%</span>
               </div>
               <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-                <span style={{ fontSize:"11px", color:"#999", width:"40px" }}>Tenue</span>
+                <span style={{ fontSize:"11px", color:"#999", width:"40px" }}>{t.watermark.faint}</span>
                 <input type="range" min="1" max="40" value={Math.round(watermarkOpacity * 100)}
                   onInput={e => saveWatermark({ opacity: parseInt(e.target.value) / 100 })}
                   onChange={e => saveWatermark({ opacity: parseInt(e.target.value) / 100 })}
                   style={{ flex:1, accentColor:"#1B3A5C", cursor:"pointer", height:"20px", touchAction:"none" }}
                 />
-                <span style={{ fontSize:"11px", color:"#999", width:"40px", textAlign:"right" }}>Visible</span>
+                <span style={{ fontSize:"11px", color:"#999", width:"40px", textAlign:"right" }}>{t.watermark.visible}</span>
               </div>
             </div>
 
             {/* Slider de tamaño */}
             <div style={{ background:"#f8f8f8", borderRadius:"10px", padding:"12px 14px", marginBottom:"16px" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
-                <span style={{ fontSize:"13px", color:"#333", fontWeight:"600" }}>Tamaño</span>
+                <span style={{ fontSize:"13px", color:"#333", fontWeight:"600" }}>{t.watermark.size}</span>
                 <span style={{ fontSize:"13px", color:"#1B3A5C", fontWeight:"700" }}>{watermarkSize}%</span>
               </div>
               <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-                <span style={{ fontSize:"11px", color:"#999", width:"40px" }}>Pequeño</span>
+                <span style={{ fontSize:"11px", color:"#999", width:"40px" }}>{t.watermark.small}</span>
                 <input type="range" min="10" max="90" value={watermarkSize}
                   onInput={e => saveWatermark({ size: parseInt(e.target.value) })}
                   onChange={e => saveWatermark({ size: parseInt(e.target.value) })}
                   style={{ flex:1, accentColor:"#1B3A5C", cursor:"pointer", height:"20px", touchAction:"none" }}
                 />
-                <span style={{ fontSize:"11px", color:"#999", width:"40px", textAlign:"right" }}>Grande</span>
+                <span style={{ fontSize:"11px", color:"#999", width:"40px", textAlign:"right" }}>{t.watermark.large}</span>
               </div>
             </div>
 
@@ -654,7 +700,7 @@ export default function App() {
               display:"block", background:"#1B3A5C", color:"#fff", padding:"12px", borderRadius:"10px",
               textAlign:"center", cursor:"pointer", fontWeight:"700", fontSize:"14px", marginBottom:"12px",
             }}>
-              📤 Subir nueva imagen
+              {t.watermark.upload}
               <input type="file" accept="image/*" style={{ display:"none" }} onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
@@ -687,7 +733,7 @@ export default function App() {
             {/* Restaurar por defecto */}
             {watermarkLogo && (
               <button onClick={() => saveWatermark({ logo: null })} style={{ width:"100%", background:"none", border:"1px solid #ddd", padding:"10px", borderRadius:"10px", cursor:"pointer", fontSize:"13px", color:"#888", marginBottom:"12px" }}>
-                Restaurar logo por defecto
+                {t.watermark.restore}
               </button>
             )}
 
@@ -695,7 +741,7 @@ export default function App() {
               width:"100%", background:"#e74c3c", border:"none", padding:"12px", borderRadius:"10px",
               color:"#fff", cursor:"pointer", fontWeight:"700", fontSize:"14px",
             }}>
-              Cerrar
+              {t.watermark.close}
             </button>
           </div>
         </div>
