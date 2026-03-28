@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useWebAuthn } from "@/hooks/useWebAuthn";
 import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb, getUsers, saveUsers as saveUsersDb, uploadImage, deleteImage, logActivity, getCategories, upsertCategory, deleteCategory as deleteCategoryDb, saveWatermarkConfig, loadWatermarkConfig, saveBannerConfig, loadBannerConfig, saveProfileConfig, loadProfileConfig } from "@/lib/storage";
@@ -153,33 +153,37 @@ export default function App() {
   useEffect(() => {
     if (bannerImages.length <= 1) return;
     const total = bannerImages.length + 2;
+    let t1, t2;
     if (bannerStripPos === total - 1) {
-      const t1 = setTimeout(() => { setBannerCanTransition(false); setBannerStripPos(1); }, 550);
-      const t2 = setTimeout(() => setBannerCanTransition(true), 620);
+      // t1: saltar sin transición (ambos setState en el mismo tick → React los batcha en un solo render)
+      t1 = setTimeout(() => { setBannerCanTransition(false); setBannerStripPos(1); }, 560);
+      // t2: reactivar transición en el siguiente tick
+      t2 = setTimeout(() => setBannerCanTransition(true), 600);
       return () => { clearTimeout(t1); clearTimeout(t2); };
     }
     if (bannerStripPos === 0) {
-      const t1 = setTimeout(() => { setBannerCanTransition(false); setBannerStripPos(bannerImages.length); }, 550);
-      const t2 = setTimeout(() => setBannerCanTransition(true), 620);
+      t1 = setTimeout(() => { setBannerCanTransition(false); setBannerStripPos(bannerImages.length); }, 560);
+      t2 = setTimeout(() => setBannerCanTransition(true), 600);
       return () => { clearTimeout(t1); clearTimeout(t2); };
     }
   }, [bannerStripPos, bannerImages.length]);
 
   // Control directo del DOM para la animación del carrete
-  useEffect(() => {
+  // useLayoutEffect: corre antes del paint → sin flash visual en posición inicial
+  useLayoutEffect(() => {
     const el = bannerStripRef.current;
     if (!el) return;
     const px = bannerStripPos * window.innerWidth;
     if (!bannerCanTransition) {
       el.style.transition = "none";
       el.style.transform = `translateX(-${px}px)`;
-      // Forzar reflow para que el navegador aplique "none" antes de la siguiente transición
-      void el.offsetWidth;
+      void el.offsetWidth; // forzar reflow
     } else {
       el.style.transition = "transform 0.55s cubic-bezier(0.25,0.46,0.45,0.94)";
       el.style.transform = `translateX(-${px}px)`;
     }
-  }, [bannerStripPos, bannerCanTransition]);
+  // showBanner en deps: cuando el banner aparece el ref se adjunta y este effect posiciona el strip
+  }, [bannerStripPos, bannerCanTransition, showBanner]);
 
   // Inyectar variables CSS del tema
   useEffect(() => {
