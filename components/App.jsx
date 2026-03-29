@@ -6,6 +6,8 @@ import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb,
 import { sha256, DEFAULT_PROFILE_HASH, isLockedOut, getLockoutSecondsLeft, registerFailedAttempt, resetLoginAttempts, getLoginAttempts, touchActivity, isSessionExpired, INACTIVITY_MS } from "@/lib/security";
 import { CATEGORIES, INITIAL_USERS } from "@/lib/constants";
 import { exportToExcel } from "@/lib/exportExcel";
+import { exportTemplate } from "@/lib/exportTemplate";
+import { importFromExcel } from "@/lib/importExcel";
 import { RecipeDetail } from "@/components/RecipeDetail";
 import { RecipeForm } from "@/components/RecipeForm";
 import { UsersPanel } from "@/components/UsersPanel";
@@ -66,6 +68,10 @@ export default function App() {
   const [showLangModal, setShowLangModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showBannerConfig, setShowBannerConfig] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importPreview, setImportPreview] = useState(null);  // { recipes, fileName }
+  const [importLoading, setImportLoading] = useState(false);
+  const [importDone, setImportDone] = useState(false);
   const [bannerActive, setBannerActive] = useState(false);
   const [bannerImages, setBannerImages] = useState([]);
   const [showBanner, setShowBanner] = useState(false);
@@ -746,10 +752,20 @@ export default function App() {
                     onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
                     {t.settings.profile}
                   </button>
-                  <button onClick={() => { setShowSettingsMenu(false); exportToExcel(recipes, brandName); }}
+                  <button onClick={() => { setShowSettingsMenu(false); exportTemplate(recipes, brandName, dbCategories.map(c=>c.name)); }}
                     style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left", fontWeight:"700" }}
                     onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.22)"} onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.12)"}>
-                    📊 Descargar en Excel
+                    📥 Descargar plantilla Excel
+                  </button>
+                  <button onClick={() => { setShowSettingsMenu(false); exportToExcel(recipes, brandName); }}
+                    style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"rgba(255,255,255,0.08)", border:"none", color:"rgba(255,255,255,0.75)", padding:"10px 14px", cursor:"pointer", fontSize:"13px", borderRadius:"8px", textAlign:"left" }}
+                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.15)"} onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.08)"}>
+                    📊 Exportar recetario (Excel)
+                  </button>
+                  <button onClick={() => { setShowSettingsMenu(false); setImportPreview(null); setImportDone(false); setShowImportModal(true); }}
+                    style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"rgba(255,255,255,0.08)", border:"none", color:"rgba(255,255,255,0.75)", padding:"10px 14px", cursor:"pointer", fontSize:"13px", borderRadius:"8px", textAlign:"left" }}
+                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.15)"} onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.08)"}>
+                    📤 Importar desde Excel
                   </button>
                   <div style={{ height:"1px", background:"rgba(255,255,255,0.15)", margin:"4px 0" }} />
                   <button onClick={()=>{setShowProgress(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
@@ -1399,6 +1415,96 @@ export default function App() {
             >
               Ahora no
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de importación desde Excel */}
+      {showImportModal && isAdmin && (
+        <div style={{ position:"fixed", inset:0, zIndex:9998, background:"rgba(10,15,25,0.88)", backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+          <div style={{ background:"#fff", borderRadius:"20px", width:"100%", maxWidth:"480px", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 30px 80px rgba(0,0,0,0.5)", padding:"28px" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"20px" }}>
+              <div>
+                <div style={{ fontSize:"22px", fontWeight:"700", color:"#1b3a5c" }}>📤 Importar recetas</div>
+                <div style={{ fontSize:"13px", color:"#888", marginTop:"2px" }}>Desde plantilla Excel (.xlsx)</div>
+              </div>
+              <button onClick={() => setShowImportModal(false)} style={{ background:"#f0ece6", border:"none", borderRadius:"50%", width:"36px", height:"36px", cursor:"pointer", fontSize:"18px" }}>×</button>
+            </div>
+
+            {importDone ? (
+              <div style={{ textAlign:"center", padding:"32px 0" }}>
+                <div style={{ fontSize:"52px", marginBottom:"12px" }}>✅</div>
+                <div style={{ fontSize:"18px", fontWeight:"700", color:"#27ae60", marginBottom:"8px" }}>¡Recetas importadas!</div>
+                <div style={{ fontSize:"13px", color:"#888", marginBottom:"24px" }}>{importPreview?.recipes?.length} recetas cargadas correctamente</div>
+                <button onClick={() => setShowImportModal(false)} style={{ background:"var(--app-primary)", border:"none", borderRadius:"10px", padding:"12px 28px", color:"#fff", fontWeight:"700", cursor:"pointer", fontSize:"14px" }}>Cerrar</button>
+              </div>
+            ) : !importPreview ? (
+              <>
+                <div style={{ background:"#f5f0ea", borderRadius:"12px", padding:"18px", marginBottom:"20px", fontSize:"13px", color:"#5a3e2b", lineHeight:"1.7" }}>
+                  <strong>📋 Pasos:</strong><br/>
+                  1. Descarga la plantilla desde <em>⚙️ → Descargar plantilla Excel</em><br/>
+                  2. Llena las recetas en la hoja <strong>🍽️ RECETAS</strong><br/>
+                  3. Guarda el archivo y súbelo aquí
+                </div>
+                <label style={{ display:"block", background:"var(--app-primary)", color:"#fff", padding:"14px", borderRadius:"12px", textAlign:"center", cursor:"pointer", fontWeight:"700", fontSize:"15px" }}>
+                  📂 Seleccionar archivo .xlsx
+                  <input type="file" accept=".xlsx,.xls" style={{ display:"none" }} onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setImportLoading(true);
+                    try {
+                      const parsed = await importFromExcel(file);
+                      setImportPreview({ recipes: parsed, fileName: file.name });
+                    } catch (err) {
+                      alert("Error al leer el archivo: " + err.message);
+                    } finally {
+                      setImportLoading(false);
+                    }
+                  }} />
+                </label>
+                {importLoading && <div style={{ textAlign:"center", marginTop:"16px", color:"#888" }}>⏳ Leyendo archivo...</div>}
+              </>
+            ) : (
+              <>
+                <div style={{ background:"#e8f8ef", border:"1px solid #a8e6c0", borderRadius:"10px", padding:"14px", marginBottom:"16px" }}>
+                  <div style={{ fontWeight:"700", color:"#1e8449", marginBottom:"4px" }}>✓ Archivo leído: {importPreview.fileName}</div>
+                  <div style={{ fontSize:"13px", color:"#27ae60" }}>{importPreview.recipes.length} recetas encontradas</div>
+                </div>
+                <div style={{ maxHeight:"220px", overflowY:"auto", border:"1px solid #e8e0d5", borderRadius:"10px", marginBottom:"18px" }}>
+                  {importPreview.recipes.map((r, i) => (
+                    <div key={i} style={{ padding:"10px 14px", borderBottom:"1px solid #f0ebe3", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div>
+                        <div style={{ fontWeight:"600", fontSize:"13px", color:"#1b3a5c" }}>{r.name}</div>
+                        <div style={{ fontSize:"11px", color:"#aaa" }}>{r.category || "Sin categoría"} · {r.ingredients?.length || 0} ingredientes</div>
+                      </div>
+                      <div style={{ fontSize:"11px", color:"#ccc" }}>#{i+1}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ background:"#fff8e6", border:"1px solid #f5d78e", borderRadius:"10px", padding:"12px", marginBottom:"18px", fontSize:"12px", color:"#7d6000" }}>
+                  ⚠️ Las recetas se agregarán sin borrar las existentes. Las imágenes deben subirse manualmente desde cada receta.
+                </div>
+                <div style={{ display:"flex", gap:"10px" }}>
+                  <button onClick={() => setImportPreview(null)} style={{ flex:1, background:"#f0ece6", border:"none", borderRadius:"10px", padding:"12px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b", fontSize:"14px" }}>← Cambiar archivo</button>
+                  <button onClick={async () => {
+                    setImportLoading(true);
+                    try {
+                      for (const r of importPreview.recipes) {
+                        const saved = await insertRecipe(r);
+                        if (saved) setRecipes(prev => [...prev, saved]);
+                      }
+                      setImportDone(true);
+                    } catch (err) {
+                      alert("Error al importar: " + err.message);
+                    } finally {
+                      setImportLoading(false);
+                    }
+                  }} disabled={importLoading} style={{ flex:2, background: importLoading ? "#aaa" : "var(--app-primary)", border:"none", borderRadius:"10px", padding:"12px", cursor: importLoading ? "not-allowed" : "pointer", fontWeight:"700", color:"#fff", fontSize:"14px" }}>
+                    {importLoading ? "⏳ Importando..." : `✅ Importar ${importPreview.recipes.length} recetas`}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
