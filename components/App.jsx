@@ -265,6 +265,7 @@ export default function App() {
         if (appCfg.themeId) setTheme(appCfg.themeId);
         if (appCfg.brand) {
           const b = appCfg.brand;
+          // Aplicar solo los campos que existen en el config de Supabase
           if (b.label  != null) { setBrandLabel(b.label);           localStorage.setItem("dontelmo:brandLabel",      b.label); }
           if (b.name   != null) { setBrandName(b.name);             localStorage.setItem("dontelmo:brandName",       b.name); }
           if (b.tagline!= null) { setCompanyTagline(b.tagline);     localStorage.setItem("dontelmo:tagline",         b.tagline); }
@@ -272,15 +273,19 @@ export default function App() {
           if (b.labelColor)     { setBrandLabelColor(b.labelColor); localStorage.setItem("dontelmo:brandLabelColor", b.labelColor); }
           if (b.nameColor)      { setBrandNameColor(b.nameColor);   localStorage.setItem("dontelmo:brandNameColor",  b.nameColor); }
           if (b.taglineColor)   { setBrandTaglineColor(b.taglineColor); localStorage.setItem("dontelmo:brandTaglineColor", b.taglineColor); }
-          setBrandDraft({
-            label:      b.label      ?? "RECETARIO DIGITAL",
-            name:       b.name       ?? "Don Telmo®",
-            tagline:    b.tagline    ?? "1958 — Company",
-            icon:       b.icon       || null,
-            labelColor: b.labelColor || "#D4721A",
-            nameColor:  b.nameColor  || "#1B3A5C",
-            taglineColor: b.taglineColor || "#888888",
-          });
+          // Fusionar con los valores de localStorage ya cargados arriba —
+          // si Supabase no tiene el campo (ej. solo trae el ícono), se mantiene
+          // lo que ya se leyó de localStorage en el draft.
+          setBrandDraft(prev => ({
+            ...prev,
+            ...(b.label      != null ? { label:       b.label }       : {}),
+            ...(b.name       != null ? { name:        b.name }        : {}),
+            ...(b.tagline    != null ? { tagline:     b.tagline }     : {}),
+            ...(b.icon             ? { icon:        b.icon }        : {}),
+            ...(b.labelColor       ? { labelColor:  b.labelColor }  : {}),
+            ...(b.nameColor        ? { nameColor:   b.nameColor }   : {}),
+            ...(b.taglineColor     ? { taglineColor:b.taglineColor } : {}),
+          }));
         }
       }
       setLoading(false);
