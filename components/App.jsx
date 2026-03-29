@@ -723,12 +723,17 @@ export default function App() {
               {showSettingsMenu && (
                 <div style={{
                   position:"absolute", top:"42px", right:0, background:"var(--app-primary)", borderRadius:"12px",
-                  boxShadow:"0 8px 32px rgba(0,0,0,0.4)", padding:"8px", zIndex:9999, minWidth:"200px",
-                  border:"1px solid rgba(255,255,255,0.15)",
+                  boxShadow:"0 8px 32px rgba(0,0,0,0.4)", padding:"8px", zIndex:9999, minWidth:"220px",
+                  border:"1px solid rgba(255,255,255,0.15)", maxHeight:"80vh", overflowY:"auto",
                 }}>
                   <button onClick={()=>{setGuardInput("");setGuardError("");setGuardAttempts(0);setGuardLocked(false);setShowProfileGuard(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
                     onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
                     {t.settings.profile}
+                  </button>
+                  <button onClick={() => { setShowSettingsMenu(false); exportToWord(recipes, brandName, brandLabel, brandIcon); }}
+                    style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left", fontWeight:"700" }}
+                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.22)"} onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.12)"}>
+                    📄 Descargar en Word
                   </button>
                   <div style={{ height:"1px", background:"rgba(255,255,255,0.15)", margin:"4px 0" }} />
                   <button onClick={()=>{setShowProgress(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
@@ -763,14 +768,6 @@ export default function App() {
                   <button onClick={()=>{setShowLangModal(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
                     onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
                     {t.settings.language}
-                  </button>
-                  <div style={{ height:"1px", background:"rgba(255,255,255,0.15)", margin:"4px 0" }} />
-                  <button onClick={() => {
-                    setShowSettingsMenu(false);
-                    exportToWord(recipes, brandName, brandLabel, brandIcon);
-                  }} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"rgba(255,255,255,0.08)", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left", fontWeight:"600" }}
-                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.18)"} onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.08)"}>
-                    📄 Descargar recetario (.doc)
                   </button>
                 </div>
               )}
