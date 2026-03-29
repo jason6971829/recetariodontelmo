@@ -259,10 +259,9 @@ export default function App() {
         setProfileDraft(profCfg);
         if (profCfg.profileHash) setProfileHash(profCfg.profileHash);
       }
-      // Cargar tema + marca desde Supabase (sincronizado entre dispositivos)
+      // Cargar marca desde Supabase (tema ya lo maneja LangContext directamente)
       const appCfg = await loadAppConfig();
       if (appCfg) {
-        if (appCfg.themeId) setTheme(appCfg.themeId);
         if (appCfg.brand) {
           const b = appCfg.brand;
           // Aplicar solo los campos que existen en el config de Supabase

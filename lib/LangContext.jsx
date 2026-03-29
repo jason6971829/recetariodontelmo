@@ -10,10 +10,31 @@ export function LangProvider({ children }) {
   const [themeId, setThemeIdState] = useState("ocean");
 
   useEffect(() => {
+    // 1) Carga inmediata desde localStorage — evita flash de color
     const saved = localStorage.getItem("dontelmo:lang");
     if (saved && LANGUAGES.find(l => l.code === saved)) setLangState(saved);
     const savedTheme = localStorage.getItem("dontelmo:theme");
     if (savedTheme && THEMES.find(t => t.id === savedTheme)) setThemeIdState(savedTheme);
+
+    // 2) Carga asíncrona desde Supabase — sincroniza entre dispositivos
+    //    Se hace aquí, en el contexto, para acceder directamente a setThemeIdState
+    //    y evitar problemas de closure en App.jsx.
+    async function syncThemeFromCloud() {
+      try {
+        const { supabase } = await import("@/lib/supabase");
+        const { data: urlData } = supabase.storage
+          .from("recipe-images")
+          .getPublicUrl("app/config.json");
+        const res = await fetch(urlData.publicUrl + "?t=" + Date.now());
+        if (!res.ok) return;
+        const cfg = await res.json();
+        if (cfg?.themeId && THEMES.find(t => t.id === cfg.themeId)) {
+          setThemeIdState(cfg.themeId);
+          localStorage.setItem("dontelmo:theme", cfg.themeId);
+        }
+      } catch {}
+    }
+    syncThemeFromCloud();
   }, []);
 
   const setLang = (code) => {
