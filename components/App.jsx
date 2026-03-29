@@ -25,7 +25,7 @@ export default function App() {
   const isMobile = useIsMobile();
   const { online, syncing, pendingCount } = useOnlineStatus();
   const { lang, setLang, t, themeId, setTheme } = useLang();
-  const { isSupported: biometricSupported, hasCredential: hasBiometric, register: registerBiometric, authenticate: authBiometric, clearCredential } = useWebAuthn();
+  const { isSupported: biometricSupported, hasCredential: hasBiometric, register: registerBiometric, authenticate: authBiometric } = useWebAuthn();
   const [screen, setScreen] = useState("login");
   const [currentUser, setCurrentUser] = useState(null);
   const [recipes, setRecipes] = useState([]);
