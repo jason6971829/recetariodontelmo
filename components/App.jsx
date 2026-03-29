@@ -5,6 +5,7 @@ import { useWebAuthn } from "@/hooks/useWebAuthn";
 import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb, getUsers, saveUsers as saveUsersDb, uploadImage, deleteImage, logActivity, getCategories, upsertCategory, deleteCategory as deleteCategoryDb, saveWatermarkConfig, loadWatermarkConfig, saveBannerConfig, loadBannerConfig, saveProfileConfig, loadProfileConfig, saveAppConfig, loadAppConfig } from "@/lib/storage";
 import { sha256, DEFAULT_PROFILE_HASH, isLockedOut, getLockoutSecondsLeft, registerFailedAttempt, resetLoginAttempts, getLoginAttempts, touchActivity, isSessionExpired, INACTIVITY_MS } from "@/lib/security";
 import { CATEGORIES, INITIAL_USERS } from "@/lib/constants";
+import { exportToWord } from "@/lib/exportDoc";
 import { RecipeDetail } from "@/components/RecipeDetail";
 import { RecipeForm } from "@/components/RecipeForm";
 import { UsersPanel } from "@/components/UsersPanel";
@@ -762,6 +763,14 @@ export default function App() {
                   <button onClick={()=>{setShowLangModal(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
                     onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
                     {t.settings.language}
+                  </button>
+                  <div style={{ height:"1px", background:"rgba(255,255,255,0.15)", margin:"4px 0" }} />
+                  <button onClick={() => {
+                    setShowSettingsMenu(false);
+                    exportToWord(recipes, brandName, brandLabel, brandIcon);
+                  }} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"rgba(255,255,255,0.08)", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left", fontWeight:"600" }}
+                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.18)"} onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.08)"}>
+                    📄 Descargar recetario (.doc)
                   </button>
                 </div>
               )}
