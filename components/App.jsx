@@ -168,6 +168,20 @@ export default function App() {
     }
   }, [bannerStripPos, bannerImages.length]);
 
+  // Resetear posición cuando el número de imágenes cambia (ej. al borrar)
+  useEffect(() => {
+    if (bannerImages.length === 1) {
+      // Una sola imagen: posición 0, sin clones
+      setBannerStripPos(0);
+      setBannerSlide(0);
+      setBannerCanTransition(false);
+    } else if (bannerImages.length > 1) {
+      // Varias imágenes: asegurar que stripPos esté en rango válido [1, n]
+      setBannerStripPos(p => (p < 1 || p > bannerImages.length) ? 1 : p);
+      setBannerSlide(s => Math.min(s, bannerImages.length - 1));
+    }
+  }, [bannerImages.length]);
+
   // Control directo del DOM — carrete estilo iOS (peek de slides adyacentes)
   useLayoutEffect(() => {
     const el = bannerStripRef.current;
@@ -175,7 +189,9 @@ export default function App() {
     const vw = window.innerWidth;
     const slideW = vw * 0.78;          // 78vw exacto — mismo valor que usa el CSS
     const offsetX = (vw - slideW) / 2; // margen para centrar el slide activo
-    const px = offsetX - bannerStripPos * slideW;  // translateX que centra el slide activo
+    // Si hay ≤1 imagen no hay clones — la posición siempre es 0
+    const pos = bannerImages.length > 1 ? bannerStripPos : 0;
+    const px = offsetX - pos * slideW;
     if (!bannerCanTransition) {
       el.style.transition = "none";
       el.style.transform = `translateX(${px}px)`;
@@ -184,7 +200,7 @@ export default function App() {
       el.style.transition = "transform 0.5s cubic-bezier(0.25,0.46,0.45,0.94)";
       el.style.transform = `translateX(${px}px)`;
     }
-  }, [bannerStripPos, bannerCanTransition, showBanner]);
+  }, [bannerStripPos, bannerCanTransition, showBanner, bannerImages.length]);
 
   // Inyectar variables CSS del tema
   useEffect(() => {
