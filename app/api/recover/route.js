@@ -7,8 +7,33 @@ const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
+// ── Rate limiting en memoria (max 3 intentos por IP cada 15 min) ──
+const rateLimitMap = new Map(); // ip → { count, resetAt }
+const RATE_LIMIT_MAX = 3;
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutos
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= RATE_LIMIT_MAX) return false;
+  entry.count++;
+  return true;
+}
+
 export async function POST(req) {
   try {
+    // Rate limiting por IP
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      || req.headers.get("x-real-ip")
+      || "unknown";
+    if (!checkRateLimit(ip)) {
+      return NextResponse.json({ ok: false, error: "too_many_requests" }, { status: 429 });
+    }
+
     const { email } = await req.json();
     if (!email) return NextResponse.json({ ok: false, error: "email_required" }, { status: 400 });
 

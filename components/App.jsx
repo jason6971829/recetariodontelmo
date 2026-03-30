@@ -1,21 +1,36 @@
 "use client";
-import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback, Suspense } from "react";
+import Image from "next/image"; // next/image: WebP automático + lazy loading
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useWebAuthn } from "@/hooks/useWebAuthn";
-import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb, getUsers, saveUsers as saveUsersDb, uploadImage, deleteImage, logActivity, getCategories, upsertCategory, deleteCategory as deleteCategoryDb, saveWatermarkConfig, loadWatermarkConfig, saveBannerConfig, loadBannerConfig, saveProfileConfig, loadProfileConfig, saveAppConfig, loadAppConfig } from "@/lib/storage";
-import { sha256, DEFAULT_PROFILE_HASH, isLockedOut, getLockoutSecondsLeft, registerFailedAttempt, resetLoginAttempts, getLoginAttempts, touchActivity, isSessionExpired, INACTIVITY_MS } from "@/lib/security";
+import { getRecipes, upsertRecipe, insertRecipe, deleteRecipe as deleteRecipeDb, getUsers, saveUsers as saveUsersDb, deleteImage, logActivity, getCategories, upsertCategory, deleteCategory as deleteCategoryDb, saveWatermarkConfig, loadWatermarkConfig, loadBannerConfig, loadProfileConfig, saveAppConfig, loadAppConfig } from "@/lib/storage";
+import { DEFAULT_PROFILE_HASH, isLockedOut, getLockoutSecondsLeft, registerFailedAttempt, resetLoginAttempts, getLoginAttempts, touchActivity, isSessionExpired, getSessionMsLeft } from "@/lib/security";
 import { CATEGORIES, INITIAL_USERS } from "@/lib/constants";
 import { exportToExcel } from "@/lib/exportExcel";
 import { exportTemplate } from "@/lib/exportTemplate";
-import { importFromExcel } from "@/lib/importExcel";
+import dynamic from "next/dynamic";
+// ── Core — siempre en el bundle inicial ──────────────────────────
 import { RecipeDetail } from "@/components/RecipeDetail";
 import { RecipeForm } from "@/components/RecipeForm";
-import { UsersPanel } from "@/components/UsersPanel";
-import { ActivityReport } from "@/components/ActivityReport";
-import { ProgressReport } from "@/components/ProgressReport";
-import { CategoryModal } from "@/components/CategoryModal";
 import { ScreenProtection } from "@/components/ScreenProtection";
 import { GlobalWatermark } from "@/components/Watermark";
+import { LoginScreen } from "@/components/LoginScreen";
+import { BannerCarousel } from "@/components/BannerCarousel";
+import { ConfirmModal } from "@/components/ConfirmModal";
+// ── Admin / ocasionales — lazy loaded (no bloquean bundle inicial) ─
+const UsersPanel       = dynamic(() => import("@/components/UsersPanel").then(m => ({ default: m.UsersPanel })), { ssr: false });
+const ActivityReport   = dynamic(() => import("@/components/ActivityReport").then(m => ({ default: m.ActivityReport })), { ssr: false });
+const ProgressReport   = dynamic(() => import("@/components/ProgressReport").then(m => ({ default: m.ProgressReport })), { ssr: false });
+const CategoryModal    = dynamic(() => import("@/components/CategoryModal").then(m => ({ default: m.CategoryModal })), { ssr: false });
+const WatermarkModal   = dynamic(() => import("@/components/WatermarkModal").then(m => ({ default: m.WatermarkModal })), { ssr: false });
+const BrandModal       = dynamic(() => import("@/components/BrandModal").then(m => ({ default: m.BrandModal })), { ssr: false });
+const BannerConfigModal= dynamic(() => import("@/components/BannerConfigModal").then(m => ({ default: m.BannerConfigModal })), { ssr: false });
+const ImportExcelModal = dynamic(() => import("@/components/ImportExcelModal").then(m => ({ default: m.ImportExcelModal })), { ssr: false });
+const ProfileGuardModal= dynamic(() => import("@/components/ProfileGuardModal").then(m => ({ default: m.ProfileGuardModal })), { ssr: false });
+const ProfileModal     = dynamic(() => import("@/components/ProfileModal").then(m => ({ default: m.ProfileModal })), { ssr: false });
+const LangModal        = dynamic(() => import("@/components/LangModal").then(m => ({ default: m.LangModal })), { ssr: false });
+const ThemeModal       = dynamic(() => import("@/components/ThemeModal").then(m => ({ default: m.ThemeModal })), { ssr: false });
+const BiometricPrompt  = dynamic(() => import("@/components/BiometricPrompt").then(m => ({ default: m.BiometricPrompt })), { ssr: false });
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useLang, LangProvider } from "@/lib/LangContext";
 import { LANGUAGES } from "@/lib/i18n";
@@ -34,6 +49,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [selectedCat, setSelectedCat] = useState("all");
   const [search, setSearch] = useState("");
+  const [filterSearch, setFilterSearch] = useState(""); // debounced — solo para el filtrado
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [editingRecipe, setEditingRecipe] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -60,11 +76,6 @@ export default function App() {
   const [brandTaglineColor, setBrandTaglineColor] = useState("#888888");
   const [brandDraft, setBrandDraft] = useState({ label:"RECETARIO DIGITAL", name:"Don Telmo®", tagline:"1958 — Company", icon:null, labelColor:"#D4721A", nameColor:"#1B3A5C", taglineColor:"#888888" });
 
-  const BRAND_COLORS = [
-    "#ffffff","#D4721A","#f0b429","#f39c12","#27ae60","#2ecc71",
-    "#3498db","#8BAACC","#9b59b6","#e74c3c","#e91e63","#aaaaaa",
-    "#1B3A5C","#1a1a1a","#2c3e50","#16a085",
-  ];
   const [showLangModal, setShowLangModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showBannerConfig, setShowBannerConfig] = useState(false);
@@ -106,11 +117,6 @@ export default function App() {
   // Auto-lock inactividad
   const inactivityRef = useRef(null);
 
-  // Recuperar contraseña
-  const [showRecover, setShowRecover] = useState(false);
-  const [recoverEmail, setRecoverEmail] = useState("");
-  const [recoverState, setRecoverState] = useState("idle"); // idle | sending | sent | notfound | error
-
   const [categoryModal, setCategoryModal] = useState(null); // { mode: "create"|"edit", initial? }
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
   const searchTimeoutRef = useRef(null);
@@ -122,9 +128,11 @@ export default function App() {
   const saveWatermark = useCallback((updates) => {
     const next = { ...watermarkConfigRef.current, ...updates };
     watermarkConfigRef.current = next;
-    if (updates.logo !== undefined) { setWatermarkLogo(updates.logo); localStorage.setItem("dontelmo:watermark_url", updates.logo || ""); }
-    if (updates.opacity !== undefined) { setWatermarkOpacity(updates.opacity); localStorage.setItem("dontelmo:watermark_opacity", updates.opacity); }
-    if (updates.size !== undefined) { setWatermarkSize(updates.size); localStorage.setItem("dontelmo:watermark_size", updates.size); }
+    if (updates.logo !== undefined) setWatermarkLogo(updates.logo);
+    if (updates.opacity !== undefined) setWatermarkOpacity(updates.opacity);
+    if (updates.size !== undefined) setWatermarkSize(updates.size);
+    // Batch: 1 write en vez de 3 separados
+    localStorage.setItem("dontelmo:watermark", JSON.stringify({ logo: next.logo || "", opacity: next.opacity, size: next.size }));
     saveWatermarkConfig(next);
   }, []);
 
@@ -218,10 +226,30 @@ export default function App() {
     root.style.setProperty("--app-primary-rgb", theme.rgb);
   }, [themeId]);
 
+  // Debounce del search: el input actualiza `search` de inmediato (para mostrar),
+  // pero `filterSearch` se actualiza 300ms después (para no re-filtrar en cada tecla)
   useEffect(() => {
+    const timer = setTimeout(() => setFilterSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const { signal } = controller;
+
     async function load() {
-      const sr = await getRecipes();
-      const su = await getUsers();
+      // ── Fetch paralelo de todas las fuentes de datos ────────────
+      const [sr, su, cats, wmConfig, bannerCfg, profCfg, appCfg] = await Promise.all([
+        getRecipes(),
+        getUsers(),
+        getCategories(),
+        loadWatermarkConfig(signal),
+        loadBannerConfig(signal),
+        loadProfileConfig(signal),
+        loadAppConfig(signal),
+      ]);
+
+      // Recetas
       if (sr) { setRecipes(sr); }
       else {
         // Lazy load seed data solo si la DB está vacía
@@ -229,31 +257,56 @@ export default function App() {
         setRecipes(SEED_RECIPES);
       }
       if (su && su.length > 0) setUsers(su);
-      const cats = await getCategories();
       if (cats && cats.length > 0) setDbCategories(cats);
+
       // Cargar configuración watermark desde Supabase (sincronizado)
-      const wmConfig = await loadWatermarkConfig();
       if (wmConfig) {
         watermarkConfigRef.current = { logo: wmConfig.logo || null, opacity: wmConfig.opacity ?? 0.07, size: wmConfig.size ?? 45 };
-        if (wmConfig.logo) { setWatermarkLogo(wmConfig.logo); localStorage.setItem("dontelmo:watermark_url", wmConfig.logo); }
-        if (wmConfig.opacity != null) { setWatermarkOpacity(wmConfig.opacity); localStorage.setItem("dontelmo:watermark_opacity", wmConfig.opacity); }
-        if (wmConfig.size != null) { setWatermarkSize(wmConfig.size); localStorage.setItem("dontelmo:watermark_size", wmConfig.size); }
+        if (wmConfig.logo) setWatermarkLogo(wmConfig.logo);
+        if (wmConfig.opacity != null) setWatermarkOpacity(wmConfig.opacity);
+        if (wmConfig.size != null) setWatermarkSize(wmConfig.size);
+        localStorage.setItem("dontelmo:watermark", JSON.stringify({ logo: wmConfig.logo || "", opacity: wmConfig.opacity ?? 0.07, size: wmConfig.size ?? 45 }));
       } else {
-        // Fallback a localStorage si no hay conexión
-        const savedWatermark = localStorage.getItem("dontelmo:watermark_url");
-        if (savedWatermark) setWatermarkLogo(savedWatermark);
-        const savedOpacity = localStorage.getItem("dontelmo:watermark_opacity");
-        if (savedOpacity) setWatermarkOpacity(parseFloat(savedOpacity));
-        const savedSize = localStorage.getItem("dontelmo:watermark_size");
-        if (savedSize) setWatermarkSize(parseInt(savedSize));
+        // Fallback a localStorage (nuevo formato batched, con compat hacia atrás)
+        const wmRaw = localStorage.getItem("dontelmo:watermark");
+        if (wmRaw) {
+          try {
+            const wm = JSON.parse(wmRaw);
+            if (wm.logo) setWatermarkLogo(wm.logo);
+            if (wm.opacity != null) setWatermarkOpacity(wm.opacity);
+            if (wm.size != null) setWatermarkSize(wm.size);
+          } catch {}
+        } else {
+          // Compat con claves antiguas (usuarios existentes)
+          const oldUrl = localStorage.getItem("dontelmo:watermark_url");
+          const oldOpacity = localStorage.getItem("dontelmo:watermark_opacity");
+          const oldSize = localStorage.getItem("dontelmo:watermark_size");
+          if (oldUrl) setWatermarkLogo(oldUrl);
+          if (oldOpacity) setWatermarkOpacity(parseFloat(oldOpacity));
+          if (oldSize) setWatermarkSize(parseInt(oldSize));
+        }
       }
-      const savedLabel = localStorage.getItem("dontelmo:brandLabel");
-      const savedName = localStorage.getItem("dontelmo:brandName");
-      const savedTagline = localStorage.getItem("dontelmo:tagline");
-      const savedIcon = localStorage.getItem("dontelmo:brandIcon");
-      const savedLabelColor = localStorage.getItem("dontelmo:brandLabelColor");
-      const savedNameColor = localStorage.getItem("dontelmo:brandNameColor");
-      const savedTaglineColor = localStorage.getItem("dontelmo:brandTaglineColor");
+      // Leer brand desde localStorage (nuevo formato batched, con compat hacia atrás)
+      let savedLabel = null, savedName = null, savedTagline = null, savedIcon = null;
+      let savedLabelColor = null, savedNameColor = null, savedTaglineColor = null;
+      const brandRaw = localStorage.getItem("dontelmo:brand");
+      if (brandRaw) {
+        try {
+          const b = JSON.parse(brandRaw);
+          savedLabel = b.label ?? null; savedName = b.name ?? null; savedTagline = b.tagline ?? null;
+          savedIcon = b.icon || null; savedLabelColor = b.labelColor || null;
+          savedNameColor = b.nameColor || null; savedTaglineColor = b.taglineColor || null;
+        } catch {}
+      } else {
+        // Compat con claves antiguas
+        savedLabel = localStorage.getItem("dontelmo:brandLabel");
+        savedName = localStorage.getItem("dontelmo:brandName");
+        savedTagline = localStorage.getItem("dontelmo:tagline");
+        savedIcon = localStorage.getItem("dontelmo:brandIcon");
+        savedLabelColor = localStorage.getItem("dontelmo:brandLabelColor");
+        savedNameColor = localStorage.getItem("dontelmo:brandNameColor");
+        savedTaglineColor = localStorage.getItem("dontelmo:brandTaglineColor");
+      }
       const draft = {
         label: savedLabel ?? "RECETARIO DIGITAL",
         name: savedName ?? "Don Telmo®",
@@ -271,30 +324,32 @@ export default function App() {
       if (savedNameColor) setBrandNameColor(savedNameColor);
       if (savedTaglineColor) setBrandTaglineColor(savedTaglineColor);
       setBrandDraft(draft);
-      const bannerCfg = await loadBannerConfig();
+
+      // Banner (ya cargado en paralelo)
       if (bannerCfg) {
         setBannerActive(bannerCfg.active ?? false);
         setBannerImages(bannerCfg.images ?? []);
       }
-      const profCfg = await loadProfileConfig();
+      // Perfil (ya cargado en paralelo)
       if (profCfg) {
         setProfileData(profCfg);
         setProfileDraft(profCfg);
         if (profCfg.profileHash) setProfileHash(profCfg.profileHash);
       }
-      // Cargar marca desde Supabase (tema ya lo maneja LangContext directamente)
-      const appCfg = await loadAppConfig();
+      // Cargar marca desde Supabase (ya cargado en paralelo)
       if (appCfg) {
         if (appCfg.brand) {
           const b = appCfg.brand;
           // Aplicar solo los campos que existen en el config de Supabase
-          if (b.label  != null) { setBrandLabel(b.label);           localStorage.setItem("dontelmo:brandLabel",      b.label); }
-          if (b.name   != null) { setBrandName(b.name);             localStorage.setItem("dontelmo:brandName",       b.name); }
-          if (b.tagline!= null) { setCompanyTagline(b.tagline);     localStorage.setItem("dontelmo:tagline",         b.tagline); }
-          if (b.icon)           { setBrandIcon(b.icon);             localStorage.setItem("dontelmo:brandIcon",       b.icon); }
-          if (b.labelColor)     { setBrandLabelColor(b.labelColor); localStorage.setItem("dontelmo:brandLabelColor", b.labelColor); }
-          if (b.nameColor)      { setBrandNameColor(b.nameColor);   localStorage.setItem("dontelmo:brandNameColor",  b.nameColor); }
-          if (b.taglineColor)   { setBrandTaglineColor(b.taglineColor); localStorage.setItem("dontelmo:brandTaglineColor", b.taglineColor); }
+          if (b.label  != null) setBrandLabel(b.label);
+          if (b.name   != null) setBrandName(b.name);
+          if (b.tagline!= null) setCompanyTagline(b.tagline);
+          if (b.icon)           setBrandIcon(b.icon);
+          if (b.labelColor)     setBrandLabelColor(b.labelColor);
+          if (b.nameColor)      setBrandNameColor(b.nameColor);
+          if (b.taglineColor)   setBrandTaglineColor(b.taglineColor);
+          // 1 write batched en vez de 7 separados
+          localStorage.setItem("dontelmo:brand", JSON.stringify({ label: b.label, name: b.name, tagline: b.tagline, icon: b.icon || null, labelColor: b.labelColor, nameColor: b.nameColor, taglineColor: b.taglineColor }));
           // Fusionar con los valores de localStorage ya cargados arriba —
           // si Supabase no tiene el campo (ej. solo trae el ícono), se mantiene
           // lo que ya se leyó de localStorage en el draft.
@@ -313,6 +368,7 @@ export default function App() {
       setLoading(false);
     }
     load();
+    return () => controller.abort(); // cancelar fetches si el componente se desmonta
   }, []);
 
   // ── Brute-force: inicializar estado si ya hay bloqueo activo ─────
@@ -335,27 +391,39 @@ export default function App() {
   useEffect(() => {
     if (screen !== "app") return;
     const events = ["mousemove","keydown","touchstart","click","scroll"];
-    const onActivity = () => touchActivity();
+    // Debounce a 2s para no escribir en localStorage en cada mousemove
+    let debounceTimer;
+    const onActivity = () => { clearTimeout(debounceTimer); debounceTimer = setTimeout(touchActivity, 2000); };
     events.forEach(e => window.addEventListener(e, onActivity, { passive: true }));
     touchActivity(); // marcar inicio de sesión
-    inactivityRef.current = setInterval(() => {
-      if (isSessionExpired()) {
-        setCurrentUser(null);
-        setScreen("login");
-        setLoginForm({ username:"", password:"" });
-        setSelectedRecipe(null);
-        clearInterval(inactivityRef.current);
-      }
-    }, 30_000); // revisar cada 30s
+
+    // Smart timeout: se programa para disparar exactamente cuando expira la sesión
+    // en vez de hacer polling cada 30s (ahorra CPU y batería)
+    const scheduleCheck = () => {
+      const msLeft = getSessionMsLeft();
+      inactivityRef.current = setTimeout(() => {
+        if (isSessionExpired()) {
+          setCurrentUser(null);
+          setScreen("login");
+          setLoginForm({ username:"", password:"" });
+          setSelectedRecipe(null);
+        } else {
+          scheduleCheck(); // la sesión fue tocada, reprogramar
+        }
+      }, Math.max(msLeft, 60_000)); // mínimo 60s para evitar loops ajustados
+    };
+    scheduleCheck();
+
     return () => {
       events.forEach(e => window.removeEventListener(e, onActivity));
-      clearInterval(inactivityRef.current);
+      clearTimeout(debounceTimer);
+      clearTimeout(inactivityRef.current);
     };
   }, [screen]);
 
-  const saveUsers = async u => { setUsers(u); await saveUsersDb(u); };
+  const saveUsers = useCallback(async u => { setUsers(u); await saveUsersDb(u); }, []);
 
-  const handleLogin = () => {
+  const handleLogin = useCallback(() => {
     // Verificar bloqueo por intentos fallidos
     if (isLockedOut()) {
       setLoginLocked(true);
@@ -390,9 +458,10 @@ export default function App() {
     if (isMobile && biometricSupported && !hasBiometric) {
       setTimeout(() => setShowBiometricPrompt(true), 500);
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [users, loginForm, isMobile, biometricSupported, hasBiometric, t]);
 
-  const handleBiometricLogin = async () => {
+  const handleBiometricLogin = useCallback(async () => {
     setBiometricLoading(true);
     setLoginError("");
     const user = await authBiometric();
@@ -404,52 +473,52 @@ export default function App() {
       setLoginError("No se pudo verificar la identidad biométrica");
     }
     setBiometricLoading(false);
-  };
+  }, [authBiometric]);
 
-  const handleRegisterBiometric = async () => {
+  const handleRegisterBiometric = useCallback(async () => {
     const ok = await registerBiometric(currentUser);
     setShowBiometricPrompt(false);
     if (!ok) alert("No se pudo registrar el acceso biométrico");
-  };
+  }, [registerBiometric, currentUser]);
 
-  const handleLogout = () => { setCurrentUser(null); setScreen("login"); setLoginForm({username:"",password:""}); setSelectedRecipe(null); };
+  const handleLogout = useCallback(() => { setCurrentUser(null); setScreen("login"); setLoginForm({username:"",password:""}); setSelectedRecipe(null); }, []);
 
-  const selectCat = (catId) => {
+  const selectCat = useCallback((catId) => {
     setSelectedCat(catId);
     setSearch("");
+    setFilterSearch("");
     if (isMobile) setSidebarOpen(false);
-  };
+  }, [isMobile]);
 
-  const openRecipe = (r) => {
+  const openRecipe = useCallback((r) => {
     setSelectedRecipe(r);
     if (isMobile) setSidebarOpen(false);
     if (currentUser) logActivity(currentUser.id, "view_recipe", r.name, r.category);
-  };
+  }, [isMobile, currentUser]);
 
-  const handleCreate = () => { setEditingRecipe(null); setShowForm(true); };
-  const handleEdit = r => { setEditingRecipe(r); setShowForm(true); setSelectedRecipe(null); };
-  const handleSaveRecipe = async (form) => {
+  const handleCreate = useCallback(() => { setEditingRecipe(null); setShowForm(true); }, []);
+  const handleEdit = useCallback(r => { setEditingRecipe(r); setShowForm(true); setSelectedRecipe(null); }, []);
+  const handleSaveRecipe = useCallback(async (form) => {
     if (editingRecipe) {
-      // Si la imagen cambió y la anterior era una URL de Storage, eliminarla
       if (editingRecipe.image && editingRecipe.image !== form.image && editingRecipe.image.includes("supabase")) {
         await deleteImage(editingRecipe.image);
       }
       const updated = await upsertRecipe({ ...form, id: editingRecipe.id });
-      if (updated) setRecipes(recipes.map(r => r.id === editingRecipe.id ? updated : r));
+      if (updated) setRecipes(prev => prev.map(r => r.id === editingRecipe.id ? updated : r));
     } else {
       const created = await insertRecipe(form);
-      if (created) setRecipes([...recipes, created]);
+      if (created) setRecipes(prev => [...prev, created]);
     }
     setShowForm(false); setEditingRecipe(null);
-  };
-  const handleTogglePublish = async (r) => {
+  }, [editingRecipe]);
+  const handleTogglePublish = useCallback(async (r) => {
     const updated = { ...r, published: !r.published };
     const saved = await upsertRecipe(updated);
     if (saved) {
       setRecipes(prev => prev.map(x => x.id === r.id ? { ...x, published: !r.published } : x));
       setSelectedRecipe(prev => prev ? { ...prev, published: !r.published } : null);
     }
-  };
+  }, []);
 
   const handleDelete = (r) => {
     setConfirmModal({
@@ -475,9 +544,7 @@ export default function App() {
       message: `¿Estás seguro de eliminar la categoría "${catLabel}" y sus ${catRecipes.length} receta${catRecipes.length !== 1 ? "s" : ""}? Esta acción no se puede deshacer.`,
       onConfirm: async () => {
         for (const r of catRecipes) {
-          if (r.image && r.image.includes("supabase")) {
-            await deleteImage(r.image);
-          }
+          if (r.image && r.image.includes("supabase")) await deleteImage(r.image);
           await deleteRecipeDb(r.id);
         }
         setRecipes(prev => prev.filter(r => r.category !== catId));
@@ -497,9 +564,9 @@ export default function App() {
   }, [recipes, isAdminUser]);
 
   const filtered = useMemo(() => {
-    if (!search) return visibleRecipes.filter(r => selectedCat === "all" || r.category === selectedCat);
+    if (!filterSearch) return visibleRecipes.filter(r => selectedCat === "all" || r.category === selectedCat);
     // Si hay búsqueda, buscar en TODAS las categorías y en múltiples campos
-    const terms = search.toLowerCase().split(/\s+/).filter(t => t.length > 0);
+    const terms = filterSearch.toLowerCase().split(/\s+/).filter(t => t.length > 0);
     return visibleRecipes.filter(r => {
       const searchable = [
         r.name, r.category, r.description || "", r.preparation || "",
@@ -508,7 +575,7 @@ export default function App() {
       ].join(" ").toLowerCase();
       return terms.every(term => searchable.includes(term));
     });
-  }, [visibleRecipes, selectedCat, search]);
+  }, [visibleRecipes, selectedCat, filterSearch]);
 
   const catCounts = useMemo(() => {
     const counts = {};
@@ -532,147 +599,18 @@ export default function App() {
   // ══ LOGIN ═══════════════════════════════════════════════════════
   if (screen==="login" || loading) {
     return (
-      <>
-      <div style={{ height:"100vh", background:"linear-gradient(135deg,var(--app-primary-dark) 0%,var(--app-primary) 50%,var(--app-primary-dark) 100%)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px", fontFamily:"Georgia,serif" }}>
-        <div style={{ background:"#fff", borderRadius:"24px", padding: isMobile?"36px 28px":"48px 44px", width:"100%", maxWidth:"420px", boxShadow:"0 40px 100px rgba(0,0,0,0.5)" }}>
-          <div style={{ textAlign:"center", marginBottom:"32px" }}>
-            <div style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", width:"72px", height:"72px", background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", borderRadius:"18px", marginBottom:"14px", boxShadow:"0 8px 24px rgba(var(--app-primary-rgb),0.4)", overflow:"hidden" }}>
-              {brandIcon
-                ? <img src={brandIcon} alt="logo" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
-                : <span style={{ fontSize:"30px" }}>🍽️</span>}
-            </div>
-            <div style={{ color:brandLabelColor, fontSize:"11px", fontWeight:"700", letterSpacing:"4px", marginBottom:"5px" }}>{brandLabel}</div>
-            <div style={{ color:brandNameColor, fontSize:"26px", fontWeight:"700", lineHeight:"1.1" }}>{brandName}</div>
-            {companyTagline && <div style={{ color:brandTaglineColor, fontSize:"13px", marginTop:"3px" }}>{companyTagline}</div>}
-          </div>
-          {loading ? (
-            <div style={{ textAlign:"center", padding:"20px", color:"#888" }}>
-              <div style={{ fontSize:"24px", marginBottom:"10px" }}>⏳</div>{t.loading}
-            </div>
-          ) : <>
-            <div style={{ marginBottom:"14px" }}>
-              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.login.usernameLabel}</label>
-              <input style={{ width:"100%", padding:"13px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"15px", outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}
-                value={loginForm.username} onChange={e=>setLoginForm(f=>({...f,username:e.target.value}))}
-                onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder={t.login.usernamePlaceholder} autoFocus />
-            </div>
-            <div style={{ marginBottom:"22px" }}>
-              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.login.passwordLabel}</label>
-              <input type="password" style={{ width:"100%", padding:"13px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"15px", outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}
-                value={loginForm.password} onChange={e=>setLoginForm(f=>({...f,password:e.target.value}))}
-                onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder={t.login.passwordPlaceholder} />
-            </div>
-            {loginLocked ? (
-              <div style={{ textAlign:"center", background:"#fff5f5", border:"2px solid #e74c3c", borderRadius:"12px", padding:"16px", marginBottom:"14px" }}>
-                <div style={{ fontSize:"28px", marginBottom:"6px" }}>🔒</div>
-                <div style={{ color:"#c0392b", fontWeight:"700", fontSize:"14px" }}>Acceso bloqueado temporalmente</div>
-                <div style={{ color:"#e74c3c", fontSize:"22px", fontWeight:"700", marginTop:"6px", fontFamily:"monospace" }}>
-                  {Math.floor(loginLockSecs/60)}:{String(loginLockSecs%60).padStart(2,"0")}
-                </div>
-                <div style={{ color:"#888", fontSize:"12px", marginTop:"4px" }}>Demasiados intentos fallidos</div>
-              </div>
-            ) : (
-              <>
-                {loginError && (
-                  <div style={{ color:"#e74c3c", fontSize:"13px", marginBottom:"10px", textAlign:"center", background:"#fef0ef", padding:"10px", borderRadius:"8px" }}>
-                    {loginError}
-                    {loginAttemptsLeft < 5 && loginAttemptsLeft > 0 && (
-                      <div style={{ marginTop:"4px", fontWeight:"700" }}>⚠️ {loginAttemptsLeft} intento{loginAttemptsLeft!==1?"s":""} restante{loginAttemptsLeft!==1?"s":""}</div>
-                    )}
-                  </div>
-                )}
-                <button onClick={handleLogin} disabled={loginLocked} style={{ width:"100%", padding:"14px", background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", border:"none", borderRadius:"10px", color:"#fff", fontSize:"15px", fontWeight:"700", cursor:"pointer", fontFamily:"Georgia,serif", letterSpacing:"1px" }}>
-                  {t.login.button}
-                </button>
-              </>
-            )}
-
-            {/* Link recuperar contraseña */}
-            <div style={{ textAlign:"center", marginTop:"12px" }}>
-              <button onClick={() => { setShowRecover(true); setRecoverEmail(""); setRecoverState("idle"); }}
-                style={{ background:"none", border:"none", color:"#aaa", fontSize:"12px", cursor:"pointer", textDecoration:"none", padding:0, letterSpacing:"0.3px" }}>
-                {t.login.forgotPassword}
-              </button>
-            </div>
-
-            {/* Botón de acceso biométrico */}
-            {hasBiometric && (
-              <button
-                onClick={handleBiometricLogin}
-                disabled={biometricLoading}
-                style={{
-                  width:"100%", padding:"14px", marginTop:"12px",
-                  background:"linear-gradient(135deg,#27ae60,#1e8449)",
-                  border:"none", borderRadius:"10px", color:"#fff",
-                  fontSize:"15px", fontWeight:"700", cursor:"pointer",
-                  fontFamily:"Georgia,serif", letterSpacing:"1px",
-                  opacity: biometricLoading ? 0.7 : 1,
-                  display:"flex", alignItems:"center", justifyContent:"center", gap:"8px"
-                }}
-              >
-                {biometricLoading ? t.login.biometricLoading : t.login.biometric}
-              </button>
-            )}
-
-          </>}
-        </div>
-      </div>
-
-      {/* Modal recuperar contraseña */}
-      {showRecover && (
-        <div style={{ position:"fixed", inset:0, zIndex:20000, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-          <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"380px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
-            <div style={{ textAlign:"center", marginBottom:"20px" }}>
-              <div style={{ fontSize:"36px", marginBottom:"8px" }}>🔑</div>
-              <div style={{ color:"var(--app-primary)", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif" }}>{t.login.recover.title}</div>
-              <div style={{ color:"#888", fontSize:"13px", marginTop:"6px" }}>{t.login.recover.desc}</div>
-            </div>
-            {recoverState === "sent" ? (
-              <div style={{ textAlign:"center" }}>
-                <div style={{ fontSize:"40px", marginBottom:"12px" }}>✉️</div>
-                <div style={{ color:"#27ae60", fontWeight:"700", fontSize:"15px", marginBottom:"20px" }}>{t.login.recover.sent}</div>
-                <button onClick={() => setShowRecover(false)}
-                  style={{ width:"100%", padding:"13px", background:"var(--app-primary)", border:"none", borderRadius:"10px", color:"#fff", fontWeight:"700", cursor:"pointer", fontSize:"14px" }}>
-                  {t.login.recover.back}
-                </button>
-              </div>
-            ) : (
-              <>
-                <input
-                  type="email"
-                  value={recoverEmail}
-                  onChange={e => setRecoverEmail(e.target.value)}
-                  placeholder={t.login.recover.emailPlaceholder}
-                  style={{ width:"100%", padding:"13px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"15px", outline:"none", boxSizing:"border-box", marginBottom:"10px" }}
-                />
-                {recoverState === "notfound" && <div style={{ color:"#e74c3c", fontSize:"13px", marginBottom:"10px", background:"#fef0ef", padding:"10px", borderRadius:"8px" }}>{t.login.recover.notFound}</div>}
-                {recoverState === "error" && <div style={{ color:"#e74c3c", fontSize:"13px", marginBottom:"10px", background:"#fef0ef", padding:"10px", borderRadius:"8px" }}>{t.login.recover.error}</div>}
-                <button
-                  onClick={async () => {
-                    if (!recoverEmail.trim()) return;
-                    setRecoverState("sending");
-                    try {
-                      const res = await fetch("/api/recover", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ email: recoverEmail.trim() }) });
-                      const data = await res.json();
-                      if (data.ok) { setRecoverState("sent"); }
-                      else if (data.error === "email_not_found" || data.error === "no_profile") { setRecoverState("notfound"); }
-                      else { setRecoverState("error"); }
-                    } catch { setRecoverState("error"); }
-                  }}
-                  disabled={recoverState === "sending"}
-                  style={{ width:"100%", padding:"13px", background:"var(--app-primary)", border:"none", borderRadius:"10px", color:"#fff", fontWeight:"700", cursor:"pointer", fontSize:"14px", marginBottom:"10px", opacity: recoverState === "sending" ? 0.7 : 1 }}>
-                  {recoverState === "sending" ? t.login.recover.sending : t.login.recover.button}
-                </button>
-                <button onClick={() => setShowRecover(false)}
-                  style={{ width:"100%", padding:"12px", background:"#f5f0eb", border:"none", borderRadius:"10px", color:"#888", fontWeight:"600", cursor:"pointer", fontSize:"13px" }}>
-                  {t.login.recover.back}
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-      </>
+      <LoginScreen
+        loading={loading}
+        brandIcon={brandIcon} brandLabel={brandLabel} brandName={brandName}
+        brandLabelColor={brandLabelColor} brandNameColor={brandNameColor}
+        companyTagline={companyTagline} brandTaglineColor={brandTaglineColor}
+        loginForm={loginForm} setLoginForm={setLoginForm}
+        handleLogin={handleLogin}
+        loginLocked={loginLocked} loginLockSecs={loginLockSecs}
+        loginError={loginError} loginAttemptsLeft={loginAttemptsLeft}
+        t={t} isMobile={isMobile}
+        hasBiometric={hasBiometric} biometricLoading={biometricLoading} handleBiometricLogin={handleBiometricLogin}
+      />
     );
   }
 
@@ -929,7 +867,7 @@ export default function App() {
                 >
                   <div style={{ height: isMobile?"100px":"128px", background:r.image?"transparent":"#E5E5E5", display:"flex", alignItems:"center", justifyContent:"center", position:"relative", overflow:"hidden" }}>
                     {r.image
-                      ? <img src={r.image} alt={r.name} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                      ? <Image fill src={r.image} alt={r.name} style={{ objectFit:"cover" }} sizes="(max-width:768px) 50vw, 200px" />
                       : <div style={{ textAlign:"center", color:"#C0B8A8" }}>
                           <div style={{ fontSize:"28px" }}>{allCategories.find(c=>c.id===r.category)?.icon||"🍽️"}</div>
                         </div>
@@ -958,15 +896,17 @@ export default function App() {
       {showForm && (
         <RecipeForm initial={editingRecipe} categories={allCategories} onSave={handleSaveRecipe} onCancel={()=>{setShowForm(false);setEditingRecipe(null);}} />
       )}
-      {showUsers && isAdmin && (
-        <UsersPanel users={users} onSave={saveUsers} onClose={()=>setShowUsers(false)} />
-      )}
-      {showReport && isAdmin && (
-        <ActivityReport onClose={()=>setShowReport(false)} />
-      )}
-      {showProgress && isAdmin && (
-        <ProgressReport recipes={recipes} onClose={()=>setShowProgress(false)} />
-      )}
+      <Suspense fallback={null}>
+        {showUsers && isAdmin && (
+          <UsersPanel users={users} onSave={saveUsers} onClose={()=>setShowUsers(false)} />
+        )}
+        {showReport && isAdmin && (
+          <ActivityReport onClose={()=>setShowReport(false)} />
+        )}
+        {showProgress && isAdmin && (
+          <ProgressReport recipes={recipes} onClose={()=>setShowProgress(false)} />
+        )}
+      </Suspense>
       {categoryModal && isAdmin && (
         <CategoryModal
           mode={categoryModal.mode}
@@ -976,9 +916,7 @@ export default function App() {
             if (cat.oldId && cat.oldId !== cat.id) {
               // Editar: renombrar categoría en todas las recetas
               const toUpdate = recipes.filter(r => r.category === cat.oldId);
-              for (const r of toUpdate) {
-                await upsertRecipe({ ...r, category: cat.id });
-              }
+              await Promise.all(toUpdate.map(r => upsertRecipe({ ...r, category: cat.id })));
               setRecipes(prev => prev.map(r => r.category === cat.oldId ? { ...r, category: cat.id } : r));
               // Eliminar la vieja y crear la nueva en Supabase
               await deleteCategoryDb(cat.oldId);
@@ -999,907 +937,78 @@ export default function App() {
         />
       )}
 
-      {/* Modal de idioma */}
-      {showLangModal && (
-        <div style={{ position:"fixed", inset:0, zIndex:600, background:"rgba(10,15,25,0.92)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-          <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"360px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)", position:"relative" }}>
-            <button onClick={() => setShowLangModal(false)} style={{ position:"absolute", top:"14px", right:"14px", background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"8px", width:"32px", height:"32px", cursor:"pointer", fontSize:"18px", color:"#555", lineHeight:"1" }}>×</button>
-            <div style={{ fontSize:"32px", textAlign:"center", marginBottom:"6px" }}>🌐</div>
-            <div style={{ color:"var(--app-primary)", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", textAlign:"center", marginBottom:"6px" }}>
-              {t.language.title}
-            </div>
-            <div style={{ color:"#888", fontSize:"13px", textAlign:"center", marginBottom:"24px" }}>
-              {t.language.subtitle}
-            </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:"10px", marginBottom:"24px" }}>
-              {LANGUAGES.map(l => (
-                <button key={l.code} onClick={() => setLang(l.code)} style={{
-                  display:"flex", alignItems:"center", gap:"14px",
-                  padding:"14px 18px", borderRadius:"12px", border:"2px solid",
-                  borderColor: lang === l.code ? "var(--app-primary)" : "#eee",
-                  background: lang === l.code ? "#f0f4f8" : "#fff",
-                  cursor:"pointer", textAlign:"left",
-                }}>
-                  <span style={{ fontSize:"28px" }}>{l.flag}</span>
-                  <div>
-                    <div style={{ fontWeight:"700", color:"var(--app-primary)", fontSize:"15px" }}>{l.label}</div>
-                  </div>
-                  {lang === l.code && <span style={{ marginLeft:"auto", color:"var(--app-primary)", fontSize:"18px" }}>✓</span>}
-                </button>
-              ))}
-            </div>
-            <button onClick={() => setShowLangModal(false)} style={{
-              width:"100%", background:"var(--app-primary)", border:"none", padding:"13px", borderRadius:"12px",
-              color:"#fff", cursor:"pointer", fontWeight:"700", fontSize:"15px",
-            }}>
-              {t.language.save}
-            </button>
-          </div>
-        </div>
-      )}
+      <LangModal show={showLangModal} onClose={() => setShowLangModal(false)} t={t} lang={lang} setLang={setLang} LANGUAGES={LANGUAGES} />
 
-      {/* Modal para cambiar marca de agua */}
-      {showWatermarkUpload && isAdmin && (
-        <div style={{ position:"fixed", inset:0, zIndex:9995, background:"var(--app-primary-dark)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-          <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"440px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
-            <div style={{ fontSize:"28px", marginBottom:"4px", textAlign:"center" }}>🖼️</div>
-            <div style={{ color:"var(--app-primary)", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", marginBottom:"16px", textAlign:"center" }}>
-              {t.watermark.title}
-            </div>
-
-            {/* Preview actual — fondo blanco simula la página */}
-            <div style={{ background:"#fff", borderRadius:"12px", border:"1px solid #eee", padding:"20px", marginBottom:"16px", textAlign:"center", minHeight:"120px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
-              <img
-                src={watermarkLogo || "https://nhqdsdmqmyoxuyzsdacj.supabase.co/storage/v1/object/public/recipe-images/watermark/logo-watermark.png"}
-                alt={t.watermark.preview}
-                style={{ width: watermarkSize + "%", maxWidth:"220px", opacity: Math.max(watermarkOpacity, 0.15) }}
-              />
-              <div style={{ color:"#bbb", fontSize:"11px", marginTop:"8px" }}>{t.watermark.previewNote}</div>
-            </div>
-
-            {/* Slider de visibilidad */}
-            <div style={{ background:"#f8f8f8", borderRadius:"10px", padding:"12px 14px", marginBottom:"10px" }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
-                <span style={{ fontSize:"13px", color:"#333", fontWeight:"600" }}>{t.watermark.visibility}</span>
-                <span style={{ fontSize:"13px", color:"var(--app-primary)", fontWeight:"700" }}>{Math.round(watermarkOpacity * 100)}%</span>
-              </div>
-              <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-                <span style={{ fontSize:"11px", color:"#999", width:"40px" }}>{t.watermark.faint}</span>
-                <input type="range" min="1" max="40" value={Math.round(watermarkOpacity * 100)}
-                  onInput={e => saveWatermark({ opacity: parseInt(e.target.value) / 100 })}
-                  onChange={e => saveWatermark({ opacity: parseInt(e.target.value) / 100 })}
-                  style={{ flex:1, accentColor:"var(--app-primary)", cursor:"pointer", height:"20px", touchAction:"none" }}
-                />
-                <span style={{ fontSize:"11px", color:"#999", width:"40px", textAlign:"right" }}>{t.watermark.visible}</span>
-              </div>
-            </div>
-
-            {/* Slider de tamaño */}
-            <div style={{ background:"#f8f8f8", borderRadius:"10px", padding:"12px 14px", marginBottom:"16px" }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
-                <span style={{ fontSize:"13px", color:"#333", fontWeight:"600" }}>{t.watermark.size}</span>
-                <span style={{ fontSize:"13px", color:"var(--app-primary)", fontWeight:"700" }}>{watermarkSize}%</span>
-              </div>
-              <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-                <span style={{ fontSize:"11px", color:"#999", width:"40px" }}>{t.watermark.small}</span>
-                <input type="range" min="10" max="90" value={watermarkSize}
-                  onInput={e => saveWatermark({ size: parseInt(e.target.value) })}
-                  onChange={e => saveWatermark({ size: parseInt(e.target.value) })}
-                  style={{ flex:1, accentColor:"var(--app-primary)", cursor:"pointer", height:"20px", touchAction:"none" }}
-                />
-                <span style={{ fontSize:"11px", color:"#999", width:"40px", textAlign:"right" }}>{t.watermark.large}</span>
-              </div>
-            </div>
-
-            {/* Subir nueva imagen */}
-            <label style={{
-              display:"block", background:"var(--app-primary)", color:"#fff", padding:"12px", borderRadius:"10px",
-              textAlign:"center", cursor:"pointer", fontWeight:"700", fontSize:"14px", marginBottom:"12px",
-            }}>
-              {t.watermark.upload}
-              <input type="file" accept="image/*" style={{ display:"none" }} onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                try {
-                  const { supabase } = await import("@/lib/supabase");
-                  const ext = file.name.split(".").pop()?.toLowerCase() || "png";
-                  const path = `watermark/custom-watermark.${ext}`;
-                  // Eliminar archivo anterior si existe
-                  await supabase.storage.from("recipe-images").remove([path]);
-                  // Subir nuevo
-                  const { error } = await supabase.storage
-                    .from("recipe-images")
-                    .upload(path, file, { upsert: true, cacheControl: "0" });
-                  if (error) throw error;
-                  const { data: urlData } = supabase.storage.from("recipe-images").getPublicUrl(path);
-                  // Guardar URL sin timestamp para que sea estable entre dispositivos
-                  const stableUrl = urlData.publicUrl;
-                  saveWatermark({ logo: stableUrl });
-                  // Mostrar con timestamp para forzar recarga en este dispositivo
-                  setWatermarkLogo(stableUrl + "?t=" + Date.now());
-                } catch (err) {
-                  console.error("Watermark upload error:", err);
-                  const reader = new FileReader();
-                  reader.onload = () => saveWatermark({ logo: reader.result });
-                  reader.readAsDataURL(file);
-                }
-              }} />
-            </label>
-
-            {/* Restaurar por defecto */}
-            {watermarkLogo && (
-              <button onClick={() => saveWatermark({ logo: null })} style={{ width:"100%", background:"none", border:"1px solid #ddd", padding:"10px", borderRadius:"10px", cursor:"pointer", fontSize:"13px", color:"#888", marginBottom:"12px" }}>
-                {t.watermark.restore}
-              </button>
-            )}
-
-            <button onClick={() => setShowWatermarkUpload(false)} style={{
-              width:"100%", background:"#e74c3c", border:"none", padding:"12px", borderRadius:"10px",
-              color:"#fff", cursor:"pointer", fontWeight:"700", fontSize:"14px",
-            }}>
-              {t.watermark.close}
-            </button>
-          </div>
-        </div>
-      )}
+      <WatermarkModal
+        show={showWatermarkUpload} isAdmin={isAdmin} onClose={() => setShowWatermarkUpload(false)}
+        t={t} watermarkLogo={watermarkLogo} setWatermarkLogo={setWatermarkLogo}
+        watermarkOpacity={watermarkOpacity} watermarkSize={watermarkSize} saveWatermark={saveWatermark}
+      />
 
       {/* Banner de anuncios - mostrado al iniciar sesión */}
-      {showBanner && bannerActive && bannerImages.length > 0 && (() => {
-        const extImages = bannerImages.length > 1
-          ? [bannerImages[bannerImages.length - 1], ...bannerImages, bannerImages[0]]
-          : bannerImages;
-        const total = bannerImages.length + 2; // clones incluidos (pos 0 = clon último, pos total-1 = clon primero)
-        const stripPos = bannerImages.length > 1 ? bannerStripPos : 0;
-        const navigate = (dir) => {
-          clearInterval(bannerIntervalRef.current);
-          setBannerCanTransition(true);
-          // Clampear para no saltar por encima del clon — el loop seamless
-          // solo se dispara cuando pos === 0 o pos === total-1 exactamente.
-          setBannerStripPos(p => {
-            const next = p + dir;
-            return Math.min(Math.max(next, 0), total - 1);
-          });
-          setBannerSlide(s => (s + dir + bannerImages.length) % bannerImages.length);
-          bannerIntervalRef.current = setInterval(() => {
-            setBannerStripPos(p => p + 1);
-            setBannerSlide(s => (s + 1) % bannerImages.length);
-          }, 8000);
-        };
-
-        const goTo = (i) => {
-          clearInterval(bannerIntervalRef.current);
-          setBannerCanTransition(true);
-          setBannerStripPos(i + 1);
-          setBannerSlide(i);
-          bannerIntervalRef.current = setInterval(() => {
-            setBannerStripPos(p => p + 1);
-            setBannerSlide(s => (s + 1) % bannerImages.length);
-          }, 8000);
-        };
-
-        return (
-          <div style={{ position:"fixed", inset:0, zIndex:10000, background:"rgba(0,0,0,0.92)" }}>
-            <style>{`
-              @keyframes bannerProgress { from { width:0% } to { width:100% } }
-            `}</style>
-
-            {/* Barra de progreso */}
-            {bannerImages.length > 1 && (
-              <div style={{ position:"absolute", top:0, left:0, right:0, height:"3px", background:"rgba(255,255,255,0.1)", zIndex:3 }}>
-                <div key={`prog-${bannerSlide}`} style={{ height:"100%", background:"rgba(255,255,255,0.9)", animation:"bannerProgress 8s linear forwards" }} />
-              </div>
-            )}
-
-            {/* Botón cerrar */}
-            <button onClick={() => { setShowBanner(false); setBannerSlide(0); setBannerStripPos(1); setBannerCanTransition(true); clearInterval(bannerIntervalRef.current); }}
-              style={{ position:"absolute", top:"18px", right:"18px", background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"50%", width:"40px", height:"40px", color:"#fff", fontSize:"20px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:4, backdropFilter:"blur(8px)" }}>×</button>
-
-            {/* CARRETE estilo iOS — overflow visible para que se vean los slides adyacentes */}
-            <div style={{ position:"absolute", inset:0, overflow:"visible", display:"flex", alignItems:"center" }}>
-              <div
-                ref={bannerStripRef}
-                style={{ display:"flex", alignItems:"center", willChange:"transform" }}
-              >
-                {extImages.map((url, i) => {
-                  const isActive = i === stripPos;
-                  return (
-                    <div key={i} style={{
-                      width:"78vw",
-                      flexShrink:0,
-                      padding:"0 8px",
-                      boxSizing:"border-box",
-                      transition: bannerCanTransition ? "transform 0.5s ease, opacity 0.5s ease" : "none",
-                      transform: isActive ? "scale(1)" : "scale(0.88)",
-                      opacity: isActive ? 1 : 0.55,
-                    }}>
-                      <div style={{ borderRadius:"22px", overflow:"hidden", boxShadow: isActive ? "0 32px 80px rgba(0,0,0,0.8)" : "0 12px 32px rgba(0,0,0,0.5)", height:"78vh", background:"#000", position:"relative" }}>
-                        {/* Fondo difuminado — llena los bordes para imágenes verticales en desktop */}
-                        <img src={url} alt="" aria-hidden="true" style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover", filter:"blur(24px) brightness(0.35)", transform:"scale(1.08)", userSelect:"none", pointerEvents:"none" }} />
-                        {/* Imagen principal completa — sin recorte */}
-                        <img src={url} alt="" style={{ position:"relative", zIndex:1, width:"100%", height:"100%", objectFit:"contain", userSelect:"none", pointerEvents:"none", display:"block" }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Flechas */}
-            {bannerImages.length > 1 && (
-              <>
-                <button onClick={() => navigate(-1)} style={{ position:"absolute", left:"8px", top:"50%", transform:"translateY(-50%)", background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"50%", width:"44px", height:"44px", color:"#fff", fontSize:"26px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:5, backdropFilter:"blur(8px)" }}>‹</button>
-                <button onClick={() => navigate(1)} style={{ position:"absolute", right:"8px", top:"50%", transform:"translateY(-50%)", background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"50%", width:"44px", height:"44px", color:"#fff", fontSize:"26px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", zIndex:5, backdropFilter:"blur(8px)" }}>›</button>
-              </>
-            )}
-
-            {/* Dots + contador */}
-            {bannerImages.length > 1 && (
-              <div style={{ position:"absolute", bottom:"32px", left:0, right:0, display:"flex", flexDirection:"column", alignItems:"center", gap:"10px", zIndex:3 }}>
-                <div style={{ display:"flex", gap:"6px" }}>
-                  {bannerImages.map((_, i) => (
-                    <div key={i} onClick={() => goTo(i)} style={{
-                      width: i === bannerSlide ? "22px" : "7px", height:"7px",
-                      borderRadius:"4px", cursor:"pointer", transition:"all 0.35s ease",
-                      background: i === bannerSlide ? "#fff" : "rgba(255,255,255,0.3)",
-                    }} />
-                  ))}
-                </div>
-                <div style={{ color:"rgba(255,255,255,0.35)", fontSize:"11px", letterSpacing:"2px" }}>{bannerSlide + 1} / {bannerImages.length}</div>
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* Modal Nombre Marca */}
-      {showBrandModal && isAdmin && (
-        <div style={{ position:"fixed", inset:0, zIndex:9995, background:"rgba(10,15,25,0.88)", backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-          <div style={{ background:"#fff", borderRadius:"20px", padding:"28px 24px", width:"100%", maxWidth:"420px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)", maxHeight:"90vh", overflowY:"auto" }}>
-            <div style={{ textAlign:"center", marginBottom:"18px" }}>
-              <div style={{ fontSize:"28px", marginBottom:"6px" }}>🏷️</div>
-              <div style={{ color:"var(--app-primary)", fontSize:"17px", fontWeight:"700", fontFamily:"Georgia,serif" }}>{t.brand.title}</div>
-            </div>
-
-            {/* Preview en tiempo real */}
-            <div style={{ background:"linear-gradient(135deg,var(--app-primary-dark),var(--app-primary))", borderRadius:"14px", padding:"22px", textAlign:"center", marginBottom:"20px" }}>
-              <div style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", width:"62px", height:"62px", background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", borderRadius:"16px", marginBottom:"10px", boxShadow:"0 4px 16px rgba(0,0,0,0.4)", border:"2px solid rgba(255,255,255,0.1)", overflow:"hidden" }}>
-                {brandDraft.icon
-                  ? <img src={brandDraft.icon} alt="logo" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
-                  : <span style={{ fontSize:"26px" }}>🍽️</span>}
-              </div>
-              <div style={{ color:brandDraft.labelColor||"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"3px" }}>{brandDraft.label || "RECETARIO DIGITAL"}</div>
-              <div style={{ color:brandDraft.nameColor||"#ffffff", fontSize:"20px", fontWeight:"700", fontFamily:"Georgia,serif", marginTop:"2px" }}>{brandDraft.name || "Don Telmo®"}</div>
-              {brandDraft.tagline && <div style={{ color:brandDraft.taglineColor||"#8BAACC", fontSize:"12px", marginTop:"2px" }}>{brandDraft.tagline}</div>}
-            </div>
-
-            {/* Imagen del ícono */}
-            <div style={{ marginBottom:"14px" }}>
-              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"8px" }}>🖼️ ÍCONO / LOGO</label>
-              <label style={{ display:"block", background:"var(--app-primary)", color:"#fff", padding:"11px", borderRadius:"10px", textAlign:"center", cursor:"pointer", fontWeight:"700", fontSize:"13px", marginBottom:"6px" }}>
-                📤 Subir imagen
-                <input type="file" accept="image/*" style={{ display:"none" }} onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  // Mostrar preview local inmediatamente
-                  const reader = new FileReader();
-                  reader.onload = ev => setBrandDraft(d => ({...d, icon: ev.target.result}));
-                  reader.readAsDataURL(file);
-                  // Subir a Supabase en segundo plano
-                  try {
-                    const { supabase } = await import("@/lib/supabase");
-                    const ext = file.name.split(".").pop()?.toLowerCase() || "png";
-                    const path = `brand/brand-icon.${ext}`;
-                    await supabase.storage.from("recipe-images").remove([path]);
-                    const { error } = await supabase.storage.from("recipe-images").upload(path, file, { upsert:true, cacheControl:"0" });
-                    if (!error) {
-                      const { data: urlData } = supabase.storage.from("recipe-images").getPublicUrl(path);
-                      const url = urlData.publicUrl + "?t=" + Date.now();
-                      setBrandDraft(d => ({...d, icon: url}));
-                    }
-                  } catch { /* mantiene el preview local base64 */ }
-                }} />
-              </label>
-              {brandDraft.icon && (
-                <button onClick={() => setBrandDraft(d => ({...d, icon:null}))} style={{ width:"100%", background:"none", border:"1px solid #e0d8ce", borderRadius:"8px", padding:"8px", cursor:"pointer", fontSize:"12px", color:"#c0392b" }}>
-                  🗑️ Eliminar imagen
-                </button>
-              )}
-            </div>
-
-            {/* Paleta de colores reutilizable */}
-            {(() => {
-              const ColorPalette = ({ value, onChange }) => (
-                <div style={{ display:"flex", flexWrap:"wrap", gap:"6px", marginTop:"8px" }}>
-                  {BRAND_COLORS.map(c => (
-                    <div key={c} onClick={() => onChange(c)} style={{
-                      width:"24px", height:"24px", borderRadius:"50%", background:c,
-                      cursor:"pointer", flexShrink:0,
-                      boxShadow: value === c ? `0 0 0 2px #fff, 0 0 0 4px ${c}` : "0 1px 3px rgba(0,0,0,0.2)",
-                      transform: value === c ? "scale(1.2)" : "scale(1)",
-                      transition:"all 0.15s",
-                      border: c === "#ffffff" ? "1px solid #ddd" : "none",
-                    }} />
-                  ))}
-                </div>
-              );
-              return (
-                <>
-                  {/* Campo 1: etiqueta */}
-                  <div style={{ marginBottom:"14px" }}>
-                    <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"#D4721A", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.brand.labelField}</label>
-                    <input type="text" value={brandDraft.label} onChange={e => setBrandDraft(d => ({...d, label: e.target.value}))} placeholder="RECETARIO DIGITAL"
-                      style={{ width:"100%", padding:"11px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"14px", outline:"none", boxSizing:"border-box", fontFamily:"inherit" }} autoFocus />
-                    <ColorPalette value={brandDraft.labelColor} onChange={c => setBrandDraft(d => ({...d, labelColor:c}))} />
-                  </div>
-
-                  {/* Campo 2: nombre principal */}
-                  <div style={{ marginBottom:"14px" }}>
-                    <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.brand.nameField}</label>
-                    <input type="text" value={brandDraft.name} onChange={e => setBrandDraft(d => ({...d, name: e.target.value}))} placeholder="Don Telmo®"
-                      style={{ width:"100%", padding:"11px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"14px", outline:"none", boxSizing:"border-box", fontFamily:"inherit" }} />
-                    <ColorPalette value={brandDraft.nameColor} onChange={c => setBrandDraft(d => ({...d, nameColor:c}))} />
-                  </div>
-
-                  {/* Campo 3: subtítulo */}
-                  <div style={{ marginBottom:"20px" }}>
-                    <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"#888", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.brand.taglineLabel}</label>
-                    <input type="text" value={brandDraft.tagline} onChange={e => setBrandDraft(d => ({...d, tagline: e.target.value}))} placeholder="1958 — Company"
-                      style={{ width:"100%", padding:"11px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"14px", outline:"none", boxSizing:"border-box", fontFamily:"inherit" }} />
-                    <ColorPalette value={brandDraft.taglineColor} onChange={c => setBrandDraft(d => ({...d, taglineColor:c}))} />
-                  </div>
-                </>
-              );
-            })()}
-
-            <div style={{ display:"flex", gap:"10px" }}>
-              <button onClick={() => { setBrandDraft({ label:brandLabel, name:brandName, tagline:companyTagline, icon:brandIcon, labelColor:brandLabelColor, nameColor:brandNameColor, taglineColor:brandTaglineColor }); setShowBrandModal(false); }} style={{ flex:1, background:"#F0ECE6", border:"none", borderRadius:"10px", padding:"12px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b", fontSize:"14px" }}>
-                {t.brand.cancel}
-              </button>
-              <button onClick={() => {
-                setBrandLabel(brandDraft.label);
-                setBrandName(brandDraft.name);
-                setCompanyTagline(brandDraft.tagline);
-                setBrandIcon(brandDraft.icon);
-                setBrandLabelColor(brandDraft.labelColor);
-                setBrandNameColor(brandDraft.nameColor);
-                setBrandTaglineColor(brandDraft.taglineColor);
-                localStorage.setItem("dontelmo:brandLabel", brandDraft.label);
-                localStorage.setItem("dontelmo:brandName", brandDraft.name);
-                localStorage.setItem("dontelmo:tagline", brandDraft.tagline);
-                localStorage.setItem("dontelmo:brandLabelColor", brandDraft.labelColor);
-                localStorage.setItem("dontelmo:brandNameColor", brandDraft.nameColor);
-                localStorage.setItem("dontelmo:brandTaglineColor", brandDraft.taglineColor);
-                if (brandDraft.icon) localStorage.setItem("dontelmo:brandIcon", brandDraft.icon);
-                else localStorage.removeItem("dontelmo:brandIcon");
-                // Sincronizar con Supabase para que todos los dispositivos lo vean
-                saveAppConfig({ themeId, brand: brandDraft });
-                setShowBrandModal(false);
-              }} style={{ flex:1, background:"var(--app-primary)", border:"none", borderRadius:"10px", padding:"12px", cursor:"pointer", fontWeight:"700", color:"#fff", fontSize:"14px" }}>
-                {t.brand.save}
-              </button>
-            </div>
-          </div>
-        </div>
+      {showBanner && bannerActive && bannerImages.length > 0 && (
+        <BannerCarousel
+          bannerImages={bannerImages} bannerSlide={bannerSlide} bannerStripPos={bannerStripPos}
+          bannerStripRef={bannerStripRef} bannerCanTransition={bannerCanTransition} bannerIntervalRef={bannerIntervalRef}
+          setBannerSlide={setBannerSlide} setBannerStripPos={setBannerStripPos}
+          setBannerCanTransition={setBannerCanTransition} setShowBanner={setShowBanner}
+        />
       )}
 
-      {/* Modal para activar acceso biométrico */}
-      {showBiometricPrompt && (
-        <div style={{ position:"fixed", inset:0, zIndex:500, background:"rgba(10,15,25,0.88)", backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-          <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"360px", textAlign:"center", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
-            <div style={{ fontSize:"48px", marginBottom:"16px" }}>🔐</div>
-            <div style={{ color:"var(--app-primary)", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", marginBottom:"8px" }}>
-              Acceso Biométrico
-            </div>
-            <div style={{ color:"#666", fontSize:"13px", lineHeight:"1.6", marginBottom:"24px" }}>
-              ¿Deseas activar el acceso con Face ID o huella dactilar para iniciar sesión más rápido?
-            </div>
-            <button
-              onClick={handleRegisterBiometric}
-              style={{
-                width:"100%", padding:"14px",
-                background:"linear-gradient(135deg,#27ae60,#1e8449)",
-                border:"none", borderRadius:"10px", color:"#fff",
-                fontSize:"15px", fontWeight:"700", cursor:"pointer",
-                fontFamily:"Georgia,serif", marginBottom:"10px"
-              }}
-            >
-              ✅ Sí, activar
-            </button>
-            <button
-              onClick={() => setShowBiometricPrompt(false)}
-              style={{
-                width:"100%", padding:"12px",
-                background:"#F0ECE6", border:"none", borderRadius:"10px",
-                color:"#5a3e2b", fontSize:"14px", fontWeight:"600", cursor:"pointer"
-              }}
-            >
-              Ahora no
-            </button>
-          </div>
-        </div>
-      )}
+      <BrandModal
+        show={showBrandModal} isAdmin={isAdmin} onClose={() => setShowBrandModal(false)} t={t}
+        brandDraft={brandDraft} setBrandDraft={setBrandDraft}
+        brandLabel={brandLabel} brandName={brandName} companyTagline={companyTagline}
+        brandIcon={brandIcon} brandLabelColor={brandLabelColor} brandNameColor={brandNameColor} brandTaglineColor={brandTaglineColor}
+        setBrandLabel={setBrandLabel} setBrandName={setBrandName} setCompanyTagline={setCompanyTagline}
+        setBrandIcon={setBrandIcon} setBrandLabelColor={setBrandLabelColor} setBrandNameColor={setBrandNameColor} setBrandTaglineColor={setBrandTaglineColor}
+        themeId={themeId}
+      />
 
-      {/* Modal de importación desde Excel */}
-      {showImportModal && isAdmin && (
-        <div style={{ position:"fixed", inset:0, zIndex:9998, background:"rgba(10,15,25,0.88)", backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-          <div style={{ background:"#fff", borderRadius:"20px", width:"100%", maxWidth:"480px", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 30px 80px rgba(0,0,0,0.5)", padding:"28px" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"20px" }}>
-              <div>
-                <div style={{ fontSize:"22px", fontWeight:"700", color:"#1b3a5c" }}>📤 Importar recetas</div>
-                <div style={{ fontSize:"13px", color:"#888", marginTop:"2px" }}>Desde plantilla Excel (.xlsx)</div>
-              </div>
-              <button onClick={() => setShowImportModal(false)} style={{ background:"#f0ece6", border:"none", borderRadius:"50%", width:"36px", height:"36px", cursor:"pointer", fontSize:"18px" }}>×</button>
-            </div>
+      <Suspense fallback={null}>
+        <BiometricPrompt show={showBiometricPrompt} onClose={() => setShowBiometricPrompt(false)} onActivate={handleRegisterBiometric} />
+        <ImportExcelModal
+          show={showImportModal} isAdmin={isAdmin} onClose={() => setShowImportModal(false)}
+          importDone={importDone} importPreview={importPreview} importLoading={importLoading}
+          setImportPreview={setImportPreview} setImportLoading={setImportLoading} setImportDone={setImportDone}
+          onRecipeAdded={saved => setRecipes(prev => [...prev, saved])}
+        />
+        <BannerConfigModal
+          show={showBannerConfig} isAdmin={isAdmin} onClose={() => setShowBannerConfig(false)}
+          bannerActive={bannerActive} setBannerActive={setBannerActive}
+          bannerImages={bannerImages} setBannerImages={setBannerImages}
+          bannerUploading={bannerUploading} setBannerUploading={setBannerUploading}
+          setBannerSlide={setBannerSlide} setShowBanner={setShowBanner}
+        />
+        <ThemeModal
+          show={showThemeModal} onClose={() => setShowThemeModal(false)}
+          themeId={themeId} setTheme={setTheme} THEMES={THEMES} saveAppConfig={saveAppConfig}
+          brandLabel={brandLabel} brandName={brandName} companyTagline={companyTagline}
+          brandIcon={brandIcon} brandLabelColor={brandLabelColor} brandNameColor={brandNameColor} brandTaglineColor={brandTaglineColor}
+        />
+        <ProfileGuardModal
+          show={showProfileGuard} isAdmin={isAdmin}
+          onClose={() => { setShowProfileGuard(false); setGuardInput(""); setGuardError(""); }}
+          profileHash={profileHash} profileData={profileData}
+          setProfileDraft={setProfileDraft} setProfileNewPass={setProfileNewPass} setProfileNewPassConfirm={setProfileNewPassConfirm}
+          guardInput={guardInput} setGuardInput={setGuardInput}
+          guardError={guardError} setGuardError={setGuardError}
+          guardAttempts={guardAttempts} setGuardAttempts={setGuardAttempts}
+          guardLocked={guardLocked} setGuardLocked={setGuardLocked} guardLockRef={guardLockRef}
+          onUnlock={() => { setShowProfileGuard(false); setShowProfileModal(true); }}
+        />
+        <ProfileModal
+          show={showProfileModal} isAdmin={isAdmin} onClose={() => setShowProfileModal(false)} t={t}
+          profileData={profileData} setProfileData={setProfileData}
+          profileDraft={profileDraft} setProfileDraft={setProfileDraft}
+          profileSaved={profileSaved} setProfileSaved={setProfileSaved}
+          profileHash={profileHash} setProfileHash={setProfileHash}
+          profileNewPass={profileNewPass} setProfileNewPass={setProfileNewPass}
+          profileNewPassConfirm={profileNewPassConfirm} setProfileNewPassConfirm={setProfileNewPassConfirm}
+        />
+      </Suspense>
 
-            {importDone ? (
-              <div style={{ textAlign:"center", padding:"32px 0" }}>
-                <div style={{ fontSize:"52px", marginBottom:"12px" }}>✅</div>
-                <div style={{ fontSize:"18px", fontWeight:"700", color:"#27ae60", marginBottom:"8px" }}>¡Recetas importadas!</div>
-                <div style={{ fontSize:"13px", color:"#888", marginBottom:"24px" }}>{importPreview?.recipes?.length} recetas cargadas correctamente</div>
-                <button onClick={() => setShowImportModal(false)} style={{ background:"var(--app-primary)", border:"none", borderRadius:"10px", padding:"12px 28px", color:"#fff", fontWeight:"700", cursor:"pointer", fontSize:"14px" }}>Cerrar</button>
-              </div>
-            ) : !importPreview ? (
-              <>
-                <div style={{ background:"#f5f0ea", borderRadius:"12px", padding:"18px", marginBottom:"20px", fontSize:"13px", color:"#5a3e2b", lineHeight:"1.7" }}>
-                  <strong>📋 Pasos:</strong><br/>
-                  1. Descarga la plantilla desde <em>⚙️ → Descargar plantilla Excel</em><br/>
-                  2. Llena las recetas en la hoja <strong>🍽️ RECETAS</strong><br/>
-                  3. Guarda el archivo y súbelo aquí
-                </div>
-                <label style={{ display:"block", background:"var(--app-primary)", color:"#fff", padding:"14px", borderRadius:"12px", textAlign:"center", cursor:"pointer", fontWeight:"700", fontSize:"15px" }}>
-                  📂 Seleccionar archivo .xlsx
-                  <input type="file" accept=".xlsx,.xls" style={{ display:"none" }} onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    setImportLoading(true);
-                    try {
-                      const parsed = await importFromExcel(file);
-                      setImportPreview({ recipes: parsed, fileName: file.name });
-                    } catch (err) {
-                      alert("Error al leer el archivo: " + err.message);
-                    } finally {
-                      setImportLoading(false);
-                    }
-                  }} />
-                </label>
-                {importLoading && <div style={{ textAlign:"center", marginTop:"16px", color:"#888" }}>⏳ Leyendo archivo...</div>}
-              </>
-            ) : (
-              <>
-                <div style={{ background:"#e8f8ef", border:"1px solid #a8e6c0", borderRadius:"10px", padding:"14px", marginBottom:"16px" }}>
-                  <div style={{ fontWeight:"700", color:"#1e8449", marginBottom:"4px" }}>✓ Archivo leído: {importPreview.fileName}</div>
-                  <div style={{ fontSize:"13px", color:"#27ae60" }}>{importPreview.recipes.length} recetas encontradas</div>
-                </div>
-                <div style={{ maxHeight:"220px", overflowY:"auto", border:"1px solid #e8e0d5", borderRadius:"10px", marginBottom:"18px" }}>
-                  {importPreview.recipes.map((r, i) => (
-                    <div key={i} style={{ padding:"10px 14px", borderBottom:"1px solid #f0ebe3", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                      <div>
-                        <div style={{ fontWeight:"600", fontSize:"13px", color:"#1b3a5c" }}>{r.name}</div>
-                        <div style={{ fontSize:"11px", color:"#aaa" }}>{r.category || "Sin categoría"} · {r.ingredients?.length || 0} ingredientes</div>
-                      </div>
-                      <div style={{ fontSize:"11px", color:"#ccc" }}>#{i+1}</div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ background:"#fff8e6", border:"1px solid #f5d78e", borderRadius:"10px", padding:"12px", marginBottom:"18px", fontSize:"12px", color:"#7d6000" }}>
-                  ⚠️ Las recetas se agregarán sin borrar las existentes. Las imágenes deben subirse manualmente desde cada receta.
-                </div>
-                <div style={{ display:"flex", gap:"10px" }}>
-                  <button onClick={() => setImportPreview(null)} style={{ flex:1, background:"#f0ece6", border:"none", borderRadius:"10px", padding:"12px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b", fontSize:"14px" }}>← Cambiar archivo</button>
-                  <button onClick={async () => {
-                    setImportLoading(true);
-                    try {
-                      for (const r of importPreview.recipes) {
-                        const saved = await insertRecipe(r);
-                        if (saved) setRecipes(prev => [...prev, saved]);
-                      }
-                      setImportDone(true);
-                    } catch (err) {
-                      alert("Error al importar: " + err.message);
-                    } finally {
-                      setImportLoading(false);
-                    }
-                  }} disabled={importLoading} style={{ flex:2, background: importLoading ? "#aaa" : "var(--app-primary)", border:"none", borderRadius:"10px", padding:"12px", cursor: importLoading ? "not-allowed" : "pointer", fontWeight:"700", color:"#fff", fontSize:"14px" }}>
-                    {importLoading ? "⏳ Importando..." : `✅ Importar ${importPreview.recipes.length} recetas`}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Modal de configuración del banner */}
-      {showBannerConfig && isAdmin && (
-        <div style={{ position:"fixed", inset:0, zIndex:9995, background:"rgba(10,15,25,0.88)", backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-          <div style={{ background:"#fff", borderRadius:"20px", width:"100%", maxWidth:"480px", maxHeight:"90vh", overflow:"hidden", display:"flex", flexDirection:"column", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
-            {/* Header */}
-            <div style={{ background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", padding:"18px 24px", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
-              <div>
-                <div style={{ color:"#D4721A", fontSize:"10px", fontWeight:"700", letterSpacing:"3px", fontFamily:"Georgia,serif" }}>DON TELMO® RECETARIO</div>
-                <div style={{ color:"#fff", fontFamily:"Georgia,serif", fontSize:"17px", fontWeight:"700", marginTop:"3px" }}>📢 Banner de Anuncios</div>
-              </div>
-              <button onClick={() => setShowBannerConfig(false)} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"18px" }}>×</button>
-            </div>
-
-            <div style={{ overflowY:"auto", flex:1, padding:"20px" }}>
-              {/* Toggle publicar */}
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:"#F7F3EE", borderRadius:"14px", padding:"16px 18px", marginBottom:"20px" }}>
-                <div>
-                  <div style={{ fontWeight:"700", fontSize:"14px", color:"var(--app-primary)" }}>Publicar banner</div>
-                  <div style={{ fontSize:"12px", color:"#888", marginTop:"2px" }}>Los usuarios verán el banner al iniciar sesión</div>
-                </div>
-                <div onClick={() => setBannerActive(v => !v)} style={{
-                  width:"51px", height:"31px", borderRadius:"16px", cursor:"pointer", transition:"all 0.3s",
-                  background: bannerActive ? "#34c759" : "#e0e0e0", position:"relative", flexShrink:0,
-                }}>
-                  <div style={{
-                    position:"absolute", top:"2px", width:"27px", height:"27px", borderRadius:"50%",
-                    background:"#fff", boxShadow:"0 2px 4px rgba(0,0,0,0.2)", transition:"all 0.3s",
-                    left: bannerActive ? "22px" : "2px",
-                  }} />
-                </div>
-              </div>
-
-              {/* Upload images */}
-              <div style={{ marginBottom:"16px" }}>
-                {/* Header con contador */}
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"10px" }}>
-                  <div style={{ fontSize:"12px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1px" }}>IMÁGENES DEL BANNER</div>
-                  <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
-                    {[1,2,3,4,5].map(n => (
-                      <div key={n} style={{
-                        width:"28px", height:"28px", borderRadius:"8px", fontSize:"11px", fontWeight:"700",
-                        display:"flex", alignItems:"center", justifyContent:"center",
-                        background: n <= bannerImages.length ? "var(--app-primary)" : "#F0ECE6",
-                        color: n <= bannerImages.length ? "#fff" : "#bbb",
-                        transition:"all 0.2s",
-                      }}>{n}</div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Contador de texto */}
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"10px" }}>
-                  <div style={{ fontSize:"12px", color:"#888" }}>
-                    {bannerImages.length === 0
-                      ? "Sin imágenes aún"
-                      : `${bannerImages.length} de 5 imagen${bannerImages.length !== 1 ? "es" : ""} subida${bannerImages.length !== 1 ? "s" : ""}`}
-                  </div>
-                  {bannerImages.length >= 5 && (
-                    <div style={{ fontSize:"11px", color:"#e74c3c", fontWeight:"700" }}>Límite alcanzado</div>
-                  )}
-                </div>
-
-                {/* Botón subir */}
-                {bannerImages.length < 5 && (
-                  <label style={{ display:"block", background: bannerUploading ? "#ccc" : "var(--app-primary)", color:"#fff", padding:"12px", borderRadius:"10px", textAlign:"center", cursor: bannerUploading ? "not-allowed" : "pointer", fontWeight:"700", fontSize:"14px", marginBottom:"12px" }}>
-                    {bannerUploading ? "⏳ Subiendo..." : `📤 Agregar imagen (${5 - bannerImages.length} disponible${5 - bannerImages.length !== 1 ? "s" : ""})`}
-                    <input type="file" accept="image/*" multiple style={{ display:"none" }} disabled={bannerUploading || bannerImages.length >= 5} onChange={async (e) => {
-                      const files = Array.from(e.target.files || []).slice(0, 5 - bannerImages.length);
-                      if (!files.length) return;
-                      setBannerUploading(true);
-                      const newUrls = [];
-                      for (const file of files) {
-                        const localUrl = await new Promise(resolve => {
-                          const r = new FileReader();
-                          r.onload = ev => resolve(ev.target.result);
-                          r.readAsDataURL(file);
-                        });
-                        newUrls.push(localUrl);
-                        try {
-                          const { supabase } = await import("@/lib/supabase");
-                          const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-                          const path = `banner/img-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-                          const { error } = await supabase.storage.from("recipe-images").upload(path, file, { upsert:false, cacheControl:"0" });
-                          if (!error) {
-                            const { data: urlData } = supabase.storage.from("recipe-images").getPublicUrl(path);
-                            newUrls[newUrls.length - 1] = urlData.publicUrl;
-                          }
-                        } catch {}
-                      }
-                      setBannerImages(prev => [...prev, ...newUrls]);
-                      setBannerUploading(false);
-                    }} />
-                  </label>
-                )}
-
-                {/* Grid miniaturas */}
-                {bannerImages.length === 0 ? (
-                  <div style={{ textAlign:"center", padding:"28px 20px", color:"#bbb", fontSize:"13px", background:"#F7F3EE", borderRadius:"12px", border:"2px dashed #E0D8CE" }}>
-                    <div style={{ fontSize:"28px", marginBottom:"8px" }}>🖼️</div>
-                    Sube hasta 5 imágenes para el banner
-                  </div>
-                ) : (
-                  <div style={{ display:"flex", gap:"6px" }}>
-                    {bannerImages.map((url, i) => (
-                      <div key={i} style={{ position:"relative", borderRadius:"8px", overflow:"hidden", width:"72px", height:"72px", flexShrink:0, background:"#000", boxShadow:"0 2px 6px rgba(0,0,0,0.2)" }}>
-                        <img src={url} alt={`Banner ${i+1}`} style={{ width:"100%", height:"100%", objectFit:"cover", opacity:0.92 }} />
-                        <div style={{ position:"absolute", bottom:"3px", left:"3px", background:"var(--app-primary)", color:"#fff", fontSize:"9px", fontWeight:"700", padding:"1px 5px", borderRadius:"5px" }}>{i + 1}</div>
-                        <button onClick={() => setBannerImages(prev => prev.filter((_,idx) => idx !== i))}
-                          style={{ position:"absolute", top:"2px", right:"2px", background:"rgba(231,76,60,0.9)", border:"none", borderRadius:"50%", width:"20px", height:"20px", color:"#fff", cursor:"pointer", fontSize:"12px", fontWeight:"700", display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1 }}>×</button>
-                      </div>
-                    ))}
-                    {Array.from({ length: 5 - bannerImages.length }).map((_, i) => (
-                      <div key={`empty-${i}`} style={{ borderRadius:"8px", width:"72px", height:"72px", flexShrink:0, background:"#F7F3EE", border:"2px dashed #E0D8CE", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                        <span style={{ fontSize:"18px", color:"#ddd" }}>+</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Preview button */}
-              {bannerImages.length > 0 && (
-                <button onClick={() => { setShowBannerConfig(false); setBannerSlide(0); setShowBanner(true); }}
-                  style={{ width:"100%", background:"#F0ECE6", border:"none", borderRadius:"10px", padding:"11px", cursor:"pointer", fontWeight:"600", fontSize:"13px", color:"var(--app-primary)", marginBottom:"10px" }}>
-                  👁️ Vista previa del banner
-                </button>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div style={{ padding:"14px 20px", borderTop:"1px solid #F0ECE6", display:"flex", gap:"10px", flexShrink:0 }}>
-              <button onClick={() => setShowBannerConfig(false)} style={{ flex:1, background:"#F0ECE6", border:"none", borderRadius:"10px", padding:"12px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b", fontSize:"14px" }}>
-                Cancelar
-              </button>
-              <button onClick={async () => {
-                await saveBannerConfig({ active: bannerActive, images: bannerImages });
-                setShowBannerConfig(false);
-              }} style={{ flex:2, background:"var(--app-primary)", border:"none", borderRadius:"10px", padding:"12px", cursor:"pointer", fontWeight:"700", color:"#fff", fontSize:"14px" }}>
-                Guardar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* iOS-style theme picker modal */}
-      {showThemeModal && (
-        <div style={{ position:"fixed", inset:0, zIndex:9996, background:"rgba(0,0,0,0.6)", backdropFilter:"blur(20px)", display:"flex", alignItems:"flex-end", justifyContent:"center", padding:"0" }}>
-          <div style={{ background:"rgba(28,28,30,0.95)", borderRadius:"28px 28px 0 0", width:"100%", maxWidth:"480px", padding:"12px 0 40px", boxShadow:"0 -20px 60px rgba(0,0,0,0.5)" }}>
-            {/* Handle */}
-            <div style={{ width:"36px", height:"4px", background:"rgba(255,255,255,0.3)", borderRadius:"2px", margin:"0 auto 20px" }} />
-            <div style={{ color:"#fff", fontSize:"17px", fontWeight:"700", textAlign:"center", marginBottom:"6px", letterSpacing:"0.3px" }}>Tema de Color</div>
-            <div style={{ color:"rgba(255,255,255,0.5)", fontSize:"13px", textAlign:"center", marginBottom:"24px" }}>Elige el color principal de la app</div>
-            {/* Grid de temas */}
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"16px", padding:"0 24px", marginBottom:"24px" }}>
-              {THEMES.map(theme => (
-                <div key={theme.id} onClick={() => {
-                  setTheme(theme.id);
-                  // Sincronizar con Supabase para que todos los dispositivos vean el mismo tema
-                  saveAppConfig({ themeId: theme.id, brand: { label: brandLabel, name: brandName, tagline: companyTagline, icon: brandIcon, labelColor: brandLabelColor, nameColor: brandNameColor, taglineColor: brandTaglineColor } });
-                }} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:"8px", cursor:"pointer" }}>
-                  <div style={{
-                    width:"64px", height:"64px", borderRadius:"20px",
-                    background:`linear-gradient(135deg, ${theme.primary}, ${theme.dark})`,
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    boxShadow: themeId === theme.id ? `0 0 0 3px #fff, 0 0 0 5px ${theme.primary}` : "0 4px 12px rgba(0,0,0,0.4)",
-                    transition:"all 0.2s",
-                    transform: themeId === theme.id ? "scale(1.08)" : "scale(1)",
-                  }}>
-                    {themeId === theme.id && <div style={{ color:"#fff", fontSize:"22px", fontWeight:"700" }}>✓</div>}
-                  </div>
-                  <span style={{ color: themeId === theme.id ? "#fff" : "rgba(255,255,255,0.6)", fontSize:"12px", fontWeight: themeId === theme.id ? "700" : "400", transition:"all 0.2s" }}>{theme.label}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ padding:"0 24px" }}>
-              <button onClick={() => setShowThemeModal(false)} style={{ width:"100%", background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"14px", padding:"14px", color:"#fff", fontSize:"15px", fontWeight:"600", cursor:"pointer" }}>
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de confirmación */}
-      {confirmModal && (
-        <div style={{ position:"fixed", inset:0, zIndex:600, background:"rgba(10,15,25,0.88)", backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-          <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"400px", textAlign:"center", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
-            <div style={{ fontSize:"48px", marginBottom:"16px" }}>⚠️</div>
-            <div style={{ color:"var(--app-primary)", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", marginBottom:"8px" }}>
-              {confirmModal.title}
-            </div>
-            <div style={{ color:"#666", fontSize:"14px", lineHeight:"1.6", marginBottom:"24px" }}>
-              {confirmModal.message}
-            </div>
-            <button
-              onClick={confirmModal.onConfirm}
-              style={{
-                width:"100%", padding:"14px",
-                background:"linear-gradient(135deg,#e74c3c,#c0392b)",
-                border:"none", borderRadius:"10px", color:"#fff",
-                fontSize:"15px", fontWeight:"700", cursor:"pointer",
-                fontFamily:"Georgia,serif", marginBottom:"10px"
-              }}
-            >
-              🗑️ Sí, eliminar
-            </button>
-            <button
-              onClick={() => setConfirmModal(null)}
-              style={{
-                width:"100%", padding:"12px",
-                background:"#F0ECE6", border:"none", borderRadius:"10px",
-                color:"#5a3e2b", fontSize:"14px", fontWeight:"600", cursor:"pointer"
-              }}
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
-      {/* Guard: contraseña de perfil */}
-      {showProfileGuard && isAdmin && (
-        <div style={{ position:"fixed", inset:0, zIndex:9997, background:"rgba(5,10,20,0.92)", backdropFilter:"blur(12px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-          <div style={{ background:"#fff", borderRadius:"24px", padding:"36px 28px", width:"100%", maxWidth:"360px", boxShadow:"0 40px 100px rgba(0,0,0,0.7)", textAlign:"center" }}>
-            <div style={{ fontSize:"48px", marginBottom:"8px" }}>🔐</div>
-            <div style={{ fontWeight:"700", fontSize:"18px", color:"var(--app-primary)", fontFamily:"Georgia,serif", marginBottom:"6px" }}>Zona Segura</div>
-            <div style={{ color:"#888", fontSize:"13px", marginBottom:"24px" }}>Ingresa la clave de perfil para continuar</div>
-
-            {guardLocked ? (
-              <div style={{ background:"#fff5f5", border:"2px solid #e74c3c", borderRadius:"12px", padding:"16px", marginBottom:"16px" }}>
-                <div style={{ color:"#c0392b", fontWeight:"700" }}>🚫 Bloqueado temporalmente</div>
-                <div style={{ color:"#888", fontSize:"12px", marginTop:"4px" }}>Espera 2 minutos antes de intentar de nuevo</div>
-              </div>
-            ) : (
-              <>
-                <input
-                  type="password"
-                  value={guardInput}
-                  onChange={e => { setGuardInput(e.target.value); setGuardError(""); }}
-                  onKeyDown={async e => {
-                    if (e.key !== "Enter") return;
-                    const hash = await sha256(guardInput.trim());
-                    if (hash === profileHash) {
-                      setShowProfileGuard(false);
-                      setProfileDraft({...profileData});
-                      setProfileNewPass(""); setProfileNewPassConfirm("");
-                      setShowProfileModal(true);
-                    } else {
-                      const att = guardAttempts + 1;
-                      setGuardAttempts(att);
-                      if (att >= 3) {
-                        setGuardLocked(true);
-                        clearTimeout(guardLockRef.current);
-                        guardLockRef.current = setTimeout(() => { setGuardLocked(false); setGuardAttempts(0); }, 120_000);
-                      }
-                      setGuardError(`Clave incorrecta. ${3 - att > 0 ? `${3 - att} intento${3-att!==1?"s":""} restante${3-att!==1?"s":""}` : ""}`);
-                      setGuardInput("");
-                    }
-                  }}
-                  placeholder="••••••••"
-                  autoFocus
-                  style={{ width:"100%", padding:"14px", border:"2px solid #E0D8CE", borderRadius:"12px", fontSize:"20px", outline:"none", boxSizing:"border-box", textAlign:"center", letterSpacing:"6px", marginBottom:"10px" }}
-                />
-                {guardError && <div style={{ color:"#e74c3c", fontSize:"13px", marginBottom:"10px", background:"#fef0ef", padding:"8px 12px", borderRadius:"8px" }}>{guardError}</div>}
-                <button
-                  onClick={async () => {
-                    const hash = await sha256(guardInput.trim());
-                    if (hash === profileHash) {
-                      setShowProfileGuard(false);
-                      setProfileDraft({...profileData});
-                      setProfileNewPass(""); setProfileNewPassConfirm("");
-                      setShowProfileModal(true);
-                    } else {
-                      const att = guardAttempts + 1;
-                      setGuardAttempts(att);
-                      if (att >= 3) {
-                        setGuardLocked(true);
-                        clearTimeout(guardLockRef.current);
-                        guardLockRef.current = setTimeout(() => { setGuardLocked(false); setGuardAttempts(0); }, 120_000);
-                      }
-                      setGuardError(`Clave incorrecta. ${3 - att > 0 ? `${3 - att} intento${3-att!==1?"s":""} restante${3-att!==1?"s":""}` : ""}`);
-                      setGuardInput("");
-                    }
-                  }}
-                  style={{ width:"100%", padding:"13px", background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", border:"none", borderRadius:"12px", color:"#fff", fontWeight:"700", fontSize:"15px", cursor:"pointer", marginBottom:"10px" }}>
-                  Verificar
-                </button>
-              </>
-            )}
-            <button onClick={() => { setShowProfileGuard(false); setGuardInput(""); setGuardError(""); }}
-              style={{ width:"100%", padding:"12px", background:"#f5f0eb", border:"none", borderRadius:"12px", color:"#888", fontWeight:"600", fontSize:"14px", cursor:"pointer" }}>
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Perfil */}
-      {showProfileModal && isAdmin && (
-        <div style={{ position:"fixed", inset:0, zIndex:9996, background:"rgba(10,15,25,0.85)", backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-          <div style={{ background:"#fff", borderRadius:"20px", padding:"28px 24px", width:"100%", maxWidth:"420px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)", maxHeight:"90vh", overflowY:"auto" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"20px" }}>
-              <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
-                <span style={{ fontSize:"26px" }}>👤</span>
-                <span style={{ fontWeight:"700", color:"var(--app-primary)", fontSize:"17px", fontFamily:"Georgia,serif" }}>{t.profile.title}</span>
-              </div>
-              <button onClick={() => { setShowProfileModal(false); setProfileSaved(false); }} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"8px", width:"32px", height:"32px", cursor:"pointer", fontSize:"16px" }}>×</button>
-            </div>
-
-            {/* Badge seguridad */}
-            <div style={{ background:"linear-gradient(135deg,#1a3a1a,#2d5a2d)", borderRadius:"10px", padding:"10px 14px", marginBottom:"18px", display:"flex", alignItems:"center", gap:"10px" }}>
-              <span style={{ fontSize:"20px" }}>🛡️</span>
-              <div>
-                <div style={{ color:"#7fff7f", fontSize:"11px", fontWeight:"700", letterSpacing:"1px" }}>ZONA PROTEGIDA</div>
-                <div style={{ color:"rgba(255,255,255,0.7)", fontSize:"11px" }}>Sesión auto-cierra a los 20 min de inactividad</div>
-              </div>
-            </div>
-
-            {/* Info */}
-            <div style={{ background:"#f0f7ff", border:"1px solid #c8dff5", borderRadius:"10px", padding:"10px 14px", marginBottom:"18px", fontSize:"12px", color:"#2c5f8a", display:"flex", gap:"8px", alignItems:"flex-start" }}>
-              <span>ℹ️</span><span>{t.profile.info}</span>
-            </div>
-
-            {/* Nombre */}
-            <div style={{ marginBottom:"14px" }}>
-              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.profile.nameLabel}</label>
-              <input value={profileDraft.name} onChange={e => setProfileDraft(d => ({...d, name: e.target.value}))}
-                placeholder={t.profile.namePlaceholder}
-                style={{ width:"100%", padding:"12px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"15px", outline:"none", boxSizing:"border-box" }} />
-            </div>
-
-            {/* Email */}
-            <div style={{ marginBottom:"14px" }}>
-              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.profile.emailLabel}</label>
-              <input type="email" value={profileDraft.email} onChange={e => setProfileDraft(d => ({...d, email: e.target.value}))}
-                placeholder={t.profile.emailPlaceholder}
-                style={{ width:"100%", padding:"12px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"15px", outline:"none", boxSizing:"border-box" }} />
-            </div>
-
-            {/* Teléfono */}
-            <div style={{ marginBottom:"20px" }}>
-              <label style={{ display:"block", fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"6px" }}>{t.profile.phoneLabel}</label>
-              <input value={profileDraft.phone} onChange={e => setProfileDraft(d => ({...d, phone: e.target.value}))}
-                placeholder={t.profile.phonePlaceholder}
-                style={{ width:"100%", padding:"12px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"15px", outline:"none", boxSizing:"border-box" }} />
-            </div>
-
-            {/* Cambiar clave de perfil */}
-            <div style={{ borderTop:"1px solid #eee", paddingTop:"18px", marginBottom:"18px" }}>
-              <div style={{ fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"12px" }}>🔑 CAMBIAR CLAVE DE PERFIL</div>
-              <input type="password" value={profileNewPass} onChange={e => setProfileNewPass(e.target.value)}
-                placeholder="Nueva clave"
-                style={{ width:"100%", padding:"12px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"14px", outline:"none", boxSizing:"border-box", marginBottom:"8px" }} />
-              <input type="password" value={profileNewPassConfirm} onChange={e => setProfileNewPassConfirm(e.target.value)}
-                placeholder="Confirmar clave"
-                style={{ width:"100%", padding:"12px 14px", border:"2px solid #E0D8CE", borderRadius:"10px", fontSize:"14px", outline:"none", boxSizing:"border-box" }} />
-              {profileNewPass && profileNewPassConfirm && profileNewPass !== profileNewPassConfirm && (
-                <div style={{ color:"#e74c3c", fontSize:"12px", marginTop:"6px" }}>⚠️ Las claves no coinciden</div>
-              )}
-            </div>
-
-            {profileSaved && <div style={{ color:"#27ae60", fontWeight:"700", textAlign:"center", marginBottom:"12px", fontSize:"14px" }}>{t.profile.saved}</div>}
-
-            <div style={{ display:"flex", gap:"10px" }}>
-              <button onClick={() => { setShowProfileModal(false); setProfileSaved(false); }}
-                style={{ flex:1, padding:"12px", background:"#F0ECE6", border:"none", borderRadius:"10px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b", fontSize:"14px" }}>
-                {t.profile.cancel}
-              </button>
-              <button onClick={async () => {
-                  // Validar clave si se quiere cambiar
-                  let newHash = profileHash;
-                  if (profileNewPass) {
-                    if (profileNewPass !== profileNewPassConfirm) return;
-                    newHash = await sha256(profileNewPass.trim());
-                    setProfileHash(newHash);
-                  }
-                  const toSave = { ...profileDraft, profileHash: newHash };
-                  const saved = await saveProfileConfig(toSave);
-                  if (saved) {
-                    setProfileData(profileDraft);
-                    setProfileSaved(true);
-                    setTimeout(() => { setProfileSaved(false); setShowProfileModal(false); }, 1200);
-                  }
-                }}
-                style={{ flex:2, padding:"12px", background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", border:"none", borderRadius:"10px", cursor:"pointer", fontWeight:"700", color:"#fff", fontSize:"14px" }}>
-                {t.profile.save}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal confirmModal={confirmModal} onCancel={() => setConfirmModal(null)} />
 
     </div>
   );

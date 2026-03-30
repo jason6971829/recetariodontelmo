@@ -6,6 +6,10 @@ import { CATEGORIES } from "@/lib/constants";
 import { uploadImage } from "@/lib/storage";
 import { useLang } from "@/lib/LangContext";
 
+// Constantes de estilo a nivel de módulo — no se recrean en cada render
+const inp = { width:"100%", padding:"10px 12px", border:"1.5px solid #E0D8CE", borderRadius:"8px", fontSize:"13px", outline:"none", boxSizing:"border-box", fontFamily:"inherit", background:"#fff" };
+const lbl = { fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", display:"block", marginBottom:"5px" };
+
 export function RecipeForm({ initial, categories, onSave, onCancel }) {
   const cats = (categories || CATEGORIES).filter(c => c.id !== "all");
   const [form, setForm] = useState(initial || {
@@ -45,9 +49,6 @@ export function RecipeForm({ initial, categories, onSave, onCancel }) {
     onSave({ ...form, image: imageUrl });
     setUploading(false);
   };
-
-  const inp = { width:"100%", padding:"10px 12px", border:"1.5px solid #E0D8CE", borderRadius:"8px", fontSize:"13px", outline:"none", boxSizing:"border-box", fontFamily:"inherit", background:"#fff" };
-  const lbl = { fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", display:"block", marginBottom:"5px" };
 
   return (
     <div style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(10,15,25,0.88)", backdropFilter:"blur(8px)", display:"flex", alignItems: isMobile?"flex-end":"center", justifyContent:"center", padding: isMobile?"0":"16px" }}>
