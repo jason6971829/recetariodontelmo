@@ -12,7 +12,6 @@ import dynamic from "next/dynamic";
 // ── Core — siempre en el bundle inicial ──────────────────────────
 import { RecipeDetail } from "@/components/RecipeDetail";
 import { RecipeForm } from "@/components/RecipeForm";
-import { ScreenProtection } from "@/components/ScreenProtection";
 import { GlobalWatermark } from "@/components/Watermark";
 import { LoginScreen } from "@/components/LoginScreen";
 import { BannerCarousel } from "@/components/BannerCarousel";
@@ -31,6 +30,7 @@ const ProfileModal     = dynamic(() => import("@/components/ProfileModal").then(
 const LangModal        = dynamic(() => import("@/components/LangModal").then(m => ({ default: m.LangModal })), { ssr: false });
 const ThemeModal       = dynamic(() => import("@/components/ThemeModal").then(m => ({ default: m.ThemeModal })), { ssr: false });
 const BiometricPrompt  = dynamic(() => import("@/components/BiometricPrompt").then(m => ({ default: m.BiometricPrompt })), { ssr: false });
+const PizzaBuilderModal= dynamic(() => import("@/components/PizzaBuilderModal").then(m => ({ default: m.PizzaBuilderModal })), { ssr: false });
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useLang, LangProvider } from "@/lib/LangContext";
 import { LANGUAGES } from "@/lib/i18n";
@@ -117,6 +117,7 @@ export default function App() {
   // Auto-lock inactividad
   const inactivityRef = useRef(null);
 
+  const [showPizzaBuilder, setShowPizzaBuilder] = useState(false);
   const [categoryModal, setCategoryModal] = useState(null); // { mode: "create"|"edit", initial? }
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
   const searchTimeoutRef = useRef(null);
@@ -619,8 +620,7 @@ export default function App() {
 
   return (
     <div style={{ height:"100vh", display:"flex", flexDirection:"column", fontFamily:"'Segoe UI',sans-serif", overflow:"hidden", background:"#F4F0EB" }}>
-      <ScreenProtection userName={currentUser?.name} />
-      {!selectedRecipe && !showForm && !showUsers && !showReport && !showProgress && !showWatermarkUpload && !showLangModal && !categoryModal && !confirmModal && !showBiometricPrompt && <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} customLogo={watermarkLogo} opacity={watermarkOpacity} size={watermarkSize} />}
+{!selectedRecipe && !showForm && !showUsers && !showReport && !showProgress && !showWatermarkUpload && !showLangModal && !categoryModal && !confirmModal && !showBiometricPrompt && !showPizzaBuilder && <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} customLogo={watermarkLogo} opacity={watermarkOpacity} size={watermarkSize} />}
 
       {/* OFFLINE BANNER */}
       {!online && (
@@ -840,9 +840,19 @@ export default function App() {
         <main style={{ flex:1, overflowY:"auto", padding: isMobile ? "14px" : "22px", minWidth:0 }}>
           {/* Título */}
           <div style={{ marginBottom:"18px" }}>
-            <h1 style={{ margin:0, color:"var(--app-primary)", fontFamily:"Georgia,serif", fontSize: isMobile?"18px":"21px", fontWeight:"700" }}>
-              {allCategories.find(c=>c.id===selectedCat)?.icon} {allCategories.find(c=>c.id===selectedCat)?.label}
-            </h1>
+            <div style={{ display:"flex", alignItems:"center", gap:"12px", flexWrap:"wrap" }}>
+              <h1 style={{ margin:0, color:"var(--app-primary)", fontFamily:"Georgia,serif", fontSize: isMobile?"18px":"21px", fontWeight:"700" }}>
+                {allCategories.find(c=>c.id===selectedCat)?.icon} {allCategories.find(c=>c.id===selectedCat)?.label}
+              </h1>
+              {selectedCat?.toLowerCase().includes("pizza") && (
+                <button
+                  onClick={() => setShowPizzaBuilder(true)}
+                  style={{ background:"linear-gradient(135deg,#c0392b,#e74c3c)", border:"none", borderRadius:"20px", color:"#fff", padding:"6px 16px", cursor:"pointer", fontFamily:"Georgia,serif", fontSize:"13px", fontWeight:"700", boxShadow:"0 3px 12px rgba(192,57,43,0.4)", letterSpacing:"0.5px", display:"flex", alignItems:"center", gap:"6px" }}
+                >
+                  🍕 Armar Pizza
+                </button>
+              )}
+            </div>
             <div style={{ color:"#888", fontSize:"13px", marginTop:"3px" }}>
               {filtered.length} {filtered.length!==1 ? t.recipes : t.recipe}{search && ` — "${search}"`}
             </div>
@@ -890,8 +900,16 @@ export default function App() {
       </div>
 
       {/* MODALES */}
+      {showPizzaBuilder && (
+        <Suspense fallback={null}>
+          <PizzaBuilderModal
+            pizzaRecipes={recipes.filter(r => r.category?.toLowerCase().includes("pizza"))}
+            onClose={() => setShowPizzaBuilder(false)}
+          />
+        </Suspense>
+      )}
       {selectedRecipe && !showForm && (
-        <RecipeDetail recipe={selectedRecipe} currentUser={currentUser} onClose={()=>setSelectedRecipe(null)} onEdit={()=>handleEdit(selectedRecipe)} onDelete={()=>handleDelete(selectedRecipe)} onTogglePublish={()=>handleTogglePublish(selectedRecipe)} />
+        <RecipeDetail recipe={selectedRecipe} currentUser={currentUser} onClose={()=>setSelectedRecipe(null)} onEdit={()=>handleEdit(selectedRecipe)} onDelete={()=>handleDelete(selectedRecipe)} onTogglePublish={()=>handleTogglePublish(selectedRecipe)} pizzaRecipes={recipes.filter(r=>r.category?.toLowerCase().includes("pizza"))} />
       )}
       {showForm && (
         <RecipeForm initial={editingRecipe} categories={allCategories} onSave={handleSaveRecipe} onCancel={()=>{setShowForm(false);setEditingRecipe(null);}} />
