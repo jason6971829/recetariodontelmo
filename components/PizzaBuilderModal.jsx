@@ -31,6 +31,22 @@ const SIZE_CFGS = {
 const SEC_COLORS = ["#D4721A", "#1A6B9E", "#27ae60", "#8e44ad", "#e67e22", "#c0392b"];
 const SEC_LIGHTS = ["#FFF0E3", "#E3F2FD", "#E8F8EE", "#F5E9FF", "#FEF3E3", "#FDECEA"];
 
+/* ─── Sabores Premium (según PizzApp) ─── */
+const PREMIUM_NAMES = [
+  "MIEL MOSTAZA",
+  "MEXICANA PREMIUM",
+  "HAW PREMIUM",
+  "HAWAINA PREMIUM",
+  "HAWAIANA PREMIUM",
+  "AHUMADA",
+  "COLOMBIANA",
+  "CRIOLLA",
+  "TRES CARNES",
+  "PEPERONI",
+  "PEPPERONI",
+  "CESAR",
+];
+
 /* ─── Exports y helpers ─── */
 export function getPizzaSuffix(name = "") {
   const m = name.match(/\(([cmp])\)\s*$/i);
@@ -142,11 +158,11 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
 
   /* Categorías de sabores */
   const premiumFlavors = useMemo(() =>
-    sameSizeFlavors.filter(r => cleanName(r.name).toUpperCase().includes("PREMIUM")),
+    sameSizeFlavors.filter(r => PREMIUM_NAMES.includes(cleanName(r.name).toUpperCase())),
     [sameSizeFlavors]
   );
   const tradFlavors = useMemo(() =>
-    sameSizeFlavors.filter(r => !cleanName(r.name).toUpperCase().includes("PREMIUM")),
+    sameSizeFlavors.filter(r => !PREMIUM_NAMES.includes(cleanName(r.name).toUpperCase())),
     [sameSizeFlavors]
   );
 
