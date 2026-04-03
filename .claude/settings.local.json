@@ -49,7 +49,19 @@
       "Bash(wc -l components/App.jsx lib/*.js)",
       "Bash(grep -n \"clearCredential\" components/App.jsx lib/*.js)",
       "Bash(grep -n \"getLockoutSecondsLeft\" components/App.jsx lib/*.js)",
-      "Bash(del \"C:\\\\Users\\\\jjson\\\\OneDrive\\\\Documenti\\\\recetariodontelmo\\\\lib\\\\exportDoc.js\")"
+      "Bash(del \"C:\\\\Users\\\\jjson\\\\OneDrive\\\\Documenti\\\\recetariodontelmo\\\\lib\\\\exportDoc.js\")",
+      "Bash(npx bundlephobia-cli:*)",
+      "Bash(wc -l \"/c/Users/jjson/OneDrive/Documenti/recetariodontelmo/components/\"*.jsx)",
+      "Bash(wc -l /c/Users/jjson/OneDrive/Documenti/recetariodontelmo/components/*.jsx /c/Users/jjson/OneDrive/Documenti/recetariodontelmo/lib/*.js /c/Users/jjson/OneDrive/Documenti/recetariodontelmo/hooks/*.js)",
+      "Bash(wc -l /c/Users/jjson/OneDrive/Documenti/recetariodontelmo/lib/*.js)",
+      "Bash(npm ls:*)",
+      "Bash(npm run:*)",
+      "Bash(node -e \"const fs = require\\(''fs''\\); const content = fs.readFileSync\\(''components/LoginScreen.jsx'', ''utf8''\\); console.log\\(content.includes\\(''showPassword''\\) ? ''SI tiene showPassword'' : ''NO tiene showPassword''\\); console.log\\(content.includes\\(''flexShrink''\\) ? ''SI tiene flexShrink \\(nueva version\\)'' : ''NO tiene flexShrink''\\);\")",
+      "Bash(netstat -ano)",
+      "Bash(taskkill /F /PID 22780 /PID 19104)",
+      "Bash(powershell -Command \"Stop-Process -Id 22780,19104 -Force -ErrorAction SilentlyContinue; Write-Host ''done''\")",
+      "Bash(powershell -Command \"Stop-Process -Name node -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2; Remove-Item -Recurse -Force ''C:\\\\Users\\\\jjson\\\\OneDrive\\\\Documenti\\\\recetariodontelmo\\\\.next'' -ErrorAction SilentlyContinue; Write-Host ''Cache eliminado''\")",
+      "Bash(powershell -Command \"Stop-Process -Name node -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2; Write-Host ''ok''\")"
     ]
   }
 }
