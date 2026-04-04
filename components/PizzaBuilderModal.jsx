@@ -114,21 +114,23 @@ function PizzaVisual({ portions, size = 80, dragOverSec = -1, onSecDrop, onSecHo
         })}
 
         {/* Droppable slices */}
-        {slices.map(({ i, start, end }) => (
-          <path
-            key={`drop-${i}`}
-            d={pieSlice(cx, cy, r, start, end)}
-            fill="rgba(0,0,0,0.001)"
-            stroke={dragOverSec === i ? "rgba(255,255,255,0.9)" : "none"}
-            strokeWidth="2"
-            style={{ cursor:"copy" }}
-            pointerEvents="all"
-            data-section-idx={i}
-            onDragEnter={e => { e.preventDefault(); onSecHover?.(i); }}
-            onDragOver={e => { e.preventDefault(); onSecHover?.(i); }}
-            onDrop={e => { e.preventDefault(); onSecDrop?.(i, e.dataTransfer?.getData("text/plain")); }}
-          />
-        ))}
+        {slices.map(({ i, start, end }) => {
+          const isFull = (end - start) >= 359.9;
+          const shared = {
+            fill: "rgba(0,0,0,0.001)",
+            stroke: dragOverSec === i ? "rgba(255,255,255,0.9)" : "none",
+            strokeWidth: "2",
+            style: { cursor:"copy" },
+            pointerEvents: "all",
+            "data-section-idx": i,
+            onDragEnter: e => { e.preventDefault(); onSecHover?.(i); },
+            onDragOver:  e => { e.preventDefault(); onSecHover?.(i); },
+            onDrop:      e => { e.preventDefault(); onSecDrop?.(i, e.dataTransfer?.getData("text/plain")); },
+          };
+          return isFull
+            ? <circle key={`drop-${i}`} cx={cx} cy={cy} r={r} {...shared} />
+            : <path   key={`drop-${i}`} d={pieSlice(cx, cy, r, start, end)} {...shared} />;
+        })}
 
         {/* Divisor lines */}
         {divAngles.map((deg2, i) => {
