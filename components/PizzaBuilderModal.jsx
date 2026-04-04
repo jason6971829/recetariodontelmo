@@ -86,7 +86,7 @@ function PizzaVisual({ portions, size = 80, dragOverSec = -1, onSecDrop, onSecHo
         src="/pizza-base.png"
         alt=""
         draggable={false}
-        style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover", objectPosition:"center", borderRadius:"50%", pointerEvents:"none", userSelect:"none", transform:"scale(1.38)", transformOrigin:"center" }}
+        style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover", objectPosition:"center 60%", borderRadius:"50%", pointerEvents:"none", userSelect:"none", transform:"scale(1.15)", transformOrigin:"center" }}
       />
       <svg width={size} height={size} style={{ position:"absolute", inset:0, overflow:"hidden" }}
         onDragLeave={() => onSecHover?.(-1)}>
