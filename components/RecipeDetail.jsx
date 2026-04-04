@@ -1,9 +1,10 @@
 "use client";
-import { memo } from "react";
+import { memo, useState } from "react";
 import Image from "next/image";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { TextToSpeech } from "@/components/TextToSpeech";
 import { useLang } from "@/lib/LangContext";
+import { generateRecipePDF } from "@/lib/recipePDF";
 
 // ── Estilos estáticos a nivel de módulo (se crean una sola vez) ──
 const S = {
@@ -52,6 +53,12 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
   const isMobile = useIsMobile();
   const { t } = useLang();
   const ytId = getYtId(recipe.video);
+  const [downloading, setDownloading] = useState(false);
+
+  async function handleDownloadPDF() {
+    setDownloading(true);
+    try { await generateRecipePDF(recipe); } finally { setDownloading(false); }
+  }
 
   return (
     <div
@@ -88,6 +95,14 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
                 <button onClick={onEdit}   style={S.btnEdit}>{t.detail.edit}</button>
                 <button onClick={onDelete} style={S.btnDelete}>🗑️</button>
               </>}
+              <button
+                onClick={handleDownloadPDF}
+                disabled={downloading}
+                title="Descargar PDF"
+                style={{ background: downloading ? "#555" : "#D4721A", border:"none", borderRadius:"8px", color:"#fff", padding:"7px 12px", cursor: downloading ? "wait" : "pointer", fontSize:"14px", opacity: downloading ? 0.7 : 1, flexShrink:0 }}
+              >
+                {downloading ? "⏳" : "📄"}
+              </button>
               <button onClick={onClose} style={S.btnClose}>×</button>
             </div>
           </div>
