@@ -20,13 +20,44 @@ export default function RootLayout({ children }) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="manifest" href="/manifest.json" />
-        <style>{`:root { --app-primary: #1B3A5C; --app-primary-dark: #0d2340; --app-primary-light: #8BAACC; --app-primary-rgb: 27,58,92; }`}</style>
+        <style>{`
+          :root { --app-primary: #1B3A5C; --app-primary-dark: #0d2340; --app-primary-light: #8BAACC; --app-primary-rgb: 27,58,92; }
+          html, body {
+            margin: 0;
+            height: 100%;
+            overflow: hidden;
+            overscroll-behavior-y: none;
+          }
+        `}</style>
       </head>
-      <body style={{ margin: 0 }}>
+      <body style={{ margin: 0, overflow: "hidden", height: "100%", overscrollBehaviorY: "none" }}>
         {children}
         <script
           dangerouslySetInnerHTML={{
             __html: `
+              // Bloquear pull-to-refresh en iOS Safari y Chrome Android
+              (function() {
+                var startY = 0;
+                document.addEventListener('touchstart', function(e) {
+                  startY = e.touches[0].clientY;
+                }, { passive: true });
+                document.addEventListener('touchmove', function(e) {
+                  var el = e.target;
+                  // Buscar si hay un antecesor con scroll propio
+                  while (el && el !== document.body) {
+                    if (el.scrollHeight > el.clientHeight &&
+                        (getComputedStyle(el).overflowY === 'auto' || getComputedStyle(el).overflowY === 'scroll')) {
+                      return; // dejar que ese elemento haga scroll interno
+                    }
+                    el = el.parentElement;
+                  }
+                  // Si llegamos al body sin encontrar scroll: bloquear
+                  if (document.scrollingElement && document.scrollingElement.scrollTop === 0 && e.touches[0].clientY > startY) {
+                    e.preventDefault();
+                  }
+                }, { passive: false });
+              })();
+
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
                   navigator.serviceWorker.register('/sw.js').then((reg) => {
