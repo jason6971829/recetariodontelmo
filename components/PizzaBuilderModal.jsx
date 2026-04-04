@@ -673,25 +673,27 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
                     {allAssigned ? "✅ Pizza lista" : `Faltan ${totalSections - filledSections} sección${totalSections-filledSections!==1?"es":""}`}
                   </div>
                   {allAssigned && (
-                    <button
-                      onClick={() => printPizzaThermal(size, selectedCfg, liveResults)}
-                      title="Imprimir en impresora térmica 80mm"
-                      style={{ flexShrink:0, padding:"12px 14px", background:"#1B3A5C", border:"none", borderRadius:"12px", color:"#fff", fontSize:"16px", cursor:"pointer" }}
-                    >
-                      🖨️
-                    </button>
-                    <button
-                      onClick={async () => {
-                        setPdfLoading(true);
-                        try { await generatePizzaPDF({ size, cfg: selectedCfg, liveResults }); }
-                        finally { setPdfLoading(false); }
-                      }}
-                      disabled={pdfLoading}
-                      title="Descargar PDF"
-                      style={{ flexShrink:0, padding:"12px 14px", background: pdfLoading ? "#888" : "#D4721A", border:"none", borderRadius:"12px", color:"#fff", fontSize:"16px", cursor: pdfLoading ? "wait" : "pointer", opacity: pdfLoading ? 0.7 : 1 }}
-                    >
-                      {pdfLoading ? "⏳" : "📄"}
-                    </button>
+                    <>
+                      <button
+                        onClick={() => printPizzaThermal(size, selectedCfg, liveResults)}
+                        title="Imprimir en impresora térmica 80mm"
+                        style={{ flexShrink:0, padding:"12px 14px", background:"#1B3A5C", border:"none", borderRadius:"12px", color:"#fff", fontSize:"16px", cursor:"pointer" }}
+                      >
+                        🖨️
+                      </button>
+                      <button
+                        onClick={async () => {
+                          setPdfLoading(true);
+                          try { await generatePizzaPDF({ size, cfg: selectedCfg, liveResults }); }
+                          finally { setPdfLoading(false); }
+                        }}
+                        disabled={pdfLoading}
+                        title="Descargar PDF"
+                        style={{ flexShrink:0, padding:"12px 14px", background: pdfLoading ? "#888" : "#D4721A", border:"none", borderRadius:"12px", color:"#fff", fontSize:"16px", cursor: pdfLoading ? "wait" : "pointer", opacity: pdfLoading ? 0.7 : 1 }}
+                      >
+                        {pdfLoading ? "⏳" : "📄"}
+                      </button>
+                    </>
                   )}
                 </>
             }
