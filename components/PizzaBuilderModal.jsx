@@ -385,7 +385,7 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
           </div>
 
           {/* ── Body ── */}
-          <div style={{ overflowY:"auto", flex:1 }}>
+          <div style={{ overflowY: step === 3 ? "hidden" : "auto", flex:1, display:"flex", flexDirection:"column" }}>
 
             {/* PASO 1 */}
             {step === 1 && (
@@ -430,7 +430,7 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
 
             {/* PASO 3 */}
             {step === 3 && selectedCfg && (
-              <div>
+              <div style={{ display:"flex", flexDirection:"column", flex:1, minHeight:0 }}>
                 {/* Badge + contador */}
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 16px 6px" }}>
                   <div style={{ background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", color:"#fff", fontSize:"12px", fontWeight:"800", padding:"5px 14px", borderRadius:"20px", boxShadow:"0 3px 10px rgba(0,0,0,0.2)" }}>
@@ -449,34 +449,37 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
                 </div>
 
                 {/* Split layout */}
-                <div style={{ display:"flex" }}>
+                <div style={{ display:"flex", flex:1, minHeight:0, overflow:"hidden" }}>
 
-                  {/* Izquierda: pizza + ingredientes en vivo */}
-                  <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", padding:"8px 10px 10px", gap:"8px", position:"relative", zIndex:1 }}
+                  {/* Izquierda: pizza (fija) + ingredientes (scroll propio) */}
+                  <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", position:"relative", zIndex:1 }}
                     onDragOver={e => e.preventDefault()}
                   >
-                    <PizzaVisual
-                      portions={selectedCfg.p}
-                      size={162}
-                      dragOverSec={dragOverSec}
-                      onSecHover={(i) => setDragOverSec(i)}
-                      sectionData={selectedCfg.p.map((_, i) => {
-                        const recipe = sectionFlavors[i] !== undefined ? sameSizeFlavors.find(r => r.id === sectionFlavors[i]) : null;
-                        return recipe ? { name: cleanName(recipe.name), color: SEC_COLORS[i % SEC_COLORS.length] } : null;
-                      })}
-                      onSecDrop={(secIdx, rawId) => {
-                        const recipeId = draggingRef.current?.recipeId ?? (rawId ? parseInt(rawId) : null);
-                        if (recipeId != null) assignToSection(secIdx, recipeId);
-                        setDragOverSec(-1);
-                      }}
-                    />
-                    <div style={{ fontFamily:"Georgia,serif", fontSize:"12px", fontWeight:"700", color:"var(--app-primary)", textAlign:"center" }}>
-                      {size.label} · <span style={{ fontWeight:"600", color:"#888" }}>{size.cm} cm</span>
+                    {/* Pizza - no hace scroll */}
+                    <div style={{ flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center", padding:"8px 10px 4px", gap:"6px" }}>
+                      <PizzaVisual
+                        portions={selectedCfg.p}
+                        size={162}
+                        dragOverSec={dragOverSec}
+                        onSecHover={(i) => setDragOverSec(i)}
+                        sectionData={selectedCfg.p.map((_, i) => {
+                          const recipe = sectionFlavors[i] !== undefined ? sameSizeFlavors.find(r => r.id === sectionFlavors[i]) : null;
+                          return recipe ? { name: cleanName(recipe.name), color: SEC_COLORS[i % SEC_COLORS.length] } : null;
+                        })}
+                        onSecDrop={(secIdx, rawId) => {
+                          const recipeId = draggingRef.current?.recipeId ?? (rawId ? parseInt(rawId) : null);
+                          if (recipeId != null) assignToSection(secIdx, recipeId);
+                          setDragOverSec(-1);
+                        }}
+                      />
+                      <div style={{ fontFamily:"Georgia,serif", fontSize:"12px", fontWeight:"700", color:"var(--app-primary)", textAlign:"center" }}>
+                        {size.label} · <span style={{ fontWeight:"600", color:"#888" }}>{size.cm} cm</span>
+                      </div>
                     </div>
 
-                    {/* Ingredientes en vivo */}
+                    {/* Ingredientes - scroll propio */}
                     {liveResults.length > 0 && (
-                      <div style={{ width:"100%", marginTop:"4px" }}>
+                      <div style={{ flex:1, overflowY:"auto", minHeight:0, padding:"4px 10px 10px" }}>
                         <div style={{ fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"8px", textTransform:"uppercase", fontFamily:"Georgia,serif", display:"flex", alignItems:"center", gap:"8px" }}>
                           <span>📊 Ingredientes</span>
                           <div style={{ flex:1, height:"1px", background:"#E0D8CE" }} />
@@ -498,7 +501,7 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
                     )}
                   </div>
 
-                  {/* Derecha: lista sabores (ancho fijo) */}
+                  {/* Derecha: lista sabores — scroll propio */}
                   <div style={{ width:"195px", flexShrink:0, overflowY:"auto", padding:"8px 8px", borderLeft:"1.5px solid #E0D8CE" }}>
                     {premiumFlavors.length > 0 && (
                       <div style={{ marginBottom:"8px" }}>
