@@ -215,7 +215,12 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
     sameSizeFlavors.filter(r => !PREMIUM_NAMES.includes(cleanName(r.name).toUpperCase())), [sameSizeFlavors]);
 
   function assignToSection(sectionIdx, recipeId) {
-    setSectionFlavors(prev => ({ ...prev, [sectionIdx]: recipeId }));
+    setSectionFlavors(prev => {
+      // Si el sabor ya está en otra sección, no permitir repetición
+      const alreadyUsed = Object.entries(prev).some(([k, v]) => v === recipeId && parseInt(k) !== sectionIdx);
+      if (alreadyUsed) return prev;
+      return { ...prev, [sectionIdx]: recipeId };
+    });
   }
 
   function handleFlavorTap(recipeId) {
