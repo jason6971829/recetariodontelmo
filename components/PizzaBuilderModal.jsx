@@ -172,7 +172,7 @@ const STEP_LABELS = ["Tamaño", "División", "Sabores"];
 /* ─── Modal principal ─── */
 export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
   const [step, setStep]                     = useState(1);
-  const [selectedSuffix, setSelectedSuffix] = useState("m");
+  const [selectedSuffix, setSelectedSuffix] = useState(null);
   const [selectedCfgId, setSelectedCfgId]   = useState(null);
   const [sectionFlavors, setSectionFlavors] = useState({});
   const [dragOverSec, setDragOverSec]       = useState(-1);
@@ -182,9 +182,9 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
   const ghostRef    = useRef(null);   // DOM node del ghost flotante
   const containerRef = useRef(null);  // el modal
 
-  const size = SIZES[selectedSuffix];
+  const size = selectedSuffix ? SIZES[selectedSuffix] : null;
   const availableCfgs = useMemo(() =>
-    SIZE_CFGS[selectedSuffix].map(id => ALL_CFGS.find(c => c.id === id)), [selectedSuffix]);
+    selectedSuffix ? SIZE_CFGS[selectedSuffix].map(id => ALL_CFGS.find(c => c.id === id)) : [], [selectedSuffix]);
   const activeCfgId  = selectedCfgId ?? availableCfgs[0]?.id;
   const selectedCfg  = useMemo(() => ALL_CFGS.find(c => c.id === activeCfgId), [activeCfgId]);
   const sameSizeFlavors = useMemo(() =>
