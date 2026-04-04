@@ -138,7 +138,6 @@ function PizzaVisual({ portions, size = 80, dragOverSec = -1, onSecDrop, onSecHo
           return <line key={i} x1={cx} y1={cy} x2={cx + r * Math.cos(rad)} y2={cy + r * Math.sin(rad)} stroke="rgba(255,255,255,0.95)" strokeWidth="2.5" />;
         })}
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" />
-        <circle cx={cx} cy={cy} r={size * 0.10} fill="rgba(255,255,255,0.9)" />
 
         {/* Nombres de sabores en cada sección */}
         {slices.map(({ i, lx, ly }) => {
