@@ -21,7 +21,7 @@ const ALL_CFGS = [
   { id: 8, label: "2 + 2",       sub: "2 sabores", p: [2, 2] },
 ];
 const SIZE_CFGS = {
-  c: [0, 1, 2, 3, 4, 5],
+  c: [0, 1, 2, 3, 4, 5, 6],
   m: [0, 6, 5, 3],
   p: [7, 8],
 };
