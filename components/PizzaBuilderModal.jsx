@@ -414,12 +414,10 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px" }}>
                   {availableCfgs.map(cfg => {
                     const active = activeCfgId === cfg.id;
-                    let c = 0;
-                    const stops2 = cfg.p.map((p, i) => { const s=(c/cfg.p.reduce((a,b)=>a+b,0))*100,e=((c+p)/cfg.p.reduce((a,b)=>a+b,0))*100; c+=p; return `${SEC_COLORS[i%SEC_COLORS.length]} ${s}% ${e}%`; });
                     return (
                       <div key={cfg.id} onClick={() => setSelectedCfgId(cfg.id)} style={{ padding:"12px 10px", borderRadius:"12px", textAlign:"center", border:`2px solid ${active ? "var(--app-primary)" : "#E0D8CE"}`, background: active ? "rgba(27,58,92,0.05)" : "#fff", cursor:"pointer" }}>
                         <div style={{ display:"flex", justifyContent:"center", marginBottom:"7px" }}>
-                          <div style={{ width:68, height:68, borderRadius:"50%", background:`conic-gradient(${stops2.join(", ")})`, border:"3px solid rgba(255,255,255,0.6)", boxShadow:"0 2px 8px rgba(0,0,0,0.15)" }} />
+                          <PizzaVisual portions={cfg.p} size={68} />
                         </div>
                         <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"var(--app-primary)" }}>{cfg.label}</div>
                         <div style={{ fontSize:"11px", color:"#888", marginTop:"1px" }}>{cfg.sub}</div>
