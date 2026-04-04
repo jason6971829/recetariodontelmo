@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { generatePizzaPDF } from "@/lib/recipePDF";
+import { printPizzaThermal } from "@/lib/thermalPrint";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
 /* ─── Tamaños ─── */
@@ -672,6 +673,13 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
                     {allAssigned ? "✅ Pizza lista" : `Faltan ${totalSections - filledSections} sección${totalSections-filledSections!==1?"es":""}`}
                   </div>
                   {allAssigned && (
+                    <button
+                      onClick={() => printPizzaThermal(size, selectedCfg, liveResults)}
+                      title="Imprimir en impresora térmica 80mm"
+                      style={{ flexShrink:0, padding:"12px 14px", background:"#1B3A5C", border:"none", borderRadius:"12px", color:"#fff", fontSize:"16px", cursor:"pointer" }}
+                    >
+                      🖨️
+                    </button>
                     <button
                       onClick={async () => {
                         setPdfLoading(true);
