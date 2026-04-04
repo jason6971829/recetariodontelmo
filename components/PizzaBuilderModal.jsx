@@ -321,7 +321,7 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
   function goBack() { setStep(s => s - 1); }
 
   /* ── Chip de sabor ── */
-  function FlavorChip({ recipe }) {
+  function FlavorChip({ recipe, compact = false }) {
     const sec      = assignedSectionOf(recipe.id);
     const assigned = sec !== -1;
     const color    = assigned ? SEC_COLORS[sec % SEC_COLORS.length] : "#888";
@@ -336,21 +336,24 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
         onClick={() => handleFlavorTap(recipe.id)}
         style={{
           display:"flex", alignItems:"center", justifyContent:"space-between",
-          padding:"7px 10px", borderRadius:"10px", marginBottom:"5px",
+          padding: compact ? "5px 6px" : "7px 10px",
+          borderRadius: compact ? "8px" : "10px",
+          marginBottom: compact ? "0" : "5px",
           border:`1.5px solid ${assigned ? color : dragOverSec >= 0 && draggingRef.current ? "#D4721A" : "#E0D8CE"}`,
           background: bg, cursor:"grab",
           opacity: isDragging ? 0.4 : 1,
           userSelect:"none", touchAction:"none",
           transition:"opacity 0.15s, border-color 0.15s",
+          minWidth: 0,
         }}
       >
-        <span style={{ fontFamily:"Georgia,serif", fontSize:"12px", fontWeight: assigned ? "700":"600", color: assigned ? color : "#333", flex:1 }}>
-          {assigned && <span style={{ marginRight:"4px" }}>✓</span>}
+        <span style={{ fontFamily:"Georgia,serif", fontSize: compact ? "10px" : "12px", fontWeight: assigned ? "700":"600", color: assigned ? color : "#333", flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+          {assigned && <span style={{ marginRight:"3px" }}>✓</span>}
           {cleanName(recipe.name)}
         </span>
         {assigned
-          ? <span style={{ fontSize:"10px", fontWeight:"800", color:"#fff", background:color, padding:"2px 7px", borderRadius:"10px", flexShrink:0, marginLeft:"6px" }}>Sec {sec+1}</span>
-          : <span style={{ fontSize:"11px", color:"#bbb", marginLeft:"6px", flexShrink:0 }}>⠿</span>
+          ? <span style={{ fontSize: compact ? "9px" : "10px", fontWeight:"800", color:"#fff", background:color, padding: compact ? "1px 4px" : "2px 7px", borderRadius:"10px", flexShrink:0, marginLeft:"4px" }}>{compact ? sec+1 : `Sec ${sec+1}`}</span>
+          : <span style={{ fontSize:"11px", color:"#bbb", marginLeft: compact ? "2px" : "6px", flexShrink:0 }}>⠿</span>
         }
       </div>
     );
@@ -518,24 +521,26 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
                     {/* Contenido del tab — scroll natural */}
                     <div style={{ flex:1, overflowY:"auto", minHeight:0, padding:"10px 14px" }}>
                       {mobileTab === "sabores" && (
-                        <>
+                        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px" }}>
+                          {/* Columna Premium */}
                           {premiumFlavors.length > 0 && (
-                            <div style={{ marginBottom:"8px" }}>
-                              <div style={{ fontSize:"10px", fontWeight:"800", padding:"4px 8px", borderRadius:"6px 6px 0 0", background:"#E8F8EE", color:"#1B7A1B", letterSpacing:"0.4px" }}>⭐ Premium</div>
-                              <div style={{ background:"#fff", border:"1.5px solid #E0D8CE", borderTop:"none", borderRadius:"0 0 8px 8px", padding:"6px 8px" }}>
-                                {premiumFlavors.map(r => <FlavorChip key={r.id} recipe={r} />)}
+                            <div>
+                              <div style={{ fontSize:"10px", fontWeight:"800", padding:"4px 6px", borderRadius:"6px 6px 0 0", background:"#E8F8EE", color:"#1B7A1B", letterSpacing:"0.4px", textAlign:"center" }}>⭐ Premium</div>
+                              <div style={{ background:"#fff", border:"1.5px solid #E0D8CE", borderTop:"none", borderRadius:"0 0 8px 8px", padding:"5px", display:"flex", flexDirection:"column", gap:"4px" }}>
+                                {premiumFlavors.map(r => <FlavorChip key={r.id} recipe={r} compact />)}
                               </div>
                             </div>
                           )}
+                          {/* Columna Tradicional */}
                           {tradFlavors.length > 0 && (
-                            <div style={{ marginBottom:"8px" }}>
-                              <div style={{ fontSize:"10px", fontWeight:"800", padding:"4px 8px", borderRadius:"6px 6px 0 0", background:"#FDECEA", color:"#C0292C", letterSpacing:"0.4px" }}>🔴 Tradicional</div>
-                              <div style={{ background:"#fff", border:"1.5px solid #E0D8CE", borderTop:"none", borderRadius:"0 0 8px 8px", padding:"6px 8px" }}>
-                                {tradFlavors.map(r => <FlavorChip key={r.id} recipe={r} />)}
+                            <div>
+                              <div style={{ fontSize:"10px", fontWeight:"800", padding:"4px 6px", borderRadius:"6px 6px 0 0", background:"#FDECEA", color:"#C0292C", letterSpacing:"0.4px", textAlign:"center" }}>🔴 Tradicional</div>
+                              <div style={{ background:"#fff", border:"1.5px solid #E0D8CE", borderTop:"none", borderRadius:"0 0 8px 8px", padding:"5px", display:"flex", flexDirection:"column", gap:"4px" }}>
+                                {tradFlavors.map(r => <FlavorChip key={r.id} recipe={r} compact />)}
                               </div>
                             </div>
                           )}
-                        </>
+                        </div>
                       )}
                       {mobileTab === "ingredientes" && liveResults.length > 0 && (
                         <>
