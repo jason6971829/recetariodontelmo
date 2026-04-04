@@ -183,16 +183,6 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
   const [pdfLoading,  setPdfLoading]        = useState(false);
   const [mobileTab,   setMobileTab]         = useState("sabores"); // "sabores" | "ingredientes"
 
-  // Auto-cambiar al tab de ingredientes cuando se asignan todos los sabores
-  useEffect(() => {
-    if (allAssigned && isMobile) setMobileTab("ingredientes");
-  }, [allAssigned, isMobile]);
-
-  // Resetear tab al volver a paso anterior
-  useEffect(() => {
-    if (step !== 3) setMobileTab("sabores");
-  }, [step]);
-
   /* Refs para drag pointer */
   const draggingRef = useRef(null);   // { recipeId, name }
   const ghostRef    = useRef(null);   // DOM node del ghost flotante
@@ -214,6 +204,16 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
   const totalSections  = selectedCfg?.p.length ?? 0;
   const filledSections = Object.keys(sectionFlavors).length;
   const allAssigned    = filledSections === totalSections && totalSections > 0;
+
+  // Auto-cambiar al tab de ingredientes cuando se asignan todos los sabores
+  useEffect(() => {
+    if (allAssigned && isMobile) setMobileTab("ingredientes");
+  }, [allAssigned, isMobile]);
+
+  // Resetear tab al volver a paso anterior
+  useEffect(() => {
+    if (step !== 3) setMobileTab("sabores");
+  }, [step]);
 
   const liveResults = useMemo(() => {
     if (!selectedCfg) return [];
