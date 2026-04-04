@@ -453,7 +453,7 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
                   >
                     <PizzaVisual
                       portions={selectedCfg.p}
-                      size={190}
+                      size={162}
                       dragOverSec={dragOverSec}
                       onSecHover={(i) => setDragOverSec(i)}
                       sectionData={selectedCfg.p.map((_, i) => {
