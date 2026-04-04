@@ -5,6 +5,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { TextToSpeech } from "@/components/TextToSpeech";
 import { useLang } from "@/lib/LangContext";
 import { generateRecipePDF } from "@/lib/recipePDF";
+import { printRecipeThermal } from "@/lib/thermalPrint";
 
 // ── Estilos estáticos a nivel de módulo (se crean una sola vez) ──
 const S = {
@@ -48,7 +49,7 @@ function getYtId(url) {
   return m ? m[1] : null;
 }
 
-export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit, onDelete, onTogglePublish, currentUser }) {
+export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit, onDelete, onTogglePublish, currentUser, brandLabel, brandName, companyTagline }) {
   const isAdmin = currentUser.role === "admin";
   const isMobile = useIsMobile();
   const { t } = useLang();
@@ -105,6 +106,13 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
                 </button>
                 <button onClick={onDelete} style={S.btnDelete}>🗑️</button>
               </>}
+              <button
+                onClick={() => printRecipeThermal(recipe, { label: brandLabel, name: brandName, tagline: companyTagline })}
+                title="Imprimir en impresora térmica 80mm"
+                style={{ background:"#1B3A5C", border:"none", borderRadius:"8px", color:"#fff", padding:"7px 12px", cursor:"pointer", fontSize:"14px", flexShrink:0 }}
+              >
+                🖨️
+              </button>
               <button
                 onClick={handleDownloadPDF}
                 disabled={downloading}
