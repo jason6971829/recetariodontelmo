@@ -35,6 +35,15 @@ export default function RootLayout({ children }) {
         <script
           dangerouslySetInnerHTML={{
             __html: `
+              // Altura real del viewport (fix iOS Safari donde 100vh != ventana visible)
+              (function() {
+                function setAppHeight() {
+                  document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
+                }
+                setAppHeight();
+                window.addEventListener('resize', setAppHeight);
+              })();
+
               // Bloquear pull-to-refresh en iOS Safari y Chrome Android
               (function() {
                 var startY = 0;

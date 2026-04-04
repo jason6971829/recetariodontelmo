@@ -83,8 +83,8 @@ export function ActivityReport({ onClose }) {
       <div style={{
         background: "#fff", borderRadius: isMobile ? "20px 20px 0 0" : "16px",
         width: "100%", maxWidth: "800px",
-        height: isMobile ? "95vh" : "auto",
-        maxHeight: isMobile ? "95vh" : "90vh",
+        height: isMobile ? "calc(var(--app-height, 100vh) * 0.95)" : "auto",
+        maxHeight: isMobile ? "calc(var(--app-height, 100vh) * 0.95)" : "90vh",
         marginTop: isMobile ? "auto" : "0",
         overflow: "hidden", display: "flex", flexDirection: "column",
         boxShadow: "0 30px 80px rgba(0,0,0,0.5)"

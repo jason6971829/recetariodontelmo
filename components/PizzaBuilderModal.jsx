@@ -376,7 +376,7 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
           data-drop-pizza
-          style={{ width:"100%", maxWidth: isMobile ? "100%" : "680px", height: isMobile ? "96vh" : "auto", maxHeight: isMobile ? "96vh" : "92vh", background:"#F4F0EB", borderRadius: isMobile ? "20px 20px 0 0" : "24px", display:"flex", flexDirection:"column", overflow:"hidden", boxShadow:"0 20px 80px rgba(0,0,0,0.5)" }}
+          style={{ width:"100%", maxWidth: isMobile ? "100%" : "680px", height: isMobile ? "calc(var(--app-height, 100vh) * 0.96)" : "auto", maxHeight: isMobile ? "calc(var(--app-height, 100vh) * 0.96)" : "92vh", background:"#F4F0EB", borderRadius: isMobile ? "20px 20px 0 0" : "24px", display:"flex", flexDirection:"column", overflow:"hidden", boxShadow:"0 20px 80px rgba(0,0,0,0.5)" }}
         >
           {/* ── Header ── */}
           <div style={{ background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", padding:"14px 20px 12px", flexShrink:0 }}>

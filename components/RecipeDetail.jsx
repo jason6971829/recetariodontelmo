@@ -73,8 +73,8 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
         style={{
           ...S.card,
           borderRadius:  isMobile ? "20px 20px 0 0" : "18px",
-          height:        isMobile ? "95vh" : "auto",
-          maxHeight:     isMobile ? "95vh" : "92vh",
+          height:        isMobile ? "calc(var(--app-height, 100vh) * 0.95)" : "auto",
+          maxHeight:     isMobile ? "calc(var(--app-height, 100vh) * 0.95)" : "92vh",
           marginTop:     isMobile ? "auto" : "0",
         }}
       >
