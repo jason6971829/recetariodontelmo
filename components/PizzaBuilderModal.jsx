@@ -474,7 +474,7 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
                           setDragOverSec(-1);
                         }}
                       />
-                      <div style={{ fontFamily:"Georgia,serif", fontSize:"12px", fontWeight:"700", color:"var(--app-primary)", textAlign:"center" }}>
+                      <div style={{ fontFamily:"Georgia,serif", fontSize:"12px", fontWeight:"700", color:"var(--app-primary)", textAlign:"center", marginTop:"14px" }}>
                         {size.label} · <span style={{ fontWeight:"600", color:"#888" }}>{size.cm} cm</span>
                       </div>
                     </div>
