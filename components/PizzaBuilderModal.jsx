@@ -458,7 +458,7 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
                     onDragOver={e => e.preventDefault()}
                   >
                     {/* Pizza - no hace scroll */}
-                    <div style={{ flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center", padding:"8px 10px 4px", gap:"6px" }}>
+                    <div style={{ flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center", padding:"8px 10px 12px", gap:"8px" }}>
                       <PizzaVisual
                         portions={selectedCfg.p}
                         size={162}
