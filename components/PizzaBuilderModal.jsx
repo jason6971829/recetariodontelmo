@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo, useRef, useCallback } from "react";
+import { generatePizzaPDF } from "@/lib/recipePDF";
 
 /* ─── Tamaños ─── */
 const SIZES = {
@@ -177,6 +178,7 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
   const [selectedCfgId, setSelectedCfgId]   = useState(null);
   const [sectionFlavors, setSectionFlavors] = useState({});
   const [dragOverSec, setDragOverSec]       = useState(-1);
+  const [pdfLoading,  setPdfLoading]        = useState(false);
 
   /* Refs para drag pointer */
   const draggingRef = useRef(null);   // { recipeId, name }
@@ -532,9 +534,25 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
             )}
             {step < 3
               ? <button onClick={goNext} style={{ flex:2, padding:"12px", background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", border:"none", borderRadius:"12px", color:"#fff", fontSize:"13px", fontWeight:"700", cursor:"pointer", fontFamily:"Georgia,serif" }}>Siguiente →</button>
-              : <div style={{ flex:2, padding:"12px", borderRadius:"12px", background: allAssigned ? "#E8F8EE" : "#EDECE8", border:`2px solid ${allAssigned ? "#27ae60" : "#E0D8CE"}`, textAlign:"center", fontSize:"13px", fontWeight:"700", color: allAssigned ? "#27ae60" : "#aaa", fontFamily:"Georgia,serif" }}>
-                  {allAssigned ? "✅ Pizza lista" : `Faltan ${totalSections - filledSections} sección${totalSections-filledSections!==1?"es":""}`}
-                </div>
+              : <>
+                  <div style={{ flex:2, padding:"12px", borderRadius:"12px", background: allAssigned ? "#E8F8EE" : "#EDECE8", border:`2px solid ${allAssigned ? "#27ae60" : "#E0D8CE"}`, textAlign:"center", fontSize:"13px", fontWeight:"700", color: allAssigned ? "#27ae60" : "#aaa", fontFamily:"Georgia,serif" }}>
+                    {allAssigned ? "✅ Pizza lista" : `Faltan ${totalSections - filledSections} sección${totalSections-filledSections!==1?"es":""}`}
+                  </div>
+                  {allAssigned && (
+                    <button
+                      onClick={async () => {
+                        setPdfLoading(true);
+                        try { await generatePizzaPDF({ size, cfg: selectedCfg, liveResults }); }
+                        finally { setPdfLoading(false); }
+                      }}
+                      disabled={pdfLoading}
+                      title="Descargar PDF"
+                      style={{ flexShrink:0, padding:"12px 14px", background: pdfLoading ? "#888" : "#D4721A", border:"none", borderRadius:"12px", color:"#fff", fontSize:"16px", cursor: pdfLoading ? "wait" : "pointer", opacity: pdfLoading ? 0.7 : 1 }}
+                    >
+                      {pdfLoading ? "⏳" : "📄"}
+                    </button>
+                  )}
+                </>
             }
           </div>
           <div style={{ background:"#fff", paddingBottom:"4px", textAlign:"center", color:"#D4721A", fontSize:"10px", fontFamily:"Georgia,serif", fontWeight:"700", letterSpacing:"3px" }}>━━━ DON TELMO® 1958 ━━━</div>
