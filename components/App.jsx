@@ -505,7 +505,10 @@ export default function App() {
         await deleteImage(editingRecipe.image);
       }
       const updated = await upsertRecipe({ ...form, id: editingRecipe.id });
-      if (updated) setRecipes(prev => prev.map(r => r.id === editingRecipe.id ? updated : r));
+      if (updated) {
+        setRecipes(prev => prev.map(r => r.id === editingRecipe.id ? updated : r));
+        setSelectedRecipe(updated);
+      }
     } else {
       const created = await insertRecipe(form);
       if (created) setRecipes(prev => [...prev, created]);
