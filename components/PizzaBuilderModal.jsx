@@ -452,7 +452,7 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
                 <div style={{ display:"flex" }}>
 
                   {/* Izquierda: pizza + ingredientes en vivo */}
-                  <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", padding:"8px 10px 10px", gap:"8px", overflow:"hidden", position:"relative", zIndex:1 }}
+                  <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", padding:"8px 10px 10px", gap:"8px", position:"relative", zIndex:1 }}
                     onDragOver={e => e.preventDefault()}
                   >
                     <PizzaVisual
