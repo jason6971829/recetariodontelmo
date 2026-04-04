@@ -393,7 +393,7 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
                 <div style={{ fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"12px", textTransform:"uppercase", fontFamily:"Georgia,serif" }}>¿De qué tamaño?</div>
                 {Object.entries(SIZES).map(([key, sz]) => (
                   <div key={key} onClick={() => handleSizeSelect(key)} style={{ display:"flex", alignItems:"center", gap:"12px", padding:"12px 14px", borderRadius:"12px", marginBottom:"9px", border:`2px solid ${selectedSuffix === key ? "var(--app-primary)" : "#E0D8CE"}`, background: selectedSuffix === key ? "rgba(27,58,92,0.05)" : "#fff", cursor:"pointer" }}>
-                    <div style={{ width: sz.cm >= 50 ? 52 : sz.cm >= 40 ? 44 : 36, height: sz.cm >= 50 ? 52 : sz.cm >= 40 ? 44 : 36, borderRadius:"50%", background:`conic-gradient(${SEC_COLORS[0]} 0% 100%)`, flexShrink:0 }} />
+                    <img src="/pizza-base.png" alt="" draggable={false} style={{ width: sz.cm >= 50 ? 52 : sz.cm >= 40 ? 44 : 36, height: sz.cm >= 50 ? 52 : sz.cm >= 40 ? 44 : 36, borderRadius:"50%", objectFit:"cover", objectPosition:"center 60%", flexShrink:0, transform:"scale(1.15)", transformOrigin:"center" }} />
                     <div style={{ flex:1 }}>
                       <div style={{ fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"15px", color:"var(--app-primary)" }}>{sz.label}</div>
                       <div style={{ fontSize:"12px", color:"#888", marginTop:"2px" }}>{sz.cm} cm · {sz.portions} porciones</div>
