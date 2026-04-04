@@ -86,9 +86,9 @@ function PizzaVisual({ portions, size = 80, dragOverSec = -1, onSecDrop, onSecHo
         src="/pizza-base.png"
         alt=""
         draggable={false}
-        style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover", objectPosition:"center", borderRadius:"50%", pointerEvents:"none", userSelect:"none", transform:"scale(1.18)", transformOrigin:"center" }}
+        style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover", objectPosition:"center", borderRadius:"50%", pointerEvents:"none", userSelect:"none", transform:"scale(1.38)", transformOrigin:"center" }}
       />
-      <svg width={size} height={size} style={{ position:"absolute", inset:0, overflow:"visible" }}
+      <svg width={size} height={size} style={{ position:"absolute", inset:0, overflow:"hidden" }}
         onDragLeave={() => onSecHover?.(-1)}>
         <defs>
           <clipPath id={`pizza-clip-${size}`}>
@@ -448,12 +448,12 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
                 <div style={{ display:"flex", minHeight:"220px", borderBottom:"2px solid #E0D8CE" }}>
 
                   {/* Izquierda: pizza + secciones */}
-                  <div style={{ width:"220px", flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center", padding:"8px 6px 10px", borderRight:"1.5px solid #E0D8CE", gap:"8px", overflow:"visible", position:"relative", zIndex:1 }}
+                  <div style={{ width:"200px", flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center", padding:"8px 6px 10px", borderRight:"1.5px solid #E0D8CE", gap:"8px", overflow:"hidden", position:"relative", zIndex:1 }}
                     onDragOver={e => e.preventDefault()}
                   >
                     <PizzaVisual
                       portions={selectedCfg.p}
-                      size={260}
+                      size={190}
                       dragOverSec={dragOverSec}
                       onSecHover={(i) => setDragOverSec(i)}
                       sectionData={selectedCfg.p.map((_, i) => {
