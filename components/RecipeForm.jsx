@@ -18,6 +18,8 @@ export function RecipeForm({ initial, categories, onSave, onCancel }) {
     description:"", salesPitch:""
   });
   const [newIng, setNewIng] = useState("");
+  const [editingIdx, setEditingIdx] = useState(null);
+  const [editingVal, setEditingVal] = useState("");
   const [uploading, setUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState(initial?.image || null);
   const fileRef = useRef();
@@ -28,6 +30,12 @@ export function RecipeForm({ initial, categories, onSave, onCancel }) {
   const set = (k, v) => setForm(f => ({...f, [k]:v}));
   const addIng = () => { if (!newIng.trim()) return; set("ingredients", [...form.ingredients, newIng.trim()]); setNewIng(""); };
   const removeIng = i => set("ingredients", form.ingredients.filter((_,idx)=>idx!==i));
+  const startEdit = (i, val) => { setEditingIdx(i); setEditingVal(val); };
+  const saveEdit = () => {
+    if (editingIdx === null) return;
+    if (editingVal.trim()) set("ingredients", form.ingredients.map((ing, idx) => idx === editingIdx ? editingVal.trim() : ing));
+    setEditingIdx(null); setEditingVal("");
+  };
   const handleImage = e => {
     const file = e.target.files[0]; if (!file) return;
     pendingFileRef.current = file;
@@ -95,7 +103,17 @@ export function RecipeForm({ initial, categories, onSave, onCancel }) {
             </div>
             {form.ingredients.map((ing,i)=>(
               <div key={i} style={{ display:"flex", gap:"6px", alignItems:"center", marginBottom:"4px" }}>
-                <div style={{ flex:1, background:"#F7F3EE", borderRadius:"6px", padding:"7px 12px", fontSize:"13px" }}>• {ing}</div>
+                {editingIdx === i
+                  ? <input
+                      autoFocus
+                      style={{...inp, flex:1, padding:"7px 12px", fontSize:"13px"}}
+                      value={editingVal}
+                      onChange={e=>setEditingVal(e.target.value)}
+                      onBlur={saveEdit}
+                      onKeyDown={e=>{ if(e.key==="Enter") saveEdit(); if(e.key==="Escape") setEditingIdx(null); }}
+                    />
+                  : <div onClick={()=>startEdit(i,ing)} style={{ flex:1, background:"#F7F3EE", borderRadius:"6px", padding:"7px 12px", fontSize:"13px", cursor:"text" }}>• {ing}</div>
+                }
                 <button onClick={()=>removeIng(i)} style={{ background:"none", border:"none", color:"#c0392b", cursor:"pointer", fontSize:"18px", padding:"4px 6px" }}>×</button>
               </div>
             ))}
