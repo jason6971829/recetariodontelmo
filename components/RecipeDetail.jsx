@@ -87,12 +87,22 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
               </div>
               <div style={S.categoryLabel}>{recipe.category.toUpperCase()}</div>
             </div>
-            <div style={S.actionButtons}>
+            <div style={{ ...S.actionButtons, flexWrap: isMobile ? "wrap" : "nowrap", justifyContent:"flex-end" }}>
+              {/* En mobile solo iconos para ahorrar espacio */}
               {isAdmin && <>
-                <button onClick={onTogglePublish} style={{ ...S.btnPublish, background: recipe.published ? "#27ae60" : "#7f8c8d" }}>
-                  {recipe.published ? "✅ " + t.published : "📝 " + t.draft}
+                {!isMobile && (
+                  <button onClick={onTogglePublish} style={{ ...S.btnPublish, background: recipe.published ? "#27ae60" : "#7f8c8d" }}>
+                    {recipe.published ? "✅ " + t.published : "📝 " + t.draft}
+                  </button>
+                )}
+                {isMobile && (
+                  <button onClick={onTogglePublish} style={{ background: recipe.published ? "#27ae60" : "#7f8c8d", border:"none", borderRadius:"8px", color:"#fff", padding:"7px 10px", cursor:"pointer", fontSize:"14px" }}>
+                    {recipe.published ? "✅" : "📝"}
+                  </button>
+                )}
+                <button onClick={onEdit} style={{ ...S.btnEdit, padding: isMobile ? "7px 10px" : "7px 14px" }}>
+                  {isMobile ? "✏️" : t.detail.edit}
                 </button>
-                <button onClick={onEdit}   style={S.btnEdit}>{t.detail.edit}</button>
                 <button onClick={onDelete} style={S.btnDelete}>🗑️</button>
               </>}
               <button

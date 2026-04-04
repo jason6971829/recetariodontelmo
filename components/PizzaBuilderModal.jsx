@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo, useRef, useCallback } from "react";
 import { generatePizzaPDF } from "@/lib/recipePDF";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 /* ─── Tamaños ─── */
 const SIZES = {
@@ -173,6 +174,7 @@ const STEP_LABELS = ["Tamaño", "División", "Sabores"];
 
 /* ─── Modal principal ─── */
 export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
+  const isMobile = useIsMobile();
   const [step, setStep]                     = useState(1);
   const [selectedSuffix, setSelectedSuffix] = useState(null);
   const [selectedCfgId, setSelectedCfgId]   = useState(null);
@@ -450,19 +452,17 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
                     : `🖐 Arrastra o toca un sabor → Sección ${nextEmptySection + 1} — faltan ${totalSections - filledSections}`}
                 </div>
 
-                {/* Split layout */}
-                <div style={{ display:"flex", flex:1, minHeight:0, overflow:"hidden" }}>
+                {/* Split layout: fila en desktop, columna en mobile */}
+                <div style={{ display:"flex", flexDirection: isMobile ? "column" : "row", flex:1, minHeight:0, overflow:"hidden" }}>
 
-                  {/* Izquierda: pizza (fija) + ingredientes (scroll propio) */}
-                  <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", position:"relative", zIndex:1 }}
+                  {/* Pizza (siempre visible, no hace scroll) */}
+                  <div style={{ flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center", padding:"6px 10px 0", position:"relative", zIndex:1, borderRight: !isMobile ? "1.5px solid #E0D8CE" : "none" }}
                     onDragOver={e => e.preventDefault()}
                   >
-                    {/* Pizza - no hace scroll */}
-                    <div style={{ flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center", padding:"8px 10px 0", gap:"0" }}>
-                      <div style={{ paddingBottom:"20px" }}>
+                    <div style={{ paddingBottom:"20px" }}>
                       <PizzaVisual
                         portions={selectedCfg.p}
-                        size={162}
+                        size={isMobile ? 140 : 162}
                         dragOverSec={dragOverSec}
                         onSecHover={(i) => setDragOverSec(i)}
                         sectionData={selectedCfg.p.map((_, i) => {
@@ -475,38 +475,19 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
                           setDragOverSec(-1);
                         }}
                       />
-                      </div>
-                      <div style={{ fontFamily:"Georgia,serif", fontSize:"12px", fontWeight:"700", color:"var(--app-primary)", textAlign:"center", paddingBottom:"8px" }}>
-                        {size.label} · <span style={{ fontWeight:"600", color:"#888" }}>{size.cm} cm</span>
-                      </div>
                     </div>
-
-                    {/* Ingredientes - scroll propio */}
-                    {liveResults.length > 0 && (
-                      <div style={{ flex:1, overflowY:"auto", minHeight:0, padding:"4px 10px 10px" }}>
-                        <div style={{ fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"8px", textTransform:"uppercase", fontFamily:"Georgia,serif", display:"flex", alignItems:"center", gap:"8px" }}>
-                          <span>📊 Ingredientes</span>
-                          <div style={{ flex:1, height:"1px", background:"#E0D8CE" }} />
-                        </div>
-                        {liveResults.map((r, i) => (
-                          <div key={i} style={{ marginBottom:"10px" }}>
-                            <div style={{ background:r.color, borderRadius:"9px 9px 0 0", padding:"7px 10px", display:"flex", alignItems:"center", gap:"8px" }}>
-                              <span style={{ color:"#fff", fontFamily:"Georgia,serif", fontSize:"11px", fontWeight:"700", flex:1 }}>🍕 {r.name}</span>
-                              <span style={{ color:"rgba(255,255,255,0.9)", fontSize:"10px", fontWeight:"700", background:"rgba(255,255,255,0.2)", padding:"2px 7px", borderRadius:"6px" }}>{r.portions} porc.</span>
-                            </div>
-                            <div style={{ border:`1.5px solid ${r.color}`, borderTop:"none", borderRadius:"0 0 9px 9px", padding:"5px" }}>
-                              {r.ingredients.map((ing, j) => (
-                                <div key={j} style={{ padding:"4px 7px", fontSize:"11px", color:"#333", borderRadius:"5px", lineHeight:1.4, background: j%2===0 ? r.light : "#fff" }}>• {ing}</div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <div style={{ fontFamily:"Georgia,serif", fontSize:"12px", fontWeight:"700", color:"var(--app-primary)", textAlign:"center", paddingBottom:"8px" }}>
+                      {size.label} · <span style={{ fontWeight:"600", color:"#888" }}>{size.cm} cm</span>
+                    </div>
                   </div>
 
-                  {/* Derecha: lista sabores — scroll propio */}
-                  <div style={{ width:"195px", flexShrink:0, overflowY:"auto", padding:"8px 8px", borderLeft:"1.5px solid #E0D8CE" }}>
+                  {/* Lista de sabores — scroll propio */}
+                  <div style={{
+                    ...(isMobile
+                      ? { height:"170px", borderTop:"1.5px solid #E0D8CE" }
+                      : { width:"195px" }),
+                    flexShrink:0, overflowY:"auto", padding:"8px", borderLeft: !isMobile ? "none" : undefined
+                  }}>
                     {premiumFlavors.length > 0 && (
                       <div style={{ marginBottom:"8px" }}>
                         <div style={{ fontSize:"10px", fontWeight:"800", padding:"4px 8px", borderRadius:"6px 6px 0 0", background:"#E8F8EE", color:"#1B7A1B", letterSpacing:"0.4px" }}>⭐ Premium</div>
@@ -524,6 +505,33 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
                       </div>
                     )}
                   </div>
+
+                  {/* Ingredientes en vivo — solo desktop en columna izquierda, mobile al fondo */}
+                  {liveResults.length > 0 && (
+                    <div style={{
+                      flex:1, overflowY:"auto", minHeight:0, padding:"4px 10px 10px",
+                      borderTop: isMobile ? "1.5px solid #E0D8CE" : "none",
+                      borderLeft: !isMobile ? "1.5px solid #E0D8CE" : "none",
+                    }}>
+                      <div style={{ fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"8px", textTransform:"uppercase", fontFamily:"Georgia,serif", display:"flex", alignItems:"center", gap:"8px" }}>
+                        <span>📊 Ingredientes</span>
+                        <div style={{ flex:1, height:"1px", background:"#E0D8CE" }} />
+                      </div>
+                      {liveResults.map((r, i) => (
+                        <div key={i} style={{ marginBottom:"10px" }}>
+                          <div style={{ background:r.color, borderRadius:"9px 9px 0 0", padding:"7px 10px", display:"flex", alignItems:"center", gap:"8px" }}>
+                            <span style={{ color:"#fff", fontFamily:"Georgia,serif", fontSize:"11px", fontWeight:"700", flex:1 }}>🍕 {r.name}</span>
+                            <span style={{ color:"rgba(255,255,255,0.9)", fontSize:"10px", fontWeight:"700", background:"rgba(255,255,255,0.2)", padding:"2px 7px", borderRadius:"6px" }}>{r.portions} porc.</span>
+                          </div>
+                          <div style={{ border:`1.5px solid ${r.color}`, borderTop:"none", borderRadius:"0 0 9px 9px", padding:"5px" }}>
+                            {r.ingredients.map((ing, j) => (
+                              <div key={j} style={{ padding:"4px 7px", fontSize:"11px", color:"#333", borderRadius:"5px", lineHeight:1.4, background: j%2===0 ? r.light : "#fff" }}>• {ing}</div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
