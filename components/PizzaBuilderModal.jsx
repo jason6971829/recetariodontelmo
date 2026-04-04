@@ -449,10 +449,10 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
                 </div>
 
                 {/* Split layout */}
-                <div style={{ display:"flex", minHeight:"220px", borderBottom:"2px solid #E0D8CE" }}>
+                <div style={{ display:"flex" }}>
 
-                  {/* Izquierda: pizza + secciones */}
-                  <div style={{ width:"200px", flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center", padding:"8px 6px 10px", borderRight:"1.5px solid #E0D8CE", gap:"8px", overflow:"hidden", position:"relative", zIndex:1 }}
+                  {/* Izquierda: pizza + ingredientes en vivo */}
+                  <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", padding:"8px 10px 10px", gap:"8px", overflow:"hidden", position:"relative", zIndex:1 }}
                     onDragOver={e => e.preventDefault()}
                   >
                     <PizzaVisual
@@ -470,13 +470,36 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
                         setDragOverSec(-1);
                       }}
                     />
-                    <div style={{ fontFamily:"Georgia,serif", fontSize:"12px", fontWeight:"700", color:"var(--app-primary)", textAlign:"center", marginTop:"8px" }}>
+                    <div style={{ fontFamily:"Georgia,serif", fontSize:"12px", fontWeight:"700", color:"var(--app-primary)", textAlign:"center" }}>
                       {size.label} · <span style={{ fontWeight:"600", color:"#888" }}>{size.cm} cm</span>
                     </div>
+
+                    {/* Ingredientes en vivo */}
+                    {liveResults.length > 0 && (
+                      <div style={{ width:"100%", marginTop:"4px" }}>
+                        <div style={{ fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"8px", textTransform:"uppercase", fontFamily:"Georgia,serif", display:"flex", alignItems:"center", gap:"8px" }}>
+                          <span>📊 Ingredientes</span>
+                          <div style={{ flex:1, height:"1px", background:"#E0D8CE" }} />
+                        </div>
+                        {liveResults.map((r, i) => (
+                          <div key={i} style={{ marginBottom:"10px" }}>
+                            <div style={{ background:r.color, borderRadius:"9px 9px 0 0", padding:"7px 10px", display:"flex", alignItems:"center", gap:"8px" }}>
+                              <span style={{ color:"#fff", fontFamily:"Georgia,serif", fontSize:"11px", fontWeight:"700", flex:1 }}>🍕 {r.name}</span>
+                              <span style={{ color:"rgba(255,255,255,0.9)", fontSize:"10px", fontWeight:"700", background:"rgba(255,255,255,0.2)", padding:"2px 7px", borderRadius:"6px" }}>{r.portions} porc.</span>
+                            </div>
+                            <div style={{ border:`1.5px solid ${r.color}`, borderTop:"none", borderRadius:"0 0 9px 9px", padding:"5px" }}>
+                              {r.ingredients.map((ing, j) => (
+                                <div key={j} style={{ padding:"4px 7px", fontSize:"11px", color:"#333", borderRadius:"5px", lineHeight:1.4, background: j%2===0 ? r.light : "#fff" }}>• {ing}</div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Derecha: lista sabores */}
-                  <div style={{ flex:1, overflowY:"auto", padding:"8px 10px" }}>
+                  {/* Derecha: lista sabores (ancho fijo) */}
+                  <div style={{ width:"195px", flexShrink:0, overflowY:"auto", padding:"8px 8px", borderLeft:"1.5px solid #E0D8CE" }}>
                     {premiumFlavors.length > 0 && (
                       <div style={{ marginBottom:"8px" }}>
                         <div style={{ fontSize:"10px", fontWeight:"800", padding:"4px 8px", borderRadius:"6px 6px 0 0", background:"#E8F8EE", color:"#1B7A1B", letterSpacing:"0.4px" }}>⭐ Premium</div>
@@ -495,29 +518,6 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
                     )}
                   </div>
                 </div>
-
-                {/* Ingredientes en vivo */}
-                {liveResults.length > 0 && (
-                  <div style={{ padding:"12px 16px 4px" }}>
-                    <div style={{ fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"10px", textTransform:"uppercase", fontFamily:"Georgia,serif", display:"flex", alignItems:"center", gap:"8px" }}>
-                      <span>📊 Ingredientes en vivo</span>
-                      <div style={{ flex:1, height:"1px", background:"#E0D8CE" }} />
-                    </div>
-                    {liveResults.map((r, i) => (
-                      <div key={i} style={{ marginBottom:"12px" }}>
-                        <div style={{ background:r.color, borderRadius:"9px 9px 0 0", padding:"8px 12px", display:"flex", alignItems:"center", gap:"8px" }}>
-                          <span style={{ color:"#fff", fontFamily:"Georgia,serif", fontSize:"12px", fontWeight:"700", flex:1 }}>🍕 {r.name}</span>
-                          <span style={{ color:"rgba(255,255,255,0.9)", fontSize:"11px", fontWeight:"700", background:"rgba(255,255,255,0.2)", padding:"2px 8px", borderRadius:"6px" }}>{r.portions} porc.</span>
-                        </div>
-                        <div style={{ border:`1.5px solid ${r.color}`, borderTop:"none", borderRadius:"0 0 9px 9px", padding:"6px" }}>
-                          {r.ingredients.map((ing, j) => (
-                            <div key={j} style={{ padding:"5px 8px", fontSize:"12px", color:"#333", borderRadius:"5px", lineHeight:1.4, background: j%2===0 ? r.light : "#fff" }}>• {ing}</div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             )}
           </div>
