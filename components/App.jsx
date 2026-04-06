@@ -31,6 +31,7 @@ const LangModal        = dynamic(() => import("@/components/LangModal").then(m =
 const ThemeModal       = dynamic(() => import("@/components/ThemeModal").then(m => ({ default: m.ThemeModal })), { ssr: false });
 const BiometricPrompt  = dynamic(() => import("@/components/BiometricPrompt").then(m => ({ default: m.BiometricPrompt })), { ssr: false });
 const PizzaBuilderModal= dynamic(() => import("@/components/PizzaBuilderModal").then(m => ({ default: m.PizzaBuilderModal })), { ssr: false });
+const DocumentsPanel   = dynamic(() => import("@/components/DocumentsPanel").then(m => ({ default: m.DocumentsPanel })), { ssr: false });
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useLang, LangProvider } from "@/lib/LangContext";
 import { LANGUAGES } from "@/lib/i18n";
@@ -78,6 +79,7 @@ export default function App() {
 
   const [showLangModal, setShowLangModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
+  const [showDocuments, setShowDocuments] = useState(false);
   const [showBannerConfig, setShowBannerConfig] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importPreview, setImportPreview] = useState(null);  // { recipes, fileName }
@@ -623,7 +625,7 @@ export default function App() {
 
   return (
     <div style={{ height:"100vh", display:"flex", flexDirection:"column", fontFamily:"'Segoe UI',sans-serif", overflow:"hidden", background:"#F4F0EB" }}>
-{!selectedRecipe && !showForm && !showUsers && !showReport && !showProgress && !showWatermarkUpload && !showLangModal && !categoryModal && !confirmModal && !showBiometricPrompt && !showPizzaBuilder && <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} customLogo={watermarkLogo} opacity={watermarkOpacity} size={watermarkSize} />}
+{!selectedRecipe && !showForm && !showUsers && !showReport && !showProgress && !showWatermarkUpload && !showLangModal && !categoryModal && !confirmModal && !showBiometricPrompt && !showPizzaBuilder && !showDocuments && <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} customLogo={watermarkLogo} opacity={watermarkOpacity} size={watermarkSize} />}
 
       {/* OFFLINE BANNER */}
       {!online && (
@@ -772,6 +774,24 @@ export default function App() {
             height: isMobile ? "100%" : "auto",
             boxShadow: isMobile ? "4px 0 20px rgba(0,0,0,0.4)" : "none"
           }}>
+            <div style={{ padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
+              <button
+                onClick={() => setShowDocuments(true)}
+                style={{
+                  width:"100%", display:"flex", alignItems:"center", gap:"10px",
+                  background:"linear-gradient(135deg,rgba(212,114,26,0.25),rgba(212,114,26,0.10))",
+                  border:"1.5px solid rgba(212,114,26,0.35)", borderRadius:"10px",
+                  color:"#fff", padding:"10px 14px", cursor:"pointer",
+                  fontSize:"13px", fontWeight:"700", fontFamily:"Georgia,serif",
+                  transition:"all 0.2s", letterSpacing:"0.3px",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(212,114,26,0.35)"; e.currentTarget.style.borderColor = "rgba(212,114,26,0.6)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "linear-gradient(135deg,rgba(212,114,26,0.25),rgba(212,114,26,0.10))"; e.currentTarget.style.borderColor = "rgba(212,114,26,0.35)"; }}
+              >
+                <span style={{ fontSize:"18px" }}>📚</span>
+                Manuales
+              </button>
+            </div>
             <div style={{ padding:"14px 16px 8px", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
               <div style={{ color:"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"2px", fontFamily:"Georgia,serif" }}>{t.categories}</div>
             </div>
@@ -926,6 +946,9 @@ export default function App() {
         )}
         {showProgress && isAdmin && (
           <ProgressReport recipes={recipes} onClose={()=>setShowProgress(false)} />
+        )}
+        {showDocuments && (
+          <DocumentsPanel isAdmin={isAdmin} currentUser={currentUser} onClose={()=>setShowDocuments(false)} />
         )}
       </Suspense>
       {categoryModal && isAdmin && (
