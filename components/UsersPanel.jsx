@@ -4,6 +4,9 @@ import { useLang } from "@/lib/LangContext";
 
 const SEDES = ["Almendros", "Hayuelos", "Capriani", "Campiña", "Felicidad", "Calera", "Granada", "Oficina"];
 
+// Helper: unique key for each user in the UI (existing users use id, new users use _tempId)
+const uid = (u) => u.id ?? u._tempId;
+
 export function UsersPanel({ users, onSave, onClose }) {
   const [list, setList] = useState(users);
   const [newUser, setNewUser] = useState({ username:"", password:"", name:"", role:"cocinero", sede:"" });
@@ -14,25 +17,33 @@ export function UsersPanel({ users, onSave, onClose }) {
 
   const addUser = () => {
     if (!newUser.username||!newUser.password||!newUser.name){alert("Completa todos los campos");return;}
-    setList(l=>[...l,{...newUser,id:Date.now()}]);
+    // No asignar id — saveUsers lo detecta como nuevo y deja que Supabase genere el id
+    setList(l=>[...l,{...newUser, _tempId:Date.now()}]);
     setNewUser({username:"",password:"",name:"",role:"cocinero",sede:""});
   };
-  const removeUser = id => {
-    if (list.find(u=>u.id===id)?.username==="admin"){alert("No puedes eliminar el administrador principal");return;}
+  const removeUser = key => {
+    if (list.find(u=>uid(u)===key)?.username==="admin"){alert("No puedes eliminar el administrador principal");return;}
     if (!confirm("¿Estás seguro de eliminar este usuario?")) return;
-    setList(l=>l.filter(u=>u.id!==id));
+    setList(l=>l.filter(u=>uid(u)!==key));
   };
   const startEdit = (u) => {
-    setEditingId(u.id);
+    setEditingId(uid(u));
     setEditForm({ name: u.name, username: u.username, password: u.password, role: u.role, sede: u.sede || "" });
   };
-  const saveEdit = (id) => {
-    const updated = list.map(u => u.id === id ? { ...u, ...editForm } : u);
+  const saveEdit = (key) => {
+    const updated = list.map(u => uid(u) === key ? { ...u, ...editForm } : u);
     setList(updated);
     setEditingId(null);
-    onSave(updated); // Guardar directamente en Supabase
+    onSave(updated);
   };
   const cancelEdit = () => setEditingId(null);
+
+  // Strip _tempId before saving — saveUsers uses presence of `id` to decide upsert vs insert
+  const handleSave = () => {
+    const clean = list.map(({ _tempId, ...rest }) => rest);
+    onSave(clean);
+    onClose();
+  };
 
   return (
     <div style={{ position:"fixed", inset:0, zIndex:400, background:"rgba(10,15,25,0.88)", display:"flex", alignItems:"center", justifyContent:"center", padding:"16px" }}>
@@ -46,8 +57,8 @@ export function UsersPanel({ users, onSave, onClose }) {
         </div>
         <div style={{ overflowY:"auto", flex:1, padding:"20px" }}>
           {list.map(u=>(
-            <div key={u.id} style={{ padding:"14px", background:"#F7F3EE", borderRadius:"10px", marginBottom:"8px" }}>
-              {editingId === u.id ? (
+            <div key={uid(u)} style={{ padding:"14px", background:"#F7F3EE", borderRadius:"10px", marginBottom:"8px" }}>
+              {editingId === uid(u) ? (
                 /* MODO EDICIÓN */
                 <div>
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"8px" }}>
@@ -65,7 +76,7 @@ export function UsersPanel({ users, onSave, onClose }) {
                   </div>
                   <div style={{ display:"flex", gap:"8px", justifyContent:"flex-end" }}>
                     <button onClick={cancelEdit} style={{ background:"#F0ECE6", border:"none", borderRadius:"6px", padding:"6px 14px", cursor:"pointer", fontSize:"12px", fontWeight:"600", color:"#5a3e2b" }}>{t.users.cancel}</button>
-                    <button onClick={()=>saveEdit(u.id)} style={{ background:"#27ae60", border:"none", borderRadius:"6px", padding:"6px 14px", cursor:"pointer", fontSize:"12px", fontWeight:"700", color:"#fff" }}>{t.users.save}</button>
+                    <button onClick={()=>saveEdit(uid(u))} style={{ background:"#27ae60", border:"none", borderRadius:"6px", padding:"6px 14px", cursor:"pointer", fontSize:"12px", fontWeight:"700", color:"#fff" }}>{t.users.save}</button>
                   </div>
                 </div>
               ) : (
@@ -84,7 +95,7 @@ export function UsersPanel({ users, onSave, onClose }) {
                     </div>
                     <div style={{ display:"flex", gap:"6px", flexShrink:0 }}>
                       <button onClick={()=>startEdit(u)} style={{ background:"none", border:"1px solid var(--app-primary)", color:"var(--app-primary)", borderRadius:"6px", padding:"5px 10px", cursor:"pointer", fontSize:"12px" }}>{t.users.edit}</button>
-                      {u.username!=="admin"&&<button onClick={()=>removeUser(u.id)} style={{ background:"none", border:"1px solid #e74c3c", color:"#e74c3c", borderRadius:"6px", padding:"5px 10px", cursor:"pointer", fontSize:"12px" }}>🗑️</button>}
+                      {u.username!=="admin"&&<button onClick={()=>removeUser(uid(u))} style={{ background:"none", border:"1px solid #e74c3c", color:"#e74c3c", borderRadius:"6px", padding:"5px 10px", cursor:"pointer", fontSize:"12px" }}>🗑️</button>}
                     </div>
                   </div>
                 </>
@@ -111,7 +122,7 @@ export function UsersPanel({ users, onSave, onClose }) {
         </div>
         <div style={{ padding:"14px 20px", borderTop:"1px solid #F0ECE6", display:"flex", justifyContent:"flex-end", gap:"10px", flexShrink:0 }}>
           <button onClick={onClose} style={{ background:"#F0ECE6", border:"none", borderRadius:"8px", padding:"10px 16px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b" }}>{t.users.cancel}</button>
-          <button onClick={()=>{onSave(list);onClose();}} style={{ background:"var(--app-primary)", border:"none", borderRadius:"8px", padding:"10px 18px", cursor:"pointer", fontWeight:"700", color:"#fff" }}>{t.users.save}</button>
+          <button onClick={handleSave} style={{ background:"var(--app-primary)", border:"none", borderRadius:"8px", padding:"10px 18px", cursor:"pointer", fontWeight:"700", color:"#fff" }}>{t.users.save}</button>
         </div>
       </div>
     </div>
