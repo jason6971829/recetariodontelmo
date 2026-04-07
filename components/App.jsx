@@ -32,6 +32,8 @@ const ThemeModal       = dynamic(() => import("@/components/ThemeModal").then(m 
 const BiometricPrompt  = dynamic(() => import("@/components/BiometricPrompt").then(m => ({ default: m.BiometricPrompt })), { ssr: false });
 const PizzaBuilderModal= dynamic(() => import("@/components/PizzaBuilderModal").then(m => ({ default: m.PizzaBuilderModal })), { ssr: false });
 const DocumentsPanel   = dynamic(() => import("@/components/DocumentsPanel").then(m => ({ default: m.DocumentsPanel })), { ssr: false });
+const SuppliesPanel    = dynamic(() => import("@/components/SuppliesPanel").then(m => ({ default: m.SuppliesPanel })), { ssr: false });
+const CostingPanel     = dynamic(() => import("@/components/CostingPanel").then(m => ({ default: m.CostingPanel })), { ssr: false });
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useLang, LangProvider } from "@/lib/LangContext";
 import { LANGUAGES } from "@/lib/i18n";
@@ -80,6 +82,8 @@ export default function App() {
   const [showLangModal, setShowLangModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
+  const [showSupplies, setShowSupplies] = useState(false);
+  const [showCosting, setShowCosting] = useState(false);
   const [showBannerConfig, setShowBannerConfig] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importPreview, setImportPreview] = useState(null);  // { recipes, fileName }
@@ -625,7 +629,7 @@ export default function App() {
 
   return (
     <div style={{ height:"100vh", display:"flex", flexDirection:"column", fontFamily:"'Segoe UI',sans-serif", overflow:"hidden", background:"#F4F0EB" }}>
-{!selectedRecipe && !showForm && !showUsers && !showReport && !showProgress && !showWatermarkUpload && !showLangModal && !categoryModal && !confirmModal && !showBiometricPrompt && !showPizzaBuilder && !showDocuments && <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} customLogo={watermarkLogo} opacity={watermarkOpacity} size={watermarkSize} />}
+{!selectedRecipe && !showForm && !showUsers && !showReport && !showProgress && !showWatermarkUpload && !showLangModal && !categoryModal && !confirmModal && !showBiometricPrompt && !showPizzaBuilder && !showDocuments && !showSupplies && !showCosting && <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} customLogo={watermarkLogo} opacity={watermarkOpacity} size={watermarkSize} />}
 
       {/* OFFLINE BANNER */}
       {!online && (
@@ -791,6 +795,42 @@ export default function App() {
                 <span style={{ fontSize:"18px" }}>📚</span>
                 Manuales
               </button>
+              {isAdmin && (
+                <div style={{ display:"flex", gap:"6px", marginTop:"6px" }}>
+                  <button
+                    onClick={() => setShowSupplies(true)}
+                    style={{
+                      flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:"6px",
+                      background:"rgba(27,58,92,0.25)",
+                      border:"1.5px solid rgba(27,58,92,0.35)", borderRadius:"10px",
+                      color:"#fff", padding:"9px 10px", cursor:"pointer",
+                      fontSize:"12px", fontWeight:"700", fontFamily:"Georgia,serif",
+                      transition:"all 0.2s",
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = "rgba(27,58,92,0.4)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "rgba(27,58,92,0.25)"; }}
+                  >
+                    <span style={{ fontSize:"14px" }}>📦</span>
+                    Insumos
+                  </button>
+                  <button
+                    onClick={() => setShowCosting(true)}
+                    style={{
+                      flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:"6px",
+                      background:"rgba(34,197,94,0.15)",
+                      border:"1.5px solid rgba(34,197,94,0.3)", borderRadius:"10px",
+                      color:"#fff", padding:"9px 10px", cursor:"pointer",
+                      fontSize:"12px", fontWeight:"700", fontFamily:"Georgia,serif",
+                      transition:"all 0.2s",
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = "rgba(34,197,94,0.3)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "rgba(34,197,94,0.15)"; }}
+                  >
+                    <span style={{ fontSize:"14px" }}>💰</span>
+                    Costeo
+                  </button>
+                </div>
+              )}
             </div>
             <div style={{ padding:"14px 16px 8px", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
               <div style={{ color:"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"2px", fontFamily:"Georgia,serif" }}>{t.categories}</div>
@@ -949,6 +989,12 @@ export default function App() {
         )}
         {showDocuments && (
           <DocumentsPanel isAdmin={isAdmin} currentUser={currentUser} onClose={()=>setShowDocuments(false)} />
+        )}
+        {showSupplies && isAdmin && (
+          <SuppliesPanel onClose={()=>setShowSupplies(false)} />
+        )}
+        {showCosting && isAdmin && (
+          <CostingPanel recipes={recipes} onClose={()=>setShowCosting(false)} />
         )}
       </Suspense>
       {categoryModal && isAdmin && (
