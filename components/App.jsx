@@ -34,10 +34,6 @@ const PizzaBuilderModal= dynamic(() => import("@/components/PizzaBuilderModal").
 const DocumentsPanel   = dynamic(() => import("@/components/DocumentsPanel").then(m => ({ default: m.DocumentsPanel })), { ssr: false });
 const SuppliesPanel    = dynamic(() => import("@/components/SuppliesPanel").then(m => ({ default: m.SuppliesPanel })), { ssr: false });
 const CostingPanel     = dynamic(() => import("@/components/CostingPanel").then(m => ({ default: m.CostingPanel })), { ssr: false });
-// ── Inventario y Compras ─────────────────────────────────────────
-const ProveedoresPanel = dynamic(() => import("@/components/ProveedoresPanel").then(m => ({ default: m.ProveedoresPanel })), { ssr: false });
-const ComprasPanel     = dynamic(() => import("@/components/ComprasPanel").then(m => ({ default: m.ComprasPanel })), { ssr: false });
-const InventarioPanel  = dynamic(() => import("@/components/InventarioPanel").then(m => ({ default: m.InventarioPanel })), { ssr: false });
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useLang, LangProvider } from "@/lib/LangContext";
 import { LANGUAGES } from "@/lib/i18n";
@@ -88,10 +84,6 @@ export default function App() {
   const [showDocuments, setShowDocuments] = useState(false);
   const [showSupplies, setShowSupplies] = useState(false);
   const [showCosting, setShowCosting] = useState(false);
-  // Inventario y Compras
-  const [showProveedores, setShowProveedores] = useState(false);
-  const [showCompras, setShowCompras] = useState(false);
-  const [showInventario, setShowInventario] = useState(false);
   const [showBannerConfig, setShowBannerConfig] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importPreview, setImportPreview] = useState(null);  // { recipes, fileName }
@@ -840,49 +832,6 @@ export default function App() {
                 </div>
               )}
             </div>
-            {/* ── INVENTARIO Y COMPRAS ── */}
-            {isAdmin && (
-              <div style={{ padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
-                <div style={{ color:"#7C6AF5", fontSize:"9px", fontWeight:"700", letterSpacing:"2px", marginBottom:"6px" }}>
-                  INVENTARIO Y COMPRAS
-                </div>
-                {[
-                  { icon:"🏭", label:"Proveedores",  action:()=>setShowProveedores(true), ready:true  },
-                  { icon:"📦", label:"Inventario",   action:()=>setShowInventario(true),  ready:true  },
-                  { icon:"🛒", label:"Compras",      action:()=>setShowCompras(true),     ready:true  },
-                  { icon:"📋", label:"Bajas",        action:null,                          ready:false },
-                  { icon:"🔢", label:"Conteo físico",action:null,                          ready:false },
-                  { icon:"📊", label:"Kardex",       action:null,                          ready:false },
-                ].map(item => (
-                  <button
-                    key={item.label}
-                    onClick={item.action || undefined}
-                    disabled={!item.ready}
-                    style={{
-                      width:"100%", textAlign:"left", display:"flex", alignItems:"center",
-                      justifyContent:"space-between", gap:"8px",
-                      background: item.ready ? "rgba(124,106,245,0.08)" : "transparent",
-                      border:"none",
-                      borderLeft:`3px solid ${item.ready ? "rgba(124,106,245,0.5)" : "transparent"}`,
-                      color: item.ready ? "#c4bcff" : "#555",
-                      padding:"8px 12px", cursor: item.ready ? "pointer" : "default",
-                      fontSize:"12px", fontWeight:"500", transition:"all 0.15s",
-                      marginBottom:"1px"
-                    }}
-                    onMouseEnter={e => { if(item.ready) e.currentTarget.style.background="rgba(124,106,245,0.18)"; }}
-                    onMouseLeave={e => { if(item.ready) e.currentTarget.style.background="rgba(124,106,245,0.08)"; }}
-                  >
-                    <span>{item.icon} {item.label}</span>
-                    {!item.ready && (
-                      <span style={{ background:"rgba(255,255,255,0.06)", borderRadius:"8px",
-                        padding:"1px 7px", fontSize:"9px", color:"#555", fontWeight:"700" }}>
-                        PRONTO
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
 
             <div style={{ padding:"14px 16px 8px", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
               <div style={{ color:"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"2px", fontFamily:"Georgia,serif" }}>{t.categories}</div>
@@ -1047,15 +996,6 @@ export default function App() {
         )}
         {showCosting && isAdmin && (
           <CostingPanel recipes={recipes} onClose={()=>setShowCosting(false)} />
-        )}
-        {showProveedores && isAdmin && (
-          <ProveedoresPanel onClose={()=>setShowProveedores(false)} />
-        )}
-        {showCompras && isAdmin && (
-          <ComprasPanel onClose={()=>setShowCompras(false)} currentUser={currentUser} />
-        )}
-        {showInventario && isAdmin && (
-          <InventarioPanel onClose={()=>setShowInventario(false)} />
         )}
       </Suspense>
       {categoryModal && isAdmin && (
