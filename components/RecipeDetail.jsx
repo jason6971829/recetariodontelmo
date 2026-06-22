@@ -6,6 +6,7 @@ import { TextToSpeech } from "@/components/TextToSpeech";
 import { useLang } from "@/lib/LangContext";
 import { generateRecipePDF } from "@/lib/recipePDF";
 import { printRecipeThermal } from "@/lib/thermalPrint";
+import { normalizeIngredient, ingredientToReadable } from "@/lib/ingredients";
 
 // ── Estilos estáticos a nivel de módulo (se crean una sola vez) ──
 const S = {
@@ -152,12 +153,20 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
 
               <div style={S.sectionRow}>
                 <div style={S.sectionTitle}>{t.detail.ingredients}</div>
-                <TextToSpeech text={recipe.ingredients.join(". ")} label="ingredientes" userId={currentUser?.id} />
+                <TextToSpeech text={recipe.ingredients.map(ingredientToReadable).join(". ")} label="ingredientes" userId={currentUser?.id} />
               </div>
               {recipe.ingredients.length > 0
-                ? recipe.ingredients.map((ing, i) => (
-                    <div key={i} style={{ background: i%2===0 ? "#F7F3EE" : "#fff", padding:"7px 10px", borderRadius:"6px", marginBottom:"3px", fontSize:"13px", color:"#333", lineHeight:"1.4" }}>• {ing}</div>
-                  ))
+                ? recipe.ingredients.map((ing, i) => {
+                    const n = normalizeIngredient(ing);
+                    return (
+                      <div key={i} style={{ background: i%2===0 ? "#F7F3EE" : "#fff", padding:"7px 10px", borderRadius:"6px", marginBottom:"3px", fontSize:"13px", color:"#333", lineHeight:"1.4", display:"flex", alignItems:"center", gap:"8px" }}>
+                        {n.code && (
+                          <span style={{ background:"#D4721A", color:"#fff", borderRadius:"4px", padding:"2px 7px", fontSize:"10px", fontWeight:"700", letterSpacing:"0.5px", flexShrink:0, fontFamily:"monospace" }}>{n.code}</span>
+                        )}
+                        <span>{n.text}</span>
+                      </div>
+                    );
+                  })
                 : <div style={S.noText}>{t.detail.noIngredients}</div>
               }
             </div>

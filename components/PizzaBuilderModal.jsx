@@ -45,12 +45,15 @@ export function getPizzaSuffix(name = "") {
   const m = name.match(/\(([cmp])\)\s*$/i);
   return m ? m[1].toLowerCase() : null;
 }
-function scaleIngredient(str, factor) {
-  if (factor === 1) return str;
-  return str.replace(/\b(\d+(?:[.,]\d+)?)\b/g, (m) => {
+function scaleIngredient(ing, factor) {
+  // Soporta ingrediente como string (formato viejo) o como objeto {code, text}
+  const isObj = ing && typeof ing === "object";
+  const text = isObj ? (ing.text || ing.name || "") : String(ing || "");
+  const scaled = factor === 1 ? text : text.replace(/\b(\d+(?:[.,]\d+)?)\b/g, (m) => {
     const n = parseFloat(m.replace(",", ".")) * factor;
     return Number.isInteger(n) ? String(n) : parseFloat(n.toFixed(1)).toString();
   });
+  return isObj ? { ...ing, text: scaled } : scaled;
 }
 function cleanName(name = "") { return name.replace(/\s*\([cmp]\)\s*$/i, "").trim(); }
 
@@ -556,9 +559,17 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
                                 <span style={{ color:"rgba(255,255,255,0.9)", fontSize:"10px", fontWeight:"700", background:"rgba(255,255,255,0.2)", padding:"2px 7px", borderRadius:"6px" }}>{r.portions} porc.</span>
                               </div>
                               <div style={{ border:`1.5px solid ${r.color}`, borderTop:"none", borderRadius:"0 0 9px 9px", padding:"5px" }}>
-                                {r.ingredients.map((ing, j) => (
-                                  <div key={j} style={{ padding:"4px 7px", fontSize:"11px", color:"#333", borderRadius:"5px", lineHeight:1.4, background: j%2===0 ? r.light : "#fff" }}>• {ing}</div>
-                                ))}
+                                {r.ingredients.map((ing, j) => {
+                                  const isObj = ing && typeof ing === "object";
+                                  const code = isObj ? ing.code : "";
+                                  const text = isObj ? (ing.text || ing.name || "") : String(ing || "");
+                                  return (
+                                    <div key={j} style={{ padding:"4px 7px", fontSize:"11px", color:"#333", borderRadius:"5px", lineHeight:1.4, background: j%2===0 ? r.light : "#fff", display:"flex", alignItems:"center", gap:"6px" }}>
+                                      {code && <span style={{ background:"#D4721A", color:"#fff", borderRadius:"3px", padding:"1px 5px", fontSize:"9px", fontWeight:"700", fontFamily:"monospace", flexShrink:0 }}>{code}</span>}
+                                      <span>• {text}</span>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           ))}
@@ -646,9 +657,17 @@ export function PizzaBuilderModal({ pizzaRecipes, onClose }) {
                                 <span style={{ color:"rgba(255,255,255,0.9)", fontSize:"10px", fontWeight:"700", background:"rgba(255,255,255,0.2)", padding:"2px 7px", borderRadius:"6px" }}>{r.portions} porc.</span>
                               </div>
                               <div style={{ border:`1.5px solid ${r.color}`, borderTop:"none", borderRadius:"0 0 9px 9px", padding:"5px" }}>
-                                {r.ingredients.map((ing, j) => (
-                                  <div key={j} style={{ padding:"4px 7px", fontSize:"11px", color:"#333", borderRadius:"5px", lineHeight:1.4, background: j%2===0 ? r.light : "#fff" }}>• {ing}</div>
-                                ))}
+                                {r.ingredients.map((ing, j) => {
+                                  const isObj = ing && typeof ing === "object";
+                                  const code = isObj ? ing.code : "";
+                                  const text = isObj ? (ing.text || ing.name || "") : String(ing || "");
+                                  return (
+                                    <div key={j} style={{ padding:"4px 7px", fontSize:"11px", color:"#333", borderRadius:"5px", lineHeight:1.4, background: j%2===0 ? r.light : "#fff", display:"flex", alignItems:"center", gap:"6px" }}>
+                                      {code && <span style={{ background:"#D4721A", color:"#fff", borderRadius:"3px", padding:"1px 5px", fontSize:"9px", fontWeight:"700", fontFamily:"monospace", flexShrink:0 }}>{code}</span>}
+                                      <span>• {text}</span>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           ))}

@@ -5,6 +5,7 @@ import { VoiceTextarea } from "@/components/VoiceTextarea";
 import { CATEGORIES } from "@/lib/constants";
 import { uploadImage } from "@/lib/storage";
 import { useLang } from "@/lib/LangContext";
+import { normalizeIngredient } from "@/lib/ingredients";
 
 // Constantes de estilo a nivel de módulo — no se recrean en cada render
 const inp = { width:"100%", padding:"10px 12px", border:"1.5px solid #E0D8CE", borderRadius:"8px", fontSize:"13px", outline:"none", boxSizing:"border-box", fontFamily:"inherit", background:"#fff" };
@@ -18,8 +19,10 @@ export function RecipeForm({ initial, categories, onSave, onCancel }) {
     description:"", salesPitch:""
   });
   const [newIng, setNewIng] = useState("");
+  const [newCode, setNewCode] = useState("");
   const [editingIdx, setEditingIdx] = useState(null);
   const [editingVal, setEditingVal] = useState("");
+  const [editingCode, setEditingCode] = useState("");
   const [uploading, setUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState(initial?.image || null);
   const fileRef = useRef();
@@ -28,13 +31,24 @@ export function RecipeForm({ initial, categories, onSave, onCancel }) {
   const { t } = useLang();
 
   const set = (k, v) => setForm(f => ({...f, [k]:v}));
-  const addIng = () => { if (!newIng.trim()) return; set("ingredients", [...form.ingredients, newIng.trim()]); setNewIng(""); };
+  const addIng = () => {
+    if (!newIng.trim()) return;
+    const ing = { code: newCode.trim(), text: newIng.trim() };
+    set("ingredients", [...form.ingredients, ing]);
+    setNewIng(""); setNewCode("");
+  };
   const removeIng = i => set("ingredients", form.ingredients.filter((_,idx)=>idx!==i));
-  const startEdit = (i, val) => { setEditingIdx(i); setEditingVal(val); };
+  const startEdit = (i, ing) => {
+    const n = normalizeIngredient(ing);
+    setEditingIdx(i); setEditingVal(n.text); setEditingCode(n.code);
+  };
   const saveEdit = () => {
     if (editingIdx === null) return;
-    if (editingVal.trim()) set("ingredients", form.ingredients.map((ing, idx) => idx === editingIdx ? editingVal.trim() : ing));
-    setEditingIdx(null); setEditingVal("");
+    if (editingVal.trim()) {
+      const updated = { code: editingCode.trim(), text: editingVal.trim() };
+      set("ingredients", form.ingredients.map((ing, idx) => idx === editingIdx ? updated : ing));
+    }
+    setEditingIdx(null); setEditingVal(""); setEditingCode("");
   };
   const handleImage = e => {
     const file = e.target.files[0]; if (!file) return;
@@ -97,26 +111,62 @@ export function RecipeForm({ initial, categories, onSave, onCancel }) {
 
           <div style={{ marginBottom:"14px" }}>
             <label style={lbl}>{t.form.ingredientsLabel}</label>
-            <div style={{ display:"flex", gap:"8px", marginBottom:"8px" }}>
-              <input style={{...inp, flex:1}} value={newIng} onChange={e=>setNewIng(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addIng()} placeholder="Ej: 0.15 KILO - Carne Molida | 085" />
+            <div style={{ display:"flex", gap:"6px", marginBottom:"8px" }}>
+              <input
+                style={{...inp, width:"80px", textAlign:"center", fontWeight:"700", color:"#D4721A", letterSpacing:"1px"}}
+                value={newCode}
+                onChange={e=>setNewCode(e.target.value.replace(/[^0-9]/g,""))}
+                onKeyDown={e=>e.key==="Enter"&&addIng()}
+                placeholder="ID"
+                maxLength={5}
+                title="Codigo FBH del insumo"
+              />
+              <input
+                style={{...inp, flex:1}}
+                value={newIng}
+                onChange={e=>setNewIng(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&addIng()}
+                placeholder="Ej: 0.15 KILO - Carne Molida"
+              />
               <button onClick={addIng} style={{ background:"#D4721A", border:"none", borderRadius:"8px", color:"#fff", padding:"0 16px", cursor:"pointer", fontWeight:"700", whiteSpace:"nowrap" }}>{t.form.addIngredient}</button>
             </div>
-            {form.ingredients.map((ing,i)=>(
-              <div key={i} style={{ display:"flex", gap:"6px", alignItems:"center", marginBottom:"4px" }}>
-                {editingIdx === i
-                  ? <input
-                      autoFocus
-                      style={{...inp, flex:1, padding:"7px 12px", fontSize:"13px"}}
-                      value={editingVal}
-                      onChange={e=>setEditingVal(e.target.value)}
-                      onBlur={saveEdit}
-                      onKeyDown={e=>{ if(e.key==="Enter") saveEdit(); if(e.key==="Escape") setEditingIdx(null); }}
-                    />
-                  : <div onClick={()=>startEdit(i,ing)} style={{ flex:1, background:"#F7F3EE", borderRadius:"6px", padding:"7px 12px", fontSize:"13px", cursor:"text" }}>• {ing}</div>
-                }
-                <button onClick={()=>removeIng(i)} style={{ background:"none", border:"none", color:"#c0392b", cursor:"pointer", fontSize:"18px", padding:"4px 6px" }}>×</button>
-              </div>
-            ))}
+            {form.ingredients.map((ing,i)=>{
+              const n = normalizeIngredient(ing);
+              return (
+                <div key={i} style={{ display:"flex", gap:"6px", alignItems:"center", marginBottom:"4px" }}>
+                  {editingIdx === i ? (
+                    <>
+                      <input
+                        style={{...inp, width:"80px", padding:"7px 8px", fontSize:"13px", textAlign:"center", fontWeight:"700", color:"#D4721A", letterSpacing:"1px"}}
+                        value={editingCode}
+                        onChange={e=>setEditingCode(e.target.value.replace(/[^0-9]/g,""))}
+                        onKeyDown={e=>{ if(e.key==="Enter") saveEdit(); if(e.key==="Escape") setEditingIdx(null); }}
+                        placeholder="ID"
+                        maxLength={5}
+                      />
+                      <input
+                        autoFocus
+                        style={{...inp, flex:1, padding:"7px 12px", fontSize:"13px"}}
+                        value={editingVal}
+                        onChange={e=>setEditingVal(e.target.value)}
+                        onBlur={saveEdit}
+                        onKeyDown={e=>{ if(e.key==="Enter") saveEdit(); if(e.key==="Escape") setEditingIdx(null); }}
+                      />
+                    </>
+                  ) : (
+                    <div onClick={()=>startEdit(i,ing)} style={{ flex:1, background:"#F7F3EE", borderRadius:"6px", padding:"7px 12px", fontSize:"13px", cursor:"text", display:"flex", alignItems:"center", gap:"8px" }}>
+                      {n.code ? (
+                        <span style={{ background:"#D4721A", color:"#fff", borderRadius:"4px", padding:"2px 8px", fontSize:"11px", fontWeight:"700", letterSpacing:"0.5px", flexShrink:0 }}>{n.code}</span>
+                      ) : (
+                        <span style={{ background:"#fff3e0", color:"#c0392b", border:"1px dashed #D4721A", borderRadius:"4px", padding:"2px 8px", fontSize:"11px", fontWeight:"700", letterSpacing:"0.5px", flexShrink:0 }}>sin ID</span>
+                      )}
+                      <span>{n.text}</span>
+                    </div>
+                  )}
+                  <button onClick={()=>removeIng(i)} style={{ background:"none", border:"none", color:"#c0392b", cursor:"pointer", fontSize:"18px", padding:"4px 6px" }}>×</button>
+                </div>
+              );
+            })}
           </div>
 
           <div style={{ marginBottom:"14px" }}>
