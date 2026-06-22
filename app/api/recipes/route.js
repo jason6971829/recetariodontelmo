@@ -14,7 +14,7 @@ export const runtime = "nodejs";
  *   401 → header inválido o faltante
  *   500 → error de DB / config
  */
-export async function GET(req: Request) {
+export async function GET(req) {
   const expected = process.env.RECETARIO_API_KEY;
   if (!expected) {
     return NextResponse.json(
@@ -57,7 +57,7 @@ export async function GET(req: Request) {
     portions: r.portions,
     ingredients: r.ingredients,
     published: r.published,
-    // recipes no tiene updated_at en su schema, usamos created_at como proxy
+    // recipes no tiene updated_at, usamos created_at como proxy
     updated_at: r.created_at,
   }));
 
