@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { ingredientToString } from "@/lib/ingredients";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -50,12 +51,16 @@ export async function GET(req) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // Cada ingrediente sale como string canonico: "cant UNIDAD - nombre | codigo"
+  // (gabycontrol espera STRINGS, no objetos). El "|" solo aparece antes del codigo.
   const out = (data ?? []).map((r) => ({
     id: r.id,
     name: r.name,
     category: r.category,
     portions: r.portions,
-    ingredients: r.ingredients,
+    ingredients: Array.isArray(r.ingredients)
+      ? r.ingredients.map(ingredientToString).filter(Boolean)
+      : [],
     published: r.published,
     // recipes no tiene updated_at, usamos created_at como proxy
     updated_at: r.created_at,
