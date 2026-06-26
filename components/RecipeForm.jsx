@@ -5,7 +5,8 @@ import { VoiceTextarea } from "@/components/VoiceTextarea";
 import { CATEGORIES } from "@/lib/constants";
 import { uploadImage } from "@/lib/storage";
 import { useLang } from "@/lib/LangContext";
-import { normalizeIngredient } from "@/lib/ingredients";
+import { normalizeIngredient, ingredientToString } from "@/lib/ingredients";
+import { InsumoSelector } from "@/components/InsumoSelector";
 
 // Constantes de estilo a nivel de módulo — no se recrean en cada render
 const inp = { width:"100%", padding:"10px 12px", border:"1.5px solid #E0D8CE", borderRadius:"8px", fontSize:"13px", outline:"none", boxSizing:"border-box", fontFamily:"inherit", background:"#fff" };
@@ -18,8 +19,6 @@ export function RecipeForm({ initial, categories, onSave, onCancel }) {
     ingredients:[], preparation:"", recommendations:"", image:null, video:"",
     description:"", salesPitch:""
   });
-  const [newIng, setNewIng] = useState("");
-  const [newCode, setNewCode] = useState("");
   const [editingIdx, setEditingIdx] = useState(null);
   const [editingVal, setEditingVal] = useState("");
   const [editingCode, setEditingCode] = useState("");
@@ -31,11 +30,10 @@ export function RecipeForm({ initial, categories, onSave, onCancel }) {
   const { t } = useLang();
 
   const set = (k, v) => setForm(f => ({...f, [k]:v}));
-  const addIng = () => {
-    if (!newIng.trim()) return;
-    const ing = { code: newCode.trim(), text: newIng.trim() };
-    set("ingredients", [...form.ingredients, ing]);
-    setNewIng(""); setNewCode("");
+  // Recibe string del InsumoSelector: "20 GRAMOS - Cebolla Morada | 227"
+  const addIngFromSelector = (ingString) => {
+    if (!ingString || !ingString.trim()) return;
+    set("ingredients", [...form.ingredients, ingString.trim()]);
   };
   const removeIng = i => set("ingredients", form.ingredients.filter((_,idx)=>idx!==i));
   const startEdit = (i, ing) => {
@@ -45,7 +43,10 @@ export function RecipeForm({ initial, categories, onSave, onCancel }) {
   const saveEdit = () => {
     if (editingIdx === null) return;
     if (editingVal.trim()) {
-      const updated = { code: editingCode.trim(), text: editingVal.trim() };
+      // Guardar como string canonico "texto | codigo"
+      const code = editingCode.trim();
+      const text = editingVal.trim();
+      const updated = code ? `${text} | ${code}` : text;
       set("ingredients", form.ingredients.map((ing, idx) => idx === editingIdx ? updated : ing));
     }
     setEditingIdx(null); setEditingVal(""); setEditingCode("");
@@ -111,24 +112,8 @@ export function RecipeForm({ initial, categories, onSave, onCancel }) {
 
           <div style={{ marginBottom:"14px" }}>
             <label style={lbl}>{t.form.ingredientsLabel}</label>
-            <div style={{ display:"flex", gap:"6px", marginBottom:"8px" }}>
-              <input
-                style={{...inp, width:"80px", textAlign:"center", fontWeight:"700", color:"#D4721A", letterSpacing:"1px"}}
-                value={newCode}
-                onChange={e=>setNewCode(e.target.value.replace(/[^0-9]/g,""))}
-                onKeyDown={e=>e.key==="Enter"&&addIng()}
-                placeholder="ID"
-                maxLength={5}
-                title="Codigo FBH del insumo"
-              />
-              <input
-                style={{...inp, flex:1}}
-                value={newIng}
-                onChange={e=>setNewIng(e.target.value)}
-                onKeyDown={e=>e.key==="Enter"&&addIng()}
-                placeholder="Ej: 0.15 KILO - Carne Molida"
-              />
-              <button onClick={addIng} style={{ background:"#D4721A", border:"none", borderRadius:"8px", color:"#fff", padding:"0 16px", cursor:"pointer", fontWeight:"700", whiteSpace:"nowrap" }}>{t.form.addIngredient}</button>
+            <div style={{ marginBottom: "10px" }}>
+              <InsumoSelector onAdd={addIngFromSelector} />
             </div>
             {form.ingredients.map((ing,i)=>{
               const n = normalizeIngredient(ing);
