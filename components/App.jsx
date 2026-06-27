@@ -507,22 +507,31 @@ export default function App() {
 
   const handleCreate = useCallback(() => { setEditingRecipe(null); setShowForm(true); }, []);
   const handleEdit = useCallback(r => { setEditingRecipe(r); setShowForm(true); setSelectedRecipe(null); }, []);
+  // Autosave: NO cierra el modal, solo persiste. Devuelve la receta guardada
+  // para que el form pueda capturar el id en altas nuevas.
   const handleSaveRecipe = useCallback(async (form) => {
-    if (editingRecipe) {
-      if (editingRecipe.image && editingRecipe.image !== form.image && editingRecipe.image.includes("supabase")) {
-        await deleteImage(editingRecipe.image);
-      }
-      const updated = await upsertRecipe({ ...form, id: editingRecipe.id });
-      if (updated) {
-        setRecipes(prev => prev.map(r => r.id === editingRecipe.id ? updated : r));
-        setSelectedRecipe(updated);
-      }
-    } else {
-      const created = await insertRecipe(form);
-      if (created) setRecipes(prev => [...prev, created]);
+    const isUpdate = !!form.id;
+    if (isUpdate && editingRecipe?.image && editingRecipe.image !== form.image && editingRecipe.image.includes("supabase")) {
+      await deleteImage(editingRecipe.image);
     }
-    setShowForm(false); setEditingRecipe(null);
+    const saved = isUpdate
+      ? await upsertRecipe(form)
+      : await insertRecipe(form);
+    if (saved) {
+      setRecipes(prev => {
+        const exists = prev.some(r => r.id === saved.id);
+        return exists ? prev.map(r => r.id === saved.id ? saved : r) : [...prev, saved];
+      });
+      // Mantener editingRecipe sincronizado para que el proximo save sepa la imagen anterior
+      setEditingRecipe(saved);
+    }
+    return saved;
   }, [editingRecipe]);
+
+  const handleCloseRecipeForm = useCallback(() => {
+    setShowForm(false);
+    setEditingRecipe(null);
+  }, []);
   const handleTogglePublish = useCallback(async (r) => {
     const updated = { ...r, published: !r.published };
     const saved = await upsertRecipe(updated);
@@ -960,7 +969,7 @@ export default function App() {
         <RecipeDetail recipe={selectedRecipe} currentUser={currentUser} onClose={()=>setSelectedRecipe(null)} onEdit={()=>handleEdit(selectedRecipe)} onDelete={()=>handleDelete(selectedRecipe)} onTogglePublish={()=>handleTogglePublish(selectedRecipe)} pizzaRecipes={recipes.filter(r=>r.category?.toLowerCase().includes("pizza"))} brandLabel={brandLabel} brandName={brandName} companyTagline={companyTagline} />
       )}
       {showForm && (
-        <RecipeForm initial={editingRecipe} categories={allCategories} onSave={handleSaveRecipe} onCancel={()=>{setShowForm(false);setEditingRecipe(null);}} />
+        <RecipeForm initial={editingRecipe} categories={allCategories} onSave={handleSaveRecipe} onCancel={handleCloseRecipeForm} />
       )}
       <Suspense fallback={null}>
         {showUsers && isAdmin && (

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { VoiceTextarea } from "@/components/VoiceTextarea";
 import { CATEGORIES } from "@/lib/constants";
@@ -12,6 +12,8 @@ import { InsumoSelector } from "@/components/InsumoSelector";
 const inp = { width:"100%", padding:"10px 12px", border:"1.5px solid #E0D8CE", borderRadius:"8px", fontSize:"13px", outline:"none", boxSizing:"border-box", fontFamily:"inherit", background:"#fff" };
 const lbl = { fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", display:"block", marginBottom:"5px" };
 
+const AUTOSAVE_MS = 800;
+
 export function RecipeForm({ initial, categories, onSave, onCancel }) {
   const cats = (categories || CATEGORIES).filter(c => c.id !== "all");
   const [form, setForm] = useState(initial || {
@@ -19,17 +21,77 @@ export function RecipeForm({ initial, categories, onSave, onCancel }) {
     ingredients:[], preparation:"", recommendations:"", image:null, video:"",
     description:"", salesPitch:""
   });
+  const [currentId, setCurrentId] = useState(initial?.id || null);
   const [editingIdx, setEditingIdx] = useState(null);
   const [editingVal, setEditingVal] = useState("");
   const [editingCode, setEditingCode] = useState("");
-  const [uploading, setUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState(initial?.image || null);
+  // Bump al seleccionar archivo para disparar autosave (sin contaminar form)
+  const [pendingImageBump, setPendingImageBump] = useState(0);
+  // Estado del autosave: "idle" | "saving" | "saved" | "error" | "blocked"
+  const [saveState, setSaveState] = useState("idle");
+  const [lastSavedAt, setLastSavedAt] = useState(null);
   const fileRef = useRef();
   const pendingFileRef = useRef(null);
+  const saveTimerRef = useRef(null);
+  const isFirstRenderRef = useRef(true);
+  const inFlightRef = useRef(false);
   const isMobile = useIsMobile();
   const { t } = useLang();
 
   const set = (k, v) => setForm(f => ({...f, [k]:v}));
+
+  // ─── Autosave debounceado ──────────────────────────────────────
+  useEffect(() => {
+    if (isFirstRenderRef.current) {
+      isFirstRenderRef.current = false;
+      return;
+    }
+    if (!form.name.trim()) {
+      setSaveState("blocked");
+      return;
+    }
+    setSaveState("saving");
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => { doAutoSave(); }, AUTOSAVE_MS);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, pendingImageBump]);
+
+  const doAutoSave = async () => {
+    if (inFlightRef.current) return; // evitar overlapping
+    inFlightRef.current = true;
+    try {
+      let imageUrl = form.image;
+      if (pendingFileRef.current) {
+        const url = await uploadImage(pendingFileRef.current);
+        if (url) { imageUrl = url; pendingFileRef.current = null; setForm(f => ({ ...f, image: url })); }
+      }
+      const payload = { ...form, image: imageUrl, ...(currentId ? { id: currentId } : {}) };
+      const saved = await onSave(payload);
+      if (saved?.id && !currentId) setCurrentId(saved.id);
+      setSaveState("saved");
+      setLastSavedAt(new Date());
+    } catch (err) {
+      console.error("autosave error:", err);
+      setSaveState("error");
+    } finally {
+      inFlightRef.current = false;
+    }
+  };
+
+  // Texto del indicador
+  const saveLabel = (() => {
+    if (saveState === "blocked") return "Esperando nombre...";
+    if (saveState === "saving") return "Guardando...";
+    if (saveState === "saved") return lastSavedAt ? "Guardado" : "Guardado";
+    if (saveState === "error") return "Error al guardar (reintenta editando algo)";
+    return "Listo";
+  })();
+  const saveColor = saveState === "error" ? "#c0392b"
+    : saveState === "saving" ? "#D4721A"
+    : saveState === "saved"  ? "#22c55e"
+    : "#aaa";
   // Recibe string del InsumoSelector: "20 GRAMOS - Cebolla Morada | 227"
   const addIngFromSelector = (ingString) => {
     if (!ingString || !ingString.trim()) return;
@@ -54,23 +116,12 @@ export function RecipeForm({ initial, categories, onSave, onCancel }) {
   const handleImage = e => {
     const file = e.target.files[0]; if (!file) return;
     pendingFileRef.current = file;
-    // Mostrar preview local inmediata
+    // Preview local inmediato. El upload + persistencia los maneja el autosave.
     const r = new FileReader();
     r.onload = ev => { setImagePreview(ev.target.result); };
     r.readAsDataURL(file);
-  };
-  const handleSave = async () => {
-    if (!form.name.trim()) { alert("El nombre es obligatorio"); return; }
-    setUploading(true);
-    let imageUrl = form.image;
-    // Si hay un archivo pendiente, subirlo a Supabase Storage
-    if (pendingFileRef.current) {
-      const url = await uploadImage(pendingFileRef.current);
-      if (url) imageUrl = url;
-      pendingFileRef.current = null;
-    }
-    onSave({ ...form, image: imageUrl });
-    setUploading(false);
+    // Disparar autosave (sin tocar form para no contaminar el payload)
+    setPendingImageBump(b => b + 1);
   };
 
   return (
@@ -79,10 +130,25 @@ export function RecipeForm({ initial, categories, onSave, onCancel }) {
         <div style={{ background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", padding:"18px 24px", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
           <div>
             <div style={{ color:"#D4721A", fontSize:"10px", fontWeight:"700", letterSpacing:"3px", fontFamily:"Georgia,serif" }}>DON TELMO® RECETARIO</div>
-            <div style={{ color:"#fff", fontFamily:"Georgia,serif", fontSize:"17px", fontWeight:"700", marginTop:"3px" }}>{initial ? t.form.editTitle : t.form.newTitle}</div>
+            <div style={{ color:"#fff", fontFamily:"Georgia,serif", fontSize:"17px", fontWeight:"700", marginTop:"3px" }}>{initial || currentId ? t.form.editTitle : t.form.newTitle}</div>
           </div>
-          <button onClick={onCancel} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"18px" }}>×</button>
+          <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
+            <div style={{
+              display:"inline-flex", alignItems:"center", gap:"6px",
+              background:"rgba(255,255,255,0.12)", borderRadius:"20px",
+              padding:"4px 12px", fontSize:"11px", fontWeight:"600", color:saveColor,
+            }}>
+              <span style={{
+                display:"inline-block", width:"7px", height:"7px", borderRadius:"50%",
+                background: saveColor,
+                animation: saveState === "saving" ? "pulse 1s ease-in-out infinite" : "none",
+              }} />
+              {saveLabel}
+            </div>
+            <button onClick={onCancel} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"18px" }}>×</button>
+          </div>
         </div>
+        <style>{`@keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.3 } }`}</style>
 
         <div style={{ overflowY:"auto", flex:1, padding:"20px" }}>
           <div style={{ display:"grid", gridTemplateColumns: isMobile?"1fr":"1fr 1fr", gap:"14px", marginBottom:"14px" }}>
@@ -229,9 +295,11 @@ export function RecipeForm({ initial, categories, onSave, onCancel }) {
           </div>
         </div>
 
-        <div style={{ padding:"14px 20px", borderTop:"1px solid #F0ECE6", display:"flex", gap:"10px", justifyContent:"flex-end", flexShrink:0 }}>
-          <button onClick={onCancel} disabled={uploading} style={{ background:"#F0ECE6", border:"none", borderRadius:"8px", padding:"10px 18px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b", opacity: uploading ? 0.5 : 1 }}>{t.form.cancel}</button>
-          <button onClick={handleSave} disabled={uploading} style={{ background:"var(--app-primary)", border:"none", borderRadius:"8px", padding:"10px 22px", cursor:"pointer", fontWeight:"700", color:"#fff", fontSize:"14px", opacity: uploading ? 0.7 : 1 }}>{uploading ? t.form.saving : t.form.save}</button>
+        <div style={{ padding:"14px 20px", borderTop:"1px solid #F0ECE6", display:"flex", gap:"10px", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
+          <span style={{ fontSize:"11px", color:"#aaa", fontStyle:"italic" }}>
+            Los cambios se guardan automaticamente
+          </span>
+          <button onClick={onCancel} style={{ background:"var(--app-primary)", border:"none", borderRadius:"8px", padding:"10px 22px", cursor:"pointer", fontWeight:"700", color:"#fff", fontSize:"14px" }}>Cerrar</button>
         </div>
       </div>
     </div>
