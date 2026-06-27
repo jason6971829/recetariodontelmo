@@ -577,21 +577,35 @@ export default function App() {
   };
 
   // Filtrado
-  // Cocineros solo ven recetas publicadas, admin ve todo
-  // Recetas Bodega: solo admin o usuarios con permissions.bodega === true
+  // Cocineros solo ven publicadas, admin ve todo.
+  // RECETAS BODEGA es un MODULO APARTE: nunca se mezcla con las recetas de
+  // menu. Solo se ve cuando selectedCat === "RECETAS BODEGA" y el user tiene
+  // role="admin" o permissions.bodega === true.
   const isAdminUser = currentUser?.role === "admin";
   const canSeeBodega = isAdminUser || currentUser?.permissions?.bodega === true;
-  const visibleRecipes = useMemo(() => {
-    const base = isAdminUser ? recipes : recipes.filter(r => r.published);
-    if (canSeeBodega) return base;
-    return base.filter(r => r.category !== "RECETAS BODEGA");
-  }, [recipes, isAdminUser, canSeeBodega]);
+  const isBodegaView = selectedCat === "RECETAS BODEGA";
+  const BODEGA_CAT = "RECETAS BODEGA";
+
+  const recipesByPublish = useMemo(
+    () => (isAdminUser ? recipes : recipes.filter(r => r.published)),
+    [recipes, isAdminUser]
+  );
+
+  // Pool del grid: bodega cuando estas en su vista; menu en cualquier otra
+  const visibleForView = useMemo(() => {
+    if (isBodegaView) {
+      return canSeeBodega ? recipesByPublish.filter(r => r.category === BODEGA_CAT) : [];
+    }
+    return recipesByPublish.filter(r => r.category !== BODEGA_CAT);
+  }, [recipesByPublish, isBodegaView, canSeeBodega]);
 
   const filtered = useMemo(() => {
-    if (!filterSearch) return visibleRecipes.filter(r => selectedCat === "all" || r.category === selectedCat);
-    // Si hay búsqueda, buscar en TODAS las categorías y en múltiples campos
+    if (!filterSearch) {
+      if (isBodegaView) return visibleForView;
+      return visibleForView.filter(r => selectedCat === "all" || r.category === selectedCat);
+    }
     const terms = filterSearch.toLowerCase().split(/\s+/).filter(t => t.length > 0);
-    return visibleRecipes.filter(r => {
+    return visibleForView.filter(r => {
       const searchable = [
         r.name, r.category, r.description || "", r.preparation || "",
         r.recommendations || "", r.salesPitch || "",
@@ -599,13 +613,21 @@ export default function App() {
       ].join(" ").toLowerCase();
       return terms.every(term => searchable.includes(term));
     });
-  }, [visibleRecipes, selectedCat, filterSearch]);
+  }, [visibleForView, isBodegaView, selectedCat, filterSearch]);
 
+  // catCounts: solo categorias de menu (bodega va aparte)
   const catCounts = useMemo(() => {
     const counts = {};
-    visibleRecipes.forEach(r => { counts[r.category] = (counts[r.category]||0)+1; });
+    recipesByPublish
+      .filter(r => r.category !== BODEGA_CAT)
+      .forEach(r => { counts[r.category] = (counts[r.category]||0)+1; });
     return counts;
-  }, [visibleRecipes]);
+  }, [recipesByPublish]);
+
+  const bodegaCount = useMemo(() => {
+    if (!canSeeBodega) return 0;
+    return recipesByPublish.filter(r => r.category === BODEGA_CAT).length;
+  }, [recipesByPublish, canSeeBodega]);
 
   // Categorías: de Supabase si hay, sino del archivo constants
   const allCategories = useMemo(() => {
@@ -617,7 +639,8 @@ export default function App() {
     const extraCats = Object.keys(catCounts)
       .filter(id => !baseIds.includes(id))
       .map(id => ({ id, label: id, icon: "🍽️" }));
-    return [...base, ...extraCats];
+    // RECETAS BODEGA es modulo aparte (boton dedicado arriba), no va en la lista
+    return [...base, ...extraCats].filter(c => c.id !== BODEGA_CAT);
   }, [dbCategories, catCounts]);
 
   // ══ LOGIN ═══════════════════════════════════════════════════════
@@ -829,6 +852,36 @@ export default function App() {
               </div>
             </div>
 
+            {canSeeBodega && (
+              <div style={{ padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
+                <button
+                  onClick={() => selectCat(BODEGA_CAT)}
+                  style={{
+                    width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", gap:"10px",
+                    background: isBodegaView
+                      ? "linear-gradient(135deg,rgba(124,58,237,0.45),rgba(124,58,237,0.20))"
+                      : "linear-gradient(135deg,rgba(124,58,237,0.25),rgba(124,58,237,0.10))",
+                    border: isBodegaView ? "1.5px solid rgba(167,139,250,0.7)" : "1.5px solid rgba(124,58,237,0.35)",
+                    borderRadius:"10px",
+                    color:"#fff", padding:"10px 14px", cursor:"pointer",
+                    fontSize:"13px", fontWeight:"700", fontFamily:"Georgia,serif",
+                    transition:"all 0.2s", letterSpacing:"0.3px",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "linear-gradient(135deg,rgba(124,58,237,0.45),rgba(124,58,237,0.20))"; }}
+                  onMouseLeave={e => { if (!isBodegaView) e.currentTarget.style.background = "linear-gradient(135deg,rgba(124,58,237,0.25),rgba(124,58,237,0.10))"; }}
+                  title="Subrecetas de produccion (planta/bodega). Modulo separado del menu."
+                >
+                  <span style={{ display:"flex", alignItems:"center", gap:"10px" }}>
+                    <span style={{ fontSize:"18px" }}>🏭</span>
+                    Recetas Bodega
+                  </span>
+                  <span style={{ background: isBodegaView ? "#A78BFA" : "rgba(255,255,255,0.18)", borderRadius:"10px", padding:"2px 8px", fontSize:"11px", fontWeight:"700", color:"#fff" }}>
+                    {bodegaCount}
+                  </span>
+                </button>
+              </div>
+            )}
+
             <div style={{ padding:"14px 16px 8px", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
               <div style={{ color:"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"2px", fontFamily:"Georgia,serif" }}>{t.categories}</div>
             </div>
@@ -902,7 +955,9 @@ export default function App() {
           <div style={{ marginBottom:"18px" }}>
             <div style={{ display:"flex", alignItems:"center", gap:"12px", flexWrap:"wrap" }}>
               <h1 style={{ margin:0, color:"var(--app-primary)", fontFamily:"Georgia,serif", fontSize: isMobile?"18px":"21px", fontWeight:"700" }}>
-                {allCategories.find(c=>c.id===selectedCat)?.icon} {allCategories.find(c=>c.id===selectedCat)?.label}
+                {isBodegaView
+                  ? <>🏭 Recetas Bodega</>
+                  : <>{allCategories.find(c=>c.id===selectedCat)?.icon} {allCategories.find(c=>c.id===selectedCat)?.label}</>}
               </h1>
               {selectedCat?.toLowerCase().includes("pizza") && (
                 <button
