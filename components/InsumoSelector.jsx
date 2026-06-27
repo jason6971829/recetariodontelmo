@@ -63,8 +63,9 @@ export function InsumoSelector({ onAdd, initial, onCancel }) {
   }, []);
 
   // Filtrar resultados (limita a 50 para no laggear)
+  // Con query vacio devuelve [] para no abrir un dropdown gigantesco en mobile
   const results = useMemo(() => {
-    if (!query.trim()) return insumos.slice(0, 50);
+    if (!query.trim()) return [];
     const q = normalize(query);
     const matches = [];
     for (const ins of insumos) {
@@ -91,10 +92,11 @@ export function InsumoSelector({ onAdd, initial, onCancel }) {
     if (!selected || !qty || !unit) return;
     const ingredient = `${qty} ${unit} - ${selected.nombre} | ${selected.codigo}`;
     onAdd(ingredient);
-    // Reset para seguir agregando
+    // Reset para seguir agregando (sin auto-focus, asi no se reabre la lista en mobile)
     if (!initial) {
-      setSelected(null); setQty(""); setUnit(""); setQuery("");
-      setTimeout(() => inputRef.current?.focus(), 30);
+      setSelected(null); setQty(""); setUnit(""); setQuery(""); setShowList(false);
+      // Blur explicito para cerrar el teclado en iPad/movil
+      inputRef.current?.blur();
     }
   };
 
