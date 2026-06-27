@@ -886,7 +886,9 @@ export default function App() {
               <div style={{ color:"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"2px", fontFamily:"Georgia,serif" }}>{t.categories}</div>
             </div>
             {allCategories.map(cat => {
-              const count = cat.id==="all" ? recipes.length : (catCounts[cat.id]||0);
+              // "Todas" cuenta solo recetas de menu (bodega va aparte en su propio modulo)
+              const totalMenu = recipes.filter(r => r.category !== BODEGA_CAT).length;
+              const count = cat.id==="all" ? totalMenu : (catCounts[cat.id]||0);
               const active = selectedCat===cat.id;
               return (
                 <button
