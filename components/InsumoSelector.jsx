@@ -1,8 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useMemo } from "react";
 
-const UNITS = ["GRAMOS", "KILO", "LITRO", "ML", "UNIDAD", "LIBRA", "ONZA", "PORCION"];
-
 // Cache en memoria para no fetchear en cada apertura del modal
 let _insumosCache = null;
 let _fetchPromise = null;
@@ -81,7 +79,8 @@ export function InsumoSelector({ onAdd, initial, onCancel }) {
 
   const pick = (ins) => {
     setSelected({ id: ins.id, codigo: ins.codigo, nombre: ins.nombre, unidad: ins.unidad });
-    if (!unit) setUnit(ins.unidad || "GRAMOS");
+    // Siempre forzar la unidad del insumo (kardex). El usuario no la puede cambiar.
+    setUnit(ins.unidad || "KILO");
     setQuery("");
     setShowList(false);
   };
@@ -182,21 +181,28 @@ export function InsumoSelector({ onAdd, initial, onCancel }) {
               type="number"
               step="0.001"
               min="0"
-              style={{ ...inp, width: "100px", textAlign: "right", fontWeight: 700 }}
+              style={{ ...inp, width: "110px", textAlign: "right", fontWeight: 700 }}
               value={qty}
               onChange={e => setQty(e.target.value)}
               onKeyDown={e => e.key === "Enter" && submit()}
-              placeholder="0"
+              placeholder={unit === "KILO" ? "0.020" : unit === "LITRO" ? "0.050" : "1"}
               autoFocus={!initial}
             />
-            <select
-              style={{ ...inp, width: "120px", cursor: "pointer" }}
-              value={unit}
-              onChange={e => setUnit(e.target.value)}
+            {/* Unidad bloqueada: viene del kardex de gabycontrol. Evita errores de descuento. */}
+            <div
+              style={{
+                ...inp,
+                width: "100px",
+                background: "#F7F3EE",
+                color: "#666",
+                fontWeight: 700,
+                textAlign: "center",
+                cursor: "not-allowed",
+              }}
+              title="La unidad la define el kardex de gabycontrol y no se puede cambiar"
             >
-              <option value="">Unidad...</option>
-              {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-            </select>
+              {unit || "—"}
+            </div>
             <button
               onClick={submit}
               disabled={!qty || !unit}
