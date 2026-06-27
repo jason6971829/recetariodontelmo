@@ -578,11 +578,14 @@ export default function App() {
 
   // Filtrado
   // Cocineros solo ven recetas publicadas, admin ve todo
+  // Recetas Bodega: solo admin o usuarios con permissions.bodega === true
   const isAdminUser = currentUser?.role === "admin";
+  const canSeeBodega = isAdminUser || currentUser?.permissions?.bodega === true;
   const visibleRecipes = useMemo(() => {
-    if (isAdminUser) return recipes;
-    return recipes.filter(r => r.published);
-  }, [recipes, isAdminUser]);
+    const base = isAdminUser ? recipes : recipes.filter(r => r.published);
+    if (canSeeBodega) return base;
+    return base.filter(r => r.category !== "RECETAS BODEGA");
+  }, [recipes, isAdminUser, canSeeBodega]);
 
   const filtered = useMemo(() => {
     if (!filterSearch) return visibleRecipes.filter(r => selectedCat === "all" || r.category === selectedCat);

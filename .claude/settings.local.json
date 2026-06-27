@@ -61,7 +61,16 @@
       "Bash(taskkill /F /PID 22780 /PID 19104)",
       "Bash(powershell -Command \"Stop-Process -Id 22780,19104 -Force -ErrorAction SilentlyContinue; Write-Host ''done''\")",
       "Bash(powershell -Command \"Stop-Process -Name node -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2; Remove-Item -Recurse -Force ''C:\\\\Users\\\\jjson\\\\OneDrive\\\\Documenti\\\\recetariodontelmo\\\\.next'' -ErrorAction SilentlyContinue; Write-Host ''Cache eliminado''\")",
-      "Bash(powershell -Command \"Stop-Process -Name node -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2; Write-Host ''ok''\")"
+      "Bash(powershell -Command \"Stop-Process -Name node -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2; Write-Host ''ok''\")",
+      "Bash(find C:Usersjjson -type f \\\\\\(-name *.js -o -name *.jsx -o -name *.json -o -name *.html \\\\\\))",
+      "Bash(find C:Usersjjson -name *.js -o -name *.jsx -o -name *.json)",
+      "Bash(xargs grep:*)",
+      "Bash(find C:Usersjjson/OneDrive/Documenti/dontelmo-app/src -type f \\\\\\(-name *.js -o -name *.jsx \\\\\\))",
+      "Bash(find /c/Users/jjson/Downloads -name *.png)",
+      "Bash(node -e \"const j = require\\(''jspdf''\\); console.log\\(Object.keys\\(j\\)\\)\")",
+      "Bash(gh run:*)",
+      "Bash(grep -n \"\\\\\\\\u\" lib/recipePDF.js)",
+      "Bash(Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue)"
     ]
   }
 }

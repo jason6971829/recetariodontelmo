@@ -9,7 +9,7 @@ const uid = (u) => u.id ?? u._tempId;
 
 export function UsersPanel({ users, onSave, onClose }) {
   const [list, setList] = useState(users);
-  const [newUser, setNewUser] = useState({ username:"", password:"", name:"", role:"cocinero", sede:"" });
+  const [newUser, setNewUser] = useState({ username:"", password:"", name:"", role:"cocinero", sede:"", permissions:{} });
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
   const { t } = useLang();
@@ -19,7 +19,7 @@ export function UsersPanel({ users, onSave, onClose }) {
     if (!newUser.username||!newUser.password||!newUser.name){alert("Completa todos los campos");return;}
     // No asignar id — saveUsers lo detecta como nuevo y deja que Supabase genere el id
     setList(l=>[...l,{...newUser, _tempId:Date.now()}]);
-    setNewUser({username:"",password:"",name:"",role:"cocinero",sede:""});
+    setNewUser({username:"",password:"",name:"",role:"cocinero",sede:"",permissions:{}});
   };
   const removeUser = key => {
     if (list.find(u=>uid(u)===key)?.username==="admin"){alert("No puedes eliminar el administrador principal");return;}
@@ -28,19 +28,27 @@ export function UsersPanel({ users, onSave, onClose }) {
   };
   const startEdit = (u) => {
     setEditingId(uid(u));
-    setEditForm({ name: u.name, username: u.username, password: u.password, role: u.role, sede: u.sede || "" });
+    setEditForm({ name: u.name, username: u.username, password: u.password, role: u.role, sede: u.sede || "", permissions: u.permissions || {} });
   };
   const saveEdit = (key) => {
     const updated = list.map(u => uid(u) === key ? { ...u, ...editForm } : u);
     setList(updated);
     setEditingId(null);
-    onSave(updated);
+    const clean = updated.map(({ _tempId, permissions, ...rest }) => {
+      const hasPerms = permissions && Object.keys(permissions).length > 0;
+      return hasPerms ? { ...rest, permissions } : rest;
+    });
+    onSave(clean);
   };
   const cancelEdit = () => setEditingId(null);
 
-  // Strip _tempId before saving — saveUsers uses presence of `id` to decide upsert vs insert
+  // Strip _tempId antes de guardar; tambien omite `permissions` si esta vacio para
+  // no enviar el campo si la columna aun no existe en DB (migracion pendiente).
   const handleSave = () => {
-    const clean = list.map(({ _tempId, ...rest }) => rest);
+    const clean = list.map(({ _tempId, permissions, ...rest }) => {
+      const hasPerms = permissions && Object.keys(permissions).length > 0;
+      return hasPerms ? { ...rest, permissions } : rest;
+    });
     onSave(clean);
     onClose();
   };
@@ -74,6 +82,16 @@ export function UsersPanel({ users, onSave, onClose }) {
                       {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
+                  {editForm.role !== "admin" && (
+                    <label style={{ display:"flex", alignItems:"center", gap:"8px", fontSize:"12px", color:"#5a3e2b", marginBottom:"10px", cursor:"pointer", padding:"6px 8px", background:"#fff", borderRadius:"6px", border:"1.5px solid #E0D8CE" }}>
+                      <input
+                        type="checkbox"
+                        checked={editForm.permissions?.bodega === true}
+                        onChange={e => setEditForm(f => ({ ...f, permissions: { ...(f.permissions||{}), bodega: e.target.checked } }))}
+                      />
+                      <span><b>Acceso a Recetas Bodega</b> (subrecetas de produccion)</span>
+                    </label>
+                  )}
                   <div style={{ display:"flex", gap:"8px", justifyContent:"flex-end" }}>
                     <button onClick={cancelEdit} style={{ background:"#F0ECE6", border:"none", borderRadius:"6px", padding:"6px 14px", cursor:"pointer", fontSize:"12px", fontWeight:"600", color:"#5a3e2b" }}>{t.users.cancel}</button>
                     <button onClick={()=>saveEdit(uid(u))} style={{ background:"#27ae60", border:"none", borderRadius:"6px", padding:"6px 14px", cursor:"pointer", fontSize:"12px", fontWeight:"700", color:"#fff" }}>{t.users.save}</button>
@@ -117,6 +135,16 @@ export function UsersPanel({ users, onSave, onClose }) {
                 {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
+            {newUser.role !== "admin" && (
+              <label style={{ display:"flex", alignItems:"center", gap:"8px", fontSize:"12px", color:"#5a3e2b", marginBottom:"10px", cursor:"pointer", padding:"6px 8px", background:"#F7F3EE", borderRadius:"6px", border:"1.5px solid #E0D8CE" }}>
+                <input
+                  type="checkbox"
+                  checked={newUser.permissions?.bodega === true}
+                  onChange={e => setNewUser(n => ({ ...n, permissions: { ...(n.permissions||{}), bodega: e.target.checked } }))}
+                />
+                <span><b>Acceso a Recetas Bodega</b> (subrecetas de produccion)</span>
+              </label>
+            )}
             <button onClick={addUser} style={{ background:"#D4721A", border:"none", borderRadius:"8px", color:"#fff", padding:"10px 18px", cursor:"pointer", fontWeight:"700" }}>{t.users.add}</button>
           </div>
         </div>
