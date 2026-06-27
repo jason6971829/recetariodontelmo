@@ -14,12 +14,16 @@ const lbl = { fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", let
 
 const AUTOSAVE_MS = 800;
 
-export function RecipeForm({ initial, categories, onSave, onCancel }) {
+export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSave, onCancel }) {
   const cats = (categories || CATEGORIES).filter(c => c.id !== "all");
+  // Asegurar que "RECETAS BODEGA" sea seleccionable como categoria aunque no este en allCategories
+  if (!cats.some(c => c.id === "RECETAS BODEGA")) {
+    cats.push({ id: "RECETAS BODEGA", label: "🏭 Recetas Bodega", icon: "🏭" });
+  }
   const [form, setForm] = useState(initial || {
     name:"", category:"Adiciones", prepTime:"", cookTime:"", portions:"",
     ingredients:[], preparation:"", recommendations:"", image:null, video:"",
-    description:"", salesPitch:""
+    description:"", salesPitch:"", subcategory:""
   });
   const [currentId, setCurrentId] = useState(initial?.id || null);
   const [editingIdx, setEditingIdx] = useState(null);
@@ -162,6 +166,21 @@ export function RecipeForm({ initial, categories, onSave, onCancel }) {
                 {cats.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
               </select>
             </div>
+            {form.category === "RECETAS BODEGA" && (
+              <div>
+                <label style={lbl}>Sub-categoria (bodega)</label>
+                <input
+                  style={inp}
+                  list="bodega-subs"
+                  value={form.subcategory || ""}
+                  onChange={e=>set("subcategory", e.target.value)}
+                  placeholder="ej: Carnes y proteinas"
+                />
+                <datalist id="bodega-subs">
+                  {bodegaSubcategories.map(s => <option key={s} value={s} />)}
+                </datalist>
+              </div>
+            )}
             <div>
               <label style={lbl}>{t.form.portionsLabel}</label>
               <input style={inp} value={form.portions} onChange={e=>set("portions",e.target.value)} placeholder={t.form.portionsPlaceholder} />

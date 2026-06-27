@@ -52,6 +52,7 @@ export default function App() {
   const [dbCategories, setDbCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCat, setSelectedCat] = useState("all");
+  const [selectedBodegaSub, setSelectedBodegaSub] = useState("all");
   const [search, setSearch] = useState("");
   const [filterSearch, setFilterSearch] = useState(""); // debounced — solo para el filtrado
   const [selectedRecipe, setSelectedRecipe] = useState(null);
@@ -494,10 +495,25 @@ export default function App() {
 
   const selectCat = useCallback((catId) => {
     setSelectedCat(catId);
+    setSelectedBodegaSub("all");
     setSearch("");
     setFilterSearch("");
     if (isMobile) setSidebarOpen(false);
   }, [isMobile]);
+
+  // Crear receta nueva de Bodega (preselecciona category + subcategory actual)
+  const handleCreateBodega = useCallback(() => {
+    const sub = (selectedBodegaSub && selectedBodegaSub !== "all" && selectedBodegaSub !== "Sin clasificar")
+      ? selectedBodegaSub : "";
+    setEditingRecipe({
+      name:"", category:"RECETAS BODEGA", subcategory: sub,
+      prepTime:"", cookTime:"", portions:"",
+      ingredients:[], preparation:"", recommendations:"",
+      image:null, video:"", description:"", salesPitch:"",
+      published: true,
+    });
+    setShowForm(true);
+  }, [selectedBodegaSub]);
 
   const openRecipe = useCallback((r) => {
     setSelectedRecipe(r);
@@ -600,20 +616,26 @@ export default function App() {
   }, [recipesByPublish, isBodegaView, canSeeBodega]);
 
   const filtered = useMemo(() => {
+    const subFilter = (r) => {
+      if (!isBodegaView || selectedBodegaSub === "all") return true;
+      const s = (r.subcategory || "").trim() || "Sin clasificar";
+      return s === selectedBodegaSub;
+    };
     if (!filterSearch) {
-      if (isBodegaView) return visibleForView;
+      if (isBodegaView) return visibleForView.filter(subFilter);
       return visibleForView.filter(r => selectedCat === "all" || r.category === selectedCat);
     }
     const terms = filterSearch.toLowerCase().split(/\s+/).filter(t => t.length > 0);
     return visibleForView.filter(r => {
+      if (!subFilter(r)) return false;
       const searchable = [
-        r.name, r.category, r.description || "", r.preparation || "",
+        r.name, r.category, r.subcategory || "", r.description || "", r.preparation || "",
         r.recommendations || "", r.salesPitch || "",
         ...(r.ingredients || [])
       ].join(" ").toLowerCase();
       return terms.every(term => searchable.includes(term));
     });
-  }, [visibleForView, isBodegaView, selectedCat, filterSearch]);
+  }, [visibleForView, isBodegaView, selectedCat, selectedBodegaSub, filterSearch]);
 
   // catCounts: solo categorias de menu (bodega va aparte)
   const catCounts = useMemo(() => {
@@ -628,6 +650,19 @@ export default function App() {
     if (!canSeeBodega) return 0;
     return recipesByPublish.filter(r => r.category === BODEGA_CAT).length;
   }, [recipesByPublish, canSeeBodega]);
+
+  // Sub-categorias presentes en RECETAS BODEGA, con conteo. Para los chips dentro del modulo.
+  const bodegaSubs = useMemo(() => {
+    const counts = {};
+    recipesByPublish
+      .filter(r => r.category === BODEGA_CAT)
+      .forEach(r => {
+        const s = (r.subcategory || "").trim() || "Sin clasificar";
+        counts[s] = (counts[s] || 0) + 1;
+      });
+    return Object.entries(counts).sort((a,b) => b[1] - a[1]);
+  }, [recipesByPublish]);
+  const bodegaSubList = useMemo(() => bodegaSubs.map(([s]) => s).filter(s => s !== "Sin clasificar"), [bodegaSubs]);
 
   // Categorías: de Supabase si hay, sino del archivo constants
   const allCategories = useMemo(() => {
@@ -969,10 +1004,49 @@ export default function App() {
                   🍕 Armar Pizza
                 </button>
               )}
+              {isBodegaView && isAdmin && (
+                <button
+                  onClick={handleCreateBodega}
+                  style={{ background:"linear-gradient(135deg,#7C3AED,#A78BFA)", border:"none", borderRadius:"20px", color:"#fff", padding:"6px 16px", cursor:"pointer", fontFamily:"Georgia,serif", fontSize:"13px", fontWeight:"700", boxShadow:"0 3px 12px rgba(124,58,237,0.35)", letterSpacing:"0.5px", display:"flex", alignItems:"center", gap:"6px" }}
+                >
+                  + Nueva receta bodega
+                </button>
+              )}
             </div>
             <div style={{ color:"#888", fontSize:"13px", marginTop:"3px" }}>
               {filtered.length} {filtered.length!==1 ? t.recipes : t.recipe}{search && ` — "${search}"`}
             </div>
+
+            {isBodegaView && bodegaSubs.length > 0 && (
+              <div style={{ display:"flex", flexWrap:"wrap", gap:"6px", marginTop:"12px" }}>
+                <button
+                  onClick={() => setSelectedBodegaSub("all")}
+                  style={{
+                    background: selectedBodegaSub === "all" ? "#7C3AED" : "#F0ECE6",
+                    color: selectedBodegaSub === "all" ? "#fff" : "#5a3e2b",
+                    border:"none", borderRadius:"14px",
+                    padding:"5px 12px", cursor:"pointer",
+                    fontSize:"12px", fontWeight: selectedBodegaSub === "all" ? "700" : "600",
+                  }}
+                >Todas <span style={{ opacity:0.8 }}>({bodegaCount})</span></button>
+                {bodegaSubs.map(([sub, count]) => {
+                  const active = selectedBodegaSub === sub;
+                  return (
+                    <button
+                      key={sub}
+                      onClick={() => setSelectedBodegaSub(sub)}
+                      style={{
+                        background: active ? "#7C3AED" : "#F0ECE6",
+                        color: active ? "#fff" : "#5a3e2b",
+                        border:"none", borderRadius:"14px",
+                        padding:"5px 12px", cursor:"pointer",
+                        fontSize:"12px", fontWeight: active ? "700" : "600",
+                      }}
+                    >{sub} <span style={{ opacity:0.8 }}>({count})</span></button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Grid */}
@@ -1029,7 +1103,7 @@ export default function App() {
         <RecipeDetail recipe={selectedRecipe} currentUser={currentUser} onClose={()=>setSelectedRecipe(null)} onEdit={()=>handleEdit(selectedRecipe)} onDelete={()=>handleDelete(selectedRecipe)} onTogglePublish={()=>handleTogglePublish(selectedRecipe)} pizzaRecipes={recipes.filter(r=>r.category?.toLowerCase().includes("pizza"))} brandLabel={brandLabel} brandName={brandName} companyTagline={companyTagline} />
       )}
       {showForm && (
-        <RecipeForm initial={editingRecipe} categories={allCategories} onSave={handleSaveRecipe} onCancel={handleCloseRecipeForm} />
+        <RecipeForm initial={editingRecipe} categories={allCategories} bodegaSubcategories={bodegaSubList} onSave={handleSaveRecipe} onCancel={handleCloseRecipeForm} />
       )}
       <Suspense fallback={null}>
         {showUsers && isAdmin && (
