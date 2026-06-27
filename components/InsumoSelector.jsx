@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useMemo } from "react";
+import { compatibleUnits, toBaseUnit, formatQty } from "@/lib/units";
 
 // Cache en memoria para no fetchear en cada apertura del modal
 let _insumosCache = null;
@@ -79,7 +80,8 @@ export function InsumoSelector({ onAdd, initial, onCancel }) {
 
   const pick = (ins) => {
     setSelected({ id: ins.id, codigo: ins.codigo, nombre: ins.nombre, unidad: ins.unidad });
-    // Siempre forzar la unidad del insumo (kardex). El usuario no la puede cambiar.
+    // Por defecto unidad base del kardex; el usuario puede cambiar a una compatible
+    // (ej: GRAMOS para un insumo en KILO) y se convierte al guardar.
     setUnit(ins.unidad || "KILO");
     setQuery("");
     setShowList(false);
@@ -89,7 +91,10 @@ export function InsumoSelector({ onAdd, initial, onCancel }) {
 
   const submit = () => {
     if (!selected || !qty || !unit) return;
-    const ingredient = `${qty} ${unit} - ${selected.nombre} | ${selected.codigo}`;
+    const baseUnit = selected.unidad || "KILO";
+    const baseQty = toBaseUnit(qty, unit, baseUnit);
+    if (baseQty == null) return;
+    const ingredient = `${formatQty(baseQty)} ${baseUnit} - ${selected.nombre} | ${selected.codigo}`;
     onAdd(ingredient);
     // Reset para seguir agregando (sin auto-focus, asi no se reabre la lista en mobile)
     if (!initial) {
@@ -176,6 +181,11 @@ export function InsumoSelector({ onAdd, initial, onCancel }) {
             <span style={{ flex: 1, color: "#333", fontWeight: 600, fontSize: 13 }}>{selected.nombre}</span>
             <button onClick={clear} style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: 16, padding: "0 6px" }} title="Cambiar insumo">×</button>
           </div>
+          {qty && unit && selected.unidad && unit !== selected.unidad && (
+            <div style={{ fontSize: 11, color: "#888", marginBottom: 6 }}>
+              = <b style={{ color: "#D4721A" }}>{formatQty(toBaseUnit(qty, unit, selected.unidad) ?? 0)} {selected.unidad}</b> (asi se guarda en el kardex)
+            </div>
+          )}
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input
               type="number"
@@ -185,24 +195,26 @@ export function InsumoSelector({ onAdd, initial, onCancel }) {
               value={qty}
               onChange={e => setQty(e.target.value)}
               onKeyDown={e => e.key === "Enter" && submit()}
-              placeholder={unit === "KILO" ? "0.020" : unit === "LITRO" ? "0.050" : "1"}
+              placeholder={
+                unit === "GRAMOS" ? "20" :
+                unit === "ML" ? "50" :
+                unit === "UNIDAD" ? "0.5" :
+                unit === "LIBRA" || unit === "ONZA" ? "1" :
+                "0.020"
+              }
               autoFocus={!initial}
             />
-            {/* Unidad bloqueada: viene del kardex de gabycontrol. Evita errores de descuento. */}
-            <div
-              style={{
-                ...inp,
-                width: "100px",
-                background: "#F7F3EE",
-                color: "#666",
-                fontWeight: 700,
-                textAlign: "center",
-                cursor: "not-allowed",
-              }}
-              title="La unidad la define el kardex de gabycontrol y no se puede cambiar"
+            {/* Compatible con la unidad base del insumo. Al guardar se convierte a base. */}
+            <select
+              style={{ ...inp, width: "110px", cursor: "pointer" }}
+              value={unit}
+              onChange={e => setUnit(e.target.value)}
+              title="Podes escribir en cualquier unidad compatible; al guardar se convierte a la base del kardex"
             >
-              {unit || "—"}
-            </div>
+              {compatibleUnits(selected.unidad || "KILO").map(u => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </select>
             <button
               onClick={submit}
               disabled={!qty || !unit}
