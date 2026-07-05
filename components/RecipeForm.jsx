@@ -7,6 +7,7 @@ import { uploadImage } from "@/lib/storage";
 import { useLang } from "@/lib/LangContext";
 import { normalizeIngredient, ingredientToString } from "@/lib/ingredients";
 import { InsumoSelector } from "@/components/InsumoSelector";
+import { ProductoSelector } from "@/components/ProductoSelector";
 
 // Constantes de estilo a nivel de módulo — no se recrean en cada render
 const inp = { width:"100%", padding:"10px 12px", border:"1.5px solid #E0D8CE", borderRadius:"8px", fontSize:"13px", outline:"none", boxSizing:"border-box", fontFamily:"inherit", background:"#fff" };
@@ -158,7 +159,11 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
           <div style={{ display:"grid", gridTemplateColumns: isMobile?"1fr":"1fr 1fr", gap:"14px", marginBottom:"14px" }}>
             <div style={{ gridColumn:"1/-1" }}>
               <label style={lbl}>{t.form.nameLabel}</label>
-              <input style={inp} value={form.name} onChange={e=>set("name",e.target.value)} placeholder={t.form.namePlaceholder} />
+              <ProductoSelector
+                value={form.name}
+                onChange={(name) => set("name", name)}
+                allowFree={true}
+              />
             </div>
             <div>
               <label style={lbl}>{t.form.categoryLabel}</label>
