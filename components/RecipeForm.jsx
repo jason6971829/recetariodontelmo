@@ -24,7 +24,7 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
   const [form, setForm] = useState(initial || {
     name:"", category:"Adiciones", prepTime:"", cookTime:"", portions:"",
     ingredients:[], preparation:"", recommendations:"", image:null, video:"",
-    description:"", salesPitch:"", subcategory:""
+    description:"", salesPitch:"", subcategory:"", barcode:""
   });
   const [currentId, setCurrentId] = useState(initial?.id || null);
   const [editingIdx, setEditingIdx] = useState(null);
@@ -162,8 +162,23 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
               <ProductoSelector
                 value={form.name}
                 onChange={(name) => set("name", name)}
+                onSelect={(p) => setForm(f => ({ ...f, name: p.nombre, barcode: p.barcode || "" }))}
                 allowFree={true}
               />
+              {form.barcode && (
+                <div style={{ marginTop:6, display:"flex", alignItems:"center", gap:8, fontSize:12 }}>
+                  <span style={{ background:"#7C3AED", color:"#fff", borderRadius:5, padding:"2px 9px", fontWeight:700, fontFamily:"monospace" }}>
+                    barcode {form.barcode}
+                  </span>
+                  <span style={{ color:"#888" }}>vinculado al producto de gabycontrol</span>
+                  <button
+                    type="button"
+                    onClick={() => set("barcode", "")}
+                    style={{ background:"none", border:"none", color:"#c0392b", cursor:"pointer", fontSize:11, fontWeight:700 }}
+                    title="Quitar el barcode (para sub-recetas o bases sin producto)"
+                  >quitar ×</button>
+                </div>
+              )}
             </div>
             <div>
               <label style={lbl}>{t.form.categoryLabel}</label>

@@ -33,12 +33,15 @@ function normalize(s) {
  *
  * Props:
  *   value              — string, nombre actual
- *   onChange(name)     — callback con el nombre elegido
+ *   onChange(name)     — callback con el nombre (texto libre o elegido)
+ *   onSelect(producto) — callback al elegir un producto del catalogo
+ *                        (recibe { nombre, barcode, categoria, ... }); permite
+ *                        guardar el barcode ademas del nombre
  *   allowFree          — si true, muestra toggle para editar libremente
  *                        (para sub-recetas "S. ..." y bases de bodega)
  *   onlyWithoutRecipe  — si true, pre-filtra a productos sin receta
  */
-export function ProductoSelector({ value, onChange, allowFree = true, onlyWithoutRecipe = false }) {
+export function ProductoSelector({ value, onChange, onSelect, allowFree = true, onlyWithoutRecipe = false }) {
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -92,6 +95,7 @@ export function ProductoSelector({ value, onChange, allowFree = true, onlyWithou
 
   const pick = (p) => {
     onChange(p.nombre);
+    onSelect?.(p); // propaga barcode + categoria al padre
     setQuery(p.nombre);
     setShowList(false);
     inputRef.current?.blur();

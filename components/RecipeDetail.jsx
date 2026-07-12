@@ -88,6 +88,12 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
                 {recipe.name}
               </div>
               <div style={S.categoryLabel}>{recipe.category.toUpperCase()}</div>
+              {recipe.barcode && (
+                <div style={{ marginTop:6, display:"inline-flex", alignItems:"center", gap:6, background:"rgba(167,139,250,0.25)", border:"1px solid rgba(167,139,250,0.5)", borderRadius:6, padding:"3px 9px" }}>
+                  <span style={{ color:"#C4B5FD", fontSize:"9px", fontWeight:"700", letterSpacing:"1px" }}>BARCODE</span>
+                  <span style={{ color:"#fff", fontSize:"12px", fontWeight:"700", fontFamily:"monospace" }}>{recipe.barcode}</span>
+                </div>
+              )}
             </div>
             <div style={{ ...S.actionButtons, flexWrap: isMobile ? "wrap" : "nowrap", justifyContent:"flex-end" }}>
               {/* En mobile solo iconos para ahorrar espacio */}

@@ -44,7 +44,7 @@ export async function GET(req) {
 
   const { data, error } = await supabase
     .from("recipes")
-    .select("id, name, category, portions, ingredients, published, created_at")
+    .select("id, name, category, portions, ingredients, published, created_at, barcode")
     .order("id");
 
   if (error) {
@@ -62,6 +62,8 @@ export async function GET(req) {
       ? r.ingredients.map(ingredientToString).filter(Boolean)
       : [],
     published: r.published,
+    // barcode del producto (contrato v5): gabycontrol vincula por aqui, no por nombre
+    barcode: r.barcode || null,
     // recipes no tiene updated_at, usamos created_at como proxy
     updated_at: r.created_at,
   }));
