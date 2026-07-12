@@ -39,8 +39,21 @@ if (!SUPABASE_URL || !SUPABASE_KEY || !INSUMOS_KEY) {
 }
 const APPLY = process.argv.includes("--apply");
 
+// Repara mojibake UTF-8-mal-decodificado-como-Latin1 en nombres viejos
+// (ej: "CHAMPIÃ‘ON" -> "CHAMPIÑON"). Cubre Ñ y vocales acentuadas.
+function demojibake(s) {
+  return String(s || "")
+    .replace(/Ã‘|Ã'|Ã±/g, "N")   // Ñ / ñ
+    .replace(/Ã¡|Ã /g, "A")       // á
+    .replace(/Ã©/g, "E")          // é
+    .replace(/Ã­|Ã­/g, "I")  // í
+    .replace(/Ã³/g, "O")          // ó
+    .replace(/Ãº|Ã¹/g, "U");      // ú
+}
+
 function normName(s) {
-  return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+  return demojibake(String(s || ""))
+    .toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
     .replace(/\s+/g, " ").trim();
 }
 
