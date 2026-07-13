@@ -601,19 +601,31 @@ export default function App() {
   const canSeeBodega = isAdminUser || currentUser?.permissions?.bodega === true;
   const isBodegaView = selectedCat === "RECETAS BODEGA";
   const BODEGA_CAT = "RECETAS BODEGA";
+  // Modulo "Por completar": recetas-borrador sin ingredientes (los stubs de barcode).
+  const PENDING_CAT = "__PENDING__";
+  const isPendingView = selectedCat === PENDING_CAT;
+  const isEmptyRecipe = (r) => !Array.isArray(r.ingredients) || r.ingredients.length === 0;
 
   const recipesByPublish = useMemo(
     () => (isAdminUser ? recipes : recipes.filter(r => r.published)),
     [recipes, isAdminUser]
   );
 
-  // Pool del grid: bodega cuando estas en su vista; menu en cualquier otra
+  // Pool del grid: bodega / por-completar / menu segun la vista
   const visibleForView = useMemo(() => {
+    if (isPendingView) {
+      return isAdminUser ? recipes.filter(isEmptyRecipe) : [];
+    }
     if (isBodegaView) {
       return canSeeBodega ? recipesByPublish.filter(r => r.category === BODEGA_CAT) : [];
     }
     return recipesByPublish.filter(r => r.category !== BODEGA_CAT);
-  }, [recipesByPublish, isBodegaView, canSeeBodega]);
+  }, [recipes, recipesByPublish, isPendingView, isBodegaView, isAdminUser, canSeeBodega]);
+
+  const toCompleteCount = useMemo(
+    () => (isAdminUser ? recipes.filter(isEmptyRecipe).length : 0),
+    [recipes, isAdminUser]
+  );
 
   const filtered = useMemo(() => {
     const subFilter = (r) => {
@@ -622,6 +634,7 @@ export default function App() {
       return s === selectedBodegaSub;
     };
     if (!filterSearch) {
+      if (isPendingView) return visibleForView;
       if (isBodegaView) return visibleForView.filter(subFilter);
       return visibleForView.filter(r => selectedCat === "all" || r.category === selectedCat);
     }
@@ -917,6 +930,36 @@ export default function App() {
               </div>
             )}
 
+            {isAdmin && toCompleteCount > 0 && (
+              <div style={{ padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
+                <button
+                  onClick={() => selectCat(PENDING_CAT)}
+                  style={{
+                    width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", gap:"10px",
+                    background: isPendingView
+                      ? "linear-gradient(135deg,rgba(245,158,11,0.45),rgba(245,158,11,0.20))"
+                      : "linear-gradient(135deg,rgba(245,158,11,0.22),rgba(245,158,11,0.08))",
+                    border: isPendingView ? "1.5px solid rgba(251,191,36,0.8)" : "1.5px solid rgba(245,158,11,0.35)",
+                    borderRadius:"10px",
+                    color:"#fff", padding:"10px 14px", cursor:"pointer",
+                    fontSize:"13px", fontWeight:"700", fontFamily:"Georgia,serif",
+                    transition:"all 0.2s", letterSpacing:"0.3px",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "linear-gradient(135deg,rgba(245,158,11,0.45),rgba(245,158,11,0.20))"; }}
+                  onMouseLeave={e => { if (!isPendingView) e.currentTarget.style.background = "linear-gradient(135deg,rgba(245,158,11,0.22),rgba(245,158,11,0.08))"; }}
+                  title="Recetas-borrador sin ingredientes (creadas desde productos sin receta). Entrá a llenarlas."
+                >
+                  <span style={{ display:"flex", alignItems:"center", gap:"10px" }}>
+                    <span style={{ fontSize:"18px" }}>📝</span>
+                    Por completar
+                  </span>
+                  <span style={{ background: isPendingView ? "#FBBF24" : "rgba(255,255,255,0.18)", borderRadius:"10px", padding:"2px 8px", fontSize:"11px", fontWeight:"700", color:"#fff" }}>
+                    {toCompleteCount}
+                  </span>
+                </button>
+              </div>
+            )}
+
             <div style={{ padding:"14px 16px 8px", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
               <div style={{ color:"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"2px", fontFamily:"Georgia,serif" }}>{t.categories}</div>
             </div>
@@ -992,7 +1035,9 @@ export default function App() {
           <div style={{ marginBottom:"18px" }}>
             <div style={{ display:"flex", alignItems:"center", gap:"12px", flexWrap:"wrap" }}>
               <h1 style={{ margin:0, color:"var(--app-primary)", fontFamily:"Georgia,serif", fontSize: isMobile?"18px":"21px", fontWeight:"700" }}>
-                {isBodegaView
+                {isPendingView
+                  ? <>📝 Por completar</>
+                  : isBodegaView
                   ? <>🏭 Recetas Bodega</>
                   : <>{allCategories.find(c=>c.id===selectedCat)?.icon} {allCategories.find(c=>c.id===selectedCat)?.label}</>}
               </h1>
