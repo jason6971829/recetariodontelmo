@@ -57,18 +57,44 @@ function buildIndex(recipes) {
     .join("\n\n");
 }
 
+// Longitud del prefijo comun entre dos strings (para tolerar typos como
+// "hawaiana" vs "hawaina": comparten "hawai" = 5).
+function sharedPrefix(a, b) {
+  const n = Math.min(a.length, b.length);
+  let i = 0;
+  while (i < n && a[i] === b[i]) i++;
+  return i;
+}
+
+// Emparejamiento tolerante: la palabra de la pregunta matchea un texto si es
+// substring, o si comparte un prefijo largo con alguna palabra del texto
+// (cubre typos y plurales: hawaiana/hawaina, lasagna/lasaña, etc.)
+function fuzzyHit(word, text) {
+  if (text.includes(word)) return true;
+  if (word.length < 4) return false;
+  for (const tok of text.split(/[^a-z0-9]+/)) {
+    if (tok.length < 4) continue;
+    if (tok.includes(word) || word.includes(tok)) return true;
+    const sp = sharedPrefix(word, tok);
+    if (sp >= 4 && sp >= Math.min(word.length, tok.length) - 2) return true;
+  }
+  return false;
+}
+
 // Recupera las recetas mas relevantes a la pregunta (con ingredientes completos)
 function retrieve(recipes, question, limit = 30) {
   const q = normText(question);
-  const words = q.split(/\s+/).filter((w) => w.length >= 3);
+  const stop = new Set(["que","lleva","tiene","como","para","del","los","las","una","cuanto","cuanta","cuantos","cuantas","hago","hacer","receta","recetas","ingrediente","ingredientes","porcion","porciones"]);
+  const words = q.split(/\s+/).filter((w) => w.length >= 3 && !stop.has(w));
   if (!words.length) return [];
   const scored = [];
   for (const r of recipes) {
+    const nm = normText(r.name), cat = normText(r.category);
     let score = 0;
     for (const w of words) {
-      if (normText(r.name).includes(w)) score += 5;
-      if (normText(r.category).includes(w)) score += 2;
-      if (r._search.includes(w)) score += 1;
+      if (fuzzyHit(w, nm)) score += 5;
+      else if (fuzzyHit(w, cat)) score += 2;
+      else if (fuzzyHit(w, r._search)) score += 1;
     }
     if (score > 0) scored.push({ r, score });
   }
