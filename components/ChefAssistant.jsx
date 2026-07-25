@@ -52,7 +52,11 @@ export function ChefAssistant() {
         src={AVATAR_SRC}
         alt="Asistente"
         onError={() => setAvatarOk(false)}
-        style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", display: "block" }}
+        style={{
+          width: size, height: size, borderRadius: "50%", display: "block",
+          objectFit: "cover", objectPosition: "50% 18%", // encuadra la cara
+          background: "#F3EFE9", // fondo claro para el PNG transparente
+        }}
       />
     ) : (
       <div style={{ width: size, height: size, borderRadius: "50%", background: "#F0ECE6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.55 }}>
