@@ -28,7 +28,6 @@ const ImportExcelModal = dynamic(() => import("@/components/ImportExcelModal").t
 const ProfileGuardModal= dynamic(() => import("@/components/ProfileGuardModal").then(m => ({ default: m.ProfileGuardModal })), { ssr: false });
 const ProfileModal     = dynamic(() => import("@/components/ProfileModal").then(m => ({ default: m.ProfileModal })), { ssr: false });
 const LangModal        = dynamic(() => import("@/components/LangModal").then(m => ({ default: m.LangModal })), { ssr: false });
-const ThemeModal       = dynamic(() => import("@/components/ThemeModal").then(m => ({ default: m.ThemeModal })), { ssr: false });
 const BiometricPrompt  = dynamic(() => import("@/components/BiometricPrompt").then(m => ({ default: m.BiometricPrompt })), { ssr: false });
 const PizzaBuilderModal= dynamic(() => import("@/components/PizzaBuilderModal").then(m => ({ default: m.PizzaBuilderModal })), { ssr: false });
 const DocumentsPanel   = dynamic(() => import("@/components/DocumentsPanel").then(m => ({ default: m.DocumentsPanel })), { ssr: false });
@@ -43,7 +42,7 @@ import { THEMES } from "@/lib/themes";
 export default function App() {
   const isMobile = useIsMobile();
   const { online, syncing, pendingCount } = useOnlineStatus();
-  const { lang, setLang, t, themeId, setTheme } = useLang();
+  const { lang, setLang, t, themeId } = useLang();
   const { isSupported: biometricSupported, hasCredential: hasBiometric, register: registerBiometric, authenticate: authBiometric } = useWebAuthn();
   const [screen, setScreen] = useState("login");
   const [currentUser, setCurrentUser] = useState(null);
@@ -82,7 +81,6 @@ export default function App() {
   const [brandDraft, setBrandDraft] = useState({ label:"RECETARIO DIGITAL", name:"Don Telmo®", tagline:"1958 — Company", icon:null, labelColor:"#D4721A", nameColor:"#1B3A5C", taglineColor:"#888888" });
 
   const [showLangModal, setShowLangModal] = useState(false);
-  const [showThemeModal, setShowThemeModal] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
   const [showSupplies, setShowSupplies] = useState(false);
   const [showCosting, setShowCosting] = useState(false);
@@ -226,15 +224,16 @@ export default function App() {
     }
   }, [bannerStripPos, bannerCanTransition, showBanner, bannerImages.length]);
 
-  // Inyectar variables CSS del tema
+  // Tema fijo Don Telmo (navy "ocean"). Se quito el selector de tema de color
+  // para no quedar con los tonos de gabycontrol (morado).
   useEffect(() => {
-    const theme = THEMES.find(t => t.id === themeId) || THEMES[0];
+    const theme = THEMES.find(t => t.id === "ocean") || THEMES[0];
     const root = document.documentElement;
     root.style.setProperty("--app-primary", theme.primary);
     root.style.setProperty("--app-primary-dark", theme.dark);
     root.style.setProperty("--app-primary-light", theme.light);
     root.style.setProperty("--app-primary-rgb", theme.rgb);
-  }, [themeId]);
+  }, []);
 
   // Debounce del search: el input actualiza `search` de inmediato (para mostrar),
   // pero `filterSearch` se actualiza 300ms después (para no re-filtrar en cada tecla)
@@ -825,10 +824,6 @@ export default function App() {
                     onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
                     📢 Banner de anuncios
                   </button>
-                  <button onClick={()=>{setShowThemeModal(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
-                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
-                    🎨 Tema de color
-                  </button>
                   <button onClick={()=>{setShowLangModal(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
                     onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
                     {t.settings.language}
@@ -1245,12 +1240,6 @@ export default function App() {
           bannerImages={bannerImages} setBannerImages={setBannerImages}
           bannerUploading={bannerUploading} setBannerUploading={setBannerUploading}
           setBannerSlide={setBannerSlide} setShowBanner={setShowBanner}
-        />
-        <ThemeModal
-          show={showThemeModal} onClose={() => setShowThemeModal(false)}
-          themeId={themeId} setTheme={setTheme} THEMES={THEMES} saveAppConfig={saveAppConfig}
-          brandLabel={brandLabel} brandName={brandName} companyTagline={companyTagline}
-          brandIcon={brandIcon} brandLabelColor={brandLabelColor} brandNameColor={brandNameColor} brandTaglineColor={brandTaglineColor}
         />
         <ProfileGuardModal
           show={showProfileGuard} isAdmin={isAdmin}
