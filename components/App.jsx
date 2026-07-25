@@ -34,6 +34,7 @@ const DocumentsPanel   = dynamic(() => import("@/components/DocumentsPanel").the
 const SuppliesPanel    = dynamic(() => import("@/components/SuppliesPanel").then(m => ({ default: m.SuppliesPanel })), { ssr: false });
 const CostingPanel     = dynamic(() => import("@/components/CostingPanel").then(m => ({ default: m.CostingPanel })), { ssr: false });
 const Calculadora3D    = dynamic(() => import("@/components/Calculadora3D").then(m => ({ default: m.Calculadora3D })), { ssr: false });
+const ChefAssistant    = dynamic(() => import("@/components/ChefAssistant").then(m => ({ default: m.ChefAssistant })), { ssr: false });
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useLang, LangProvider } from "@/lib/LangContext";
 import { LANGUAGES } from "@/lib/i18n";
@@ -1264,6 +1265,9 @@ export default function App() {
       </Suspense>
 
       <ConfirmModal confirmModal={confirmModal} onCancel={() => setConfirmModal(null)} />
+
+      {/* Asistente de cocina (avatar flotante). Solo cuando hay ninguna ficha/modal a pantalla completa abierto. */}
+      {!showForm && !selectedRecipe && <ChefAssistant />}
 
     </div>
   );
