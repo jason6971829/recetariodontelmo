@@ -161,6 +161,7 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
               <label style={lbl}>{t.form.nameLabel}</label>
               <ProductoSelector
                 value={form.name}
+                source={form.category === "RECETAS BODEGA" ? "insumos" : "productos"}
                 onChange={(name) => set("name", name)}
                 onSelect={(p) => setForm(f => ({ ...f, name: p.nombre, barcode: p.barcode || "" }))}
                 allowFree={true}

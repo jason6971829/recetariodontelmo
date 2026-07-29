@@ -1,26 +1,39 @@
 "use client";
 import { useState, useEffect, useRef, useMemo } from "react";
 
-// Cache en memoria; el fetch es a nuestro proxy /api/productos (con cache 5min).
-let _cache = null;
-let _promise = null;
+// Cache en memoria por fuente (productos del menu / insumos de bodega).
+const _cache = {};
+const _promise = {};
 
-async function fetchProductos() {
-  if (_cache) return _cache;
-  if (_promise) return _promise;
-  _promise = fetch("/api/productos")
+// source: "productos" -> /api/productos (menu) | "insumos" -> /api/insumos (bodega)
+async function fetchCatalog(source) {
+  if (_cache[source]) return _cache[source];
+  if (_promise[source]) return _promise[source];
+  const url = source === "insumos" ? "/api/insumos" : "/api/productos";
+  _promise[source] = fetch(url)
     .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
     .then(data => {
-      _cache = Array.isArray(data) ? data : [];
-      _promise = null;
-      return _cache;
+      let list = Array.isArray(data) ? data : [];
+      if (source === "insumos") {
+        // Normaliza insumos al shape del selector; semiterminados (S. ...) primero
+        list = list.map(i => ({
+          id: i.id || i.codigo,
+          nombre: i.nombre,
+          categoria: i.tipo === "semiterminado" ? "SUBRECETA" : (i.categoria || i.tipo || "INSUMO"),
+          codigo: i.codigo,
+          _semi: i.tipo === "semiterminado",
+        })).sort((a, b) => (b._semi === true) - (a._semi === true));
+      }
+      _cache[source] = list;
+      _promise[source] = null;
+      return list;
     })
     .catch(err => {
-      _promise = null;
-      console.error("fetchProductos error:", err);
+      _promise[source] = null;
+      console.error("fetchCatalog error:", err);
       return [];
     });
-  return _promise;
+  return _promise[source];
 }
 
 function normalize(s) {
@@ -41,7 +54,8 @@ function normalize(s) {
  *                        (para sub-recetas "S. ..." y bases de bodega)
  *   onlyWithoutRecipe  — si true, pre-filtra a productos sin receta
  */
-export function ProductoSelector({ value, onChange, onSelect, allowFree = true, onlyWithoutRecipe = false }) {
+export function ProductoSelector({ value, onChange, onSelect, allowFree = true, onlyWithoutRecipe = false, source = "productos" }) {
+  const isInsumos = source === "insumos";
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -49,16 +63,16 @@ export function ProductoSelector({ value, onChange, onSelect, allowFree = true, 
   const [query, setQuery] = useState(value || "");
   const [showList, setShowList] = useState(false);
   const [freeMode, setFreeMode] = useState(false);
-  const [onlyMissing, setOnlyMissing] = useState(onlyWithoutRecipe);
+  const [onlyMissing, setOnlyMissing] = useState(onlyWithoutRecipe && !isInsumos);
   const inputRef = useRef(null);
 
   useEffect(() => {
-    fetchProductos().then(data => {
+    fetchCatalog(source).then(data => {
       setProductos(data);
       setLoading(false);
-      if (!data.length) setError("No pude cargar el catalogo de productos.");
+      if (!data.length) setError(isInsumos ? "No pude cargar el catalogo de insumos." : "No pude cargar el catalogo de productos.");
     });
-  }, []);
+  }, [source, isInsumos]);
 
   // Sincronizar cuando el valor cambia desde afuera (ej: crear-desde-cola)
   useEffect(() => { setQuery(value || ""); }, [value]);
@@ -80,7 +94,8 @@ export function ProductoSelector({ value, onChange, onSelect, allowFree = true, 
     for (const p of pool) {
       const n = normalize(p.nombre || "");
       const c = normalize(p.categoria || "");
-      if (n.includes(q) || c.includes(q)) {
+      const code = String(p.codigo || "");
+      if (n.includes(q) || c.includes(q) || code.includes(query.trim())) {
         matches.push(p);
         if (matches.length >= 60) break;
       }
@@ -89,8 +104,8 @@ export function ProductoSelector({ value, onChange, onSelect, allowFree = true, 
   }, [query, productos, onlyMissing]);
 
   const missingCount = useMemo(
-    () => productos.filter(p => !p.tiene_receta).length,
-    [productos]
+    () => (isInsumos ? 0 : productos.filter(p => !p.tiene_receta).length),
+    [productos, isInsumos]
   );
 
   const pick = (p) => {
@@ -145,7 +160,7 @@ export function ProductoSelector({ value, onChange, onSelect, allowFree = true, 
         {loading && <span style={{ color:"#D4721A", fontWeight:700 }}>· cargando catalogo...</span>}
         {!loading && !error && (
           <>
-            <span style={{ color:"#22c55e", fontWeight:700 }}>· {productos.length} productos</span>
+            <span style={{ color:"#22c55e", fontWeight:700 }}>· {productos.length} {isInsumos ? "insumos" : "productos"}</span>
             {missingCount > 0 && (
               <label style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:5, cursor:"pointer" }}>
                 <input
@@ -168,7 +183,7 @@ export function ProductoSelector({ value, onChange, onSelect, allowFree = true, 
         onChange={e => { setQuery(e.target.value); setShowList(true); onChange(e.target.value); }}
         onFocus={() => setShowList(true)}
         onBlur={() => setTimeout(() => setShowList(false), 200)}
-        placeholder="Buscar producto del menu... (ej: hawaiana, salmon)"
+        placeholder={isInsumos ? "Buscar insumo / subreceta... (ej: churrasco, 284)" : "Buscar producto del menu... (ej: hawaiana, salmon)"}
         disabled={loading}
       />
 
@@ -203,16 +218,21 @@ export function ProductoSelector({ value, onChange, onSelect, allowFree = true, 
                 padding: "9px 12px", cursor: "pointer",
                 borderBottom: "1px solid #f5f1ec",
                 display: "flex", alignItems: "center", gap: 10, fontSize: 13,
-                background: !p.tiene_receta ? "#FEF3C7" : "#fff",
+                background: (!isInsumos && !p.tiene_receta) ? "#FEF3C7" : "#fff",
               }}
-              onMouseEnter={e => e.currentTarget.style.background = !p.tiene_receta ? "#FDE68A" : "#F7F3EE"}
-              onMouseLeave={e => e.currentTarget.style.background = !p.tiene_receta ? "#FEF3C7" : "#fff"}
+              onMouseEnter={e => e.currentTarget.style.background = (!isInsumos && !p.tiene_receta) ? "#FDE68A" : "#F7F3EE"}
+              onMouseLeave={e => e.currentTarget.style.background = (!isInsumos && !p.tiene_receta) ? "#FEF3C7" : "#fff"}
             >
+              {isInsumos && p.codigo && (
+                <span style={{ background:"#D4721A", color:"#fff", borderRadius:4, padding:"2px 7px", fontSize:10, fontWeight:700, fontFamily:"monospace", minWidth:44, textAlign:"center" }}>
+                  {p.codigo}
+                </span>
+              )}
               <span style={{ flex:1, color: "#333", fontWeight: 600 }}>{p.nombre}</span>
               <span style={{ fontSize: 10, color: "#888", background:"#F0ECE6", padding:"2px 6px", borderRadius:4 }}>
                 {p.categoria}
               </span>
-              {!p.tiene_receta && (
+              {!isInsumos && !p.tiene_receta && (
                 <span style={{ background: "#F59E0B", color: "#fff", borderRadius: 4, padding: "2px 6px", fontSize: 9, fontWeight: 700 }}>
                   SIN RECETA
                 </span>
