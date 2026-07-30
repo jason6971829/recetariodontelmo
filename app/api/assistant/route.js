@@ -5,9 +5,9 @@ import { normalizeIngredient } from "@/lib/ingredients";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Modelo. Se puede cambiar a "claude-haiku-4-5" (mas barato/rapido) o
-// "claude-sonnet-5" para bajar costo en un bot de recetas.
-const MODEL = "claude-opus-5";
+// Modelo. Haiku es barato/rapido y sobra para un bot de recetas.
+// Subir a "claude-sonnet-5" o "claude-opus-5" si se quiere mas calidad.
+const MODEL = "claude-haiku-4-5";
 
 // ── Cache del catalogo de recetas (5 min) para no pegarle a la DB en cada pregunta
 let _catalogCache = null;
@@ -156,7 +156,6 @@ ${detailBlock}`;
     const resp = await client.messages.create({
       model: MODEL,
       max_tokens: 1024,
-      output_config: { effort: "low" },
       system: [
         { type: "text", text: systemCached, cache_control: { type: "ephemeral" } },
         { type: "text", text: systemDetail },
