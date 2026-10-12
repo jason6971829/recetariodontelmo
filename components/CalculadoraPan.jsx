@@ -14,7 +14,7 @@ const STORE_KEY = "calcpan_recipes_v1";
 const SEED = [{
   id: "formula-base",
   name: "Fórmula base",
-  wfinal: 80, merma: 15, round: 5, units: 320,
+  wfinal: 80, merma: 15, round: 5, units: 300,
   ings: [
     ["Harina", 100], ["Azúcar", 8], ["Margarina", 10], ["Sal", 2],
     ["Levadura", 2], ["Leche en polvo", 5], ["Agua", 52], ["Propionato", 0.5],
