@@ -25,25 +25,34 @@ const CIMPA = {
   id: "formula-cimpa",
   name: "Fórmula CIMPA",
   wfinal: 80, merma: 15, round: 5, units: 300,
-  instr: `AJUSTE DE AGUA AL 57,0%: hidratación 57,0% exacto sobre la Harina Crema del Norte — máxima suavidad elástica y retención de humedad sin comprometer la estructura.
+  instr: `FORMULACIÓN DEFINITIVA ESTANDARIZADA: ajustada para 300 panes de 95 g en crudo (80 g horneados), hidratación 57,0% sobre Harina Crema del Norte, con aditivos CIMPA.
 
-PASO A PASO (bodega & divisora)
-1. Mezclado seco (Vel 1, 2 min): harina, gluten, fécula, Dimodan, propionato, leche, azúcar y levadura desmenuzada. Girar 2 min para homogeneizar.
-2. Hidratación y temperatura (Vel 1, 3 min): disolver la glicerina en el agua helada. Agregar el líquido total (50% hielo picado directo + 50% agua helada con glicerina) mientras gira en V1.
-3. Desarrollo de tela (Vel 2, 8–10 min): agregar sal y margarina Astra. Pasar a V2 hasta membrana transparente elástica (Punto de Tela 100%). Temperatura final de masa: 23–25 °C.
-4. División mecánica exacta: pesar 10 bloques de 2.850 g. Pasar cada bloque por la divisora de 30 partes → 30 testos de 95 g por bloque (300 panes de 95 g crudo, saliendo de 80 g cocidos).
+PUNTO DE ADICIÓN EN LA AMASADORA
+• En seco (Vel 1) con la harina: Gluten, Fécula, Dimodan, Propionato, Leche y Azúcar.
+• Levadura fresca: desmenuzar sobre los secos (Vel 1).
+• Glicerina: disolver dentro del agua helada.
+• Líquido total: 4.318 g hielo picado seco + 4.318 g agua con glicerina.
+• Margarina Astra y Sal: DE ÚLTIMO, al iniciar Velocidad 2.
 
-REGLAS OBLIGATORIAS (mesa y empaque)
-• Boleado apretado con tensión: bolear con fuerza (palma en copa) para una "piel" exterior lisa y tensa. Colocar en lata con un toque mínimo suave en el centro (no aplastar).
-• Leudo en Inoxforni: 34 °C y 80% HR por 55–65 min. Horno a 175 °C por 12–13 min.
-• REGLA DEL TERMÓMETRO (cero moho en sedes): PROHIBIDO embolsar por tiempo. Clavar el termómetro de punzón en el centro del pan y SOLO EMBOLSAR cuando marque menos de 26 °C. Si entra caliente, la condensación crea moho verde a los 4 días.`,
+PASO A PASO
+Paso 1 — Mezclado en seco (Vel 1, 2 min): harina, gluten, fécula, Dimodan, propionato, leche, azúcar y levadura desmenuzada. Encender Vel 1 por 2 min para homogeneizar los polvos.
+Paso 2 — Pre-hidratación y control de temperatura (Vel 1, 3–4 min): disolver 91 g de glicerina en 4.318 g de agua helada. Agregar 4.318 g de hielo picado directo sobre los secos y verter el agua helada con glicerina en hilo continuo mientras gira en Vel 1, hasta que la harina absorba toda la humedad.
+Paso 3 — Incorporación de grasa y sal (regla de oro de las últimas): con la masa ya con cuerpo y pre-estructura (sin polvo libre), agregar 1.515 g de margarina Astra y 303 g de sal refinada. La sal y la margarina van de últimas para no frenar la levadura ni impermeabilizar las proteínas antes de absorber el agua.
+Paso 4 — Desarrollo de gluten y membrana (Vel 2, 8–10 min): amasar vigorosamente hasta una membrana/pantalla transparente elástica perfecta (Punto de Tela 100%) que estire sin romperse. Temperatura final de masa: 23–25 °C máx.
+Paso 5 — División mecánica (10 bloques de 2.850 g): pesar 10 bloques exactos de 2.850 g. Pasar cada bloque por la divisora de 30 partes → 30 testos de 95 g crudo por bloque (300 panes en total).
+
+REGLAS OBLIGATORIAS (bodega, horno y control de moho)
+• Boleado apretado con tensión: bolear con fuerza (palma en copa) para una "piel" exterior lisa y muy tensa. Colocar en lata y dar un solo toque suave en el centro (sin aplastar).
+• Leudo en cámara Inoxforni: 34 °C y 80% HR por 55–65 min, hasta duplicar volumen.
+• Horneado: 170–175 °C por 12–13 min (dar 2–3 segundos de vapor al entrar). Al salir, el centro debe marcar 93–96 °C. Dar un golpe firme a la lata contra la mesa para evitar arrugamiento.
+• REGLA DEL TERMÓMETRO (cero moho): PROHIBIDO embolsar por reloj. Clavar el termómetro de punzón en el centro del pan y SOLO EMBOLSAR cuando marque menos de 26 °C. Si entra caliente, la condensación crea moho verde en 4 días.`,
   ings: [
     ["Harina Crema del Norte", 100], ["Gluten Vital (CIMPA)", 1.5],
     ["Fécula de Papa (CIMPA)", 1], ["Dimodan HP SG (CIMPA)", 0.5],
-    ["Propionato de Calcio", 0.5], ["Glicerina USP (CIMPA)", 0.6],
-    ["Azúcar Blanco", 8], ["Margarina Industrial (Astra)", 10],
-    ["Leche en Polvo", 5], ["Sal Refinada", 2], ["Levadura Fresca", 2],
-    ["Líquido Total (Hielo + Agua Helada)", 57],
+    ["Propionato de Calcio", 0.5], ["Leche en Polvo", 5],
+    ["Azúcar Blanco", 8], ["Levadura Fresca", 2],
+    ["Glicerina USP (CIMPA)", 0.6], ["Líquido Total (Hielo + Agua)", 57],
+    ["Margarina Industrial (Astra)", 10], ["Sal Refinada", 2],
   ].map(([name, pct]) => ({ name, pct })),
 };
 
@@ -73,6 +82,15 @@ function loadRecipes() {
       try { addedFlag = localStorage.getItem("calcpan_cimpa_v1"); } catch { /* ignore */ }
       if (!addedFlag && !out.some(x => x.id === "formula-cimpa")) out = [...out, clone(CIMPA)];
       try { localStorage.setItem("calcpan_cimpa_v1", "1"); } catch { /* ignore */ }
+      // rev2: actualizar la CIMPA existente al orden + instrucciones definitivas (una sola vez)
+      let rev2 = null;
+      try { rev2 = localStorage.getItem("calcpan_cimpa_rev2"); } catch { /* ignore */ }
+      if (!rev2) {
+        out = out.map(x => x.id === "formula-cimpa"
+          ? { ...x, ings: CIMPA.ings.map(i => ({ ...i })), instr: CIMPA.instr }
+          : x);
+        try { localStorage.setItem("calcpan_cimpa_rev2", "1"); } catch { /* ignore */ }
+      }
       return out;
     }
   } catch { /* ignore */ }
