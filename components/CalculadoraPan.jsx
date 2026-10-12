@@ -11,15 +11,44 @@ import { useState, useEffect, useMemo } from "react";
 
 const STORE_KEY = "calcpan_recipes_v1";
 
-const SEED = [{
+const BASE = {
   id: "formula-base",
   name: "Fórmula base",
-  wfinal: 80, merma: 15, round: 5, units: 300,
+  wfinal: 80, merma: 15, round: 5, units: 300, instr: "",
   ings: [
     ["Harina", 100], ["Azúcar", 8], ["Margarina", 10], ["Sal", 2],
     ["Levadura", 2], ["Leche en polvo", 5], ["Agua", 57], ["Propionato", 0.5],
   ].map(([name, pct]) => ({ name, pct })),
-}];
+};
+
+const CIMPA = {
+  id: "formula-cimpa",
+  name: "Fórmula CIMPA",
+  wfinal: 80, merma: 15, round: 5, units: 300,
+  instr: `AJUSTE DE AGUA AL 57,0%: hidratación 57,0% exacto sobre la Harina Crema del Norte — máxima suavidad elástica y retención de humedad sin comprometer la estructura.
+
+PASO A PASO (bodega & divisora)
+1. Mezclado seco (Vel 1, 2 min): harina, gluten, fécula, Dimodan, propionato, leche, azúcar y levadura desmenuzada. Girar 2 min para homogeneizar.
+2. Hidratación y temperatura (Vel 1, 3 min): disolver la glicerina en el agua helada. Agregar el líquido total (50% hielo picado directo + 50% agua helada con glicerina) mientras gira en V1.
+3. Desarrollo de tela (Vel 2, 8–10 min): agregar sal y margarina Astra. Pasar a V2 hasta membrana transparente elástica (Punto de Tela 100%). Temperatura final de masa: 23–25 °C.
+4. División mecánica exacta: pesar 10 bloques de 2.850 g. Pasar cada bloque por la divisora de 30 partes → 30 testos de 95 g por bloque (300 panes de 95 g crudo, saliendo de 80 g cocidos).
+
+REGLAS OBLIGATORIAS (mesa y empaque)
+• Boleado apretado con tensión: bolear con fuerza (palma en copa) para una "piel" exterior lisa y tensa. Colocar en lata con un toque mínimo suave en el centro (no aplastar).
+• Leudo en Inoxforni: 34 °C y 80% HR por 55–65 min. Horno a 175 °C por 12–13 min.
+• REGLA DEL TERMÓMETRO (cero moho en sedes): PROHIBIDO embolsar por tiempo. Clavar el termómetro de punzón en el centro del pan y SOLO EMBOLSAR cuando marque menos de 26 °C. Si entra caliente, la condensación crea moho verde a los 4 días.`,
+  ings: [
+    ["Harina Crema del Norte", 100], ["Gluten Vital (CIMPA)", 1.5],
+    ["Fécula de Papa (CIMPA)", 1], ["Dimodan HP SG (CIMPA)", 0.5],
+    ["Propionato de Calcio", 0.5], ["Glicerina USP (CIMPA)", 0.6],
+    ["Azúcar Blanco", 8], ["Margarina Industrial (Astra)", 10],
+    ["Leche en Polvo", 5], ["Sal Refinada", 2], ["Levadura Fresca", 2],
+    ["Líquido Total (Hielo + Agua Helada)", 57],
+  ].map(([name, pct]) => ({ name, pct })),
+};
+
+const SEED = [BASE, CIMPA];
+const clone = (r) => ({ ...r, ings: r.ings.map(i => ({ ...i })) });
 
 const fmt = (v, d = 0) =>
   (isFinite(v) ? v : 0).toLocaleString("es-CO", { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -33,15 +62,21 @@ function loadRecipes() {
     if (Array.isArray(r) && r.length) {
       // Migracion de la receta base: renombrar a "Formula base" y subir Agua 52% -> 57%
       // (solo si seguia en el default viejo, para no pisar un valor que el usuario haya cambiado)
-      return r.map(x => {
+      let out = r.map(x => {
         const isBase = x.id === "pan-perro-1" || x.id === "formula-base" || x.name === "Pan Perro #1";
         if (!isBase) return x;
         const ings = (x.ings || []).map(i => (i.name === "Agua" && num(i.pct) === 52) ? { ...i, pct: 57 } : i);
         return { ...x, id: "formula-base", name: "Fórmula base", ings };
       });
+      // Agregar "Formula CIMPA" una sola vez (si el usuario la borra, no vuelve)
+      let addedFlag = null;
+      try { addedFlag = localStorage.getItem("calcpan_cimpa_v1"); } catch { /* ignore */ }
+      if (!addedFlag && !out.some(x => x.id === "formula-cimpa")) out = [...out, clone(CIMPA)];
+      try { localStorage.setItem("calcpan_cimpa_v1", "1"); } catch { /* ignore */ }
+      return out;
     }
   } catch { /* ignore */ }
-  return SEED.map(r => ({ ...r, ings: r.ings.map(i => ({ ...i })) }));
+  return SEED.map(clone);
 }
 function saveRecipes(list) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(list)); } catch { /* ignore */ }
@@ -82,6 +117,7 @@ export function CalculadoraPan({ onClose }) {
   const [drive, setDrive] = useState("units");
   const [driverUnits, setDriverUnits] = useState(320);
   const [driverFlour, setDriverFlour] = useState(0);
+  const [showInstr, setShowInstr] = useState(false);
   const [toast, setToast] = useState("");
 
   const sel = recipes.find(r => r.id === selId) || recipes[0];
@@ -95,6 +131,7 @@ export function CalculadoraPan({ onClose }) {
     setDriverUnits(sel.units || 320);
     setDriverFlour(0);
     setEdit(false);
+    setShowInstr(false);
   }, [selId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const R = useMemo(() => sel ? compute(sel, drive, driverUnits, driverFlour) : null, [sel, drive, driverUnits, driverFlour]);
@@ -112,7 +149,7 @@ export function CalculadoraPan({ onClose }) {
   const setTotal = (v) => { setDrive("flour"); setDriverFlour(num(v) * 100 / R.SUM); };
 
   const newRecipe = () => {
-    const r = { id: uid(), name: "Nueva receta", wfinal: 80, merma: 15, round: 5, units: 100, ings: [{ name: "Harina", pct: 100 }] };
+    const r = { id: uid(), name: "Nueva receta", wfinal: 80, merma: 15, round: 5, units: 100, instr: "", ings: [{ name: "Harina", pct: 100 }] };
     setRecipes(rs => [...rs, r]); setSelId(r.id); setEdit(true);
   };
   const dupRecipe = () => {
@@ -129,7 +166,8 @@ export function CalculadoraPan({ onClose }) {
 
   const copyRecipe = async () => {
     const txt = `${sel.name}\n${fmt(R.units)} unidades × ${fmt(R.w, R.r > 0 ? 0 : 1)} g\nMasa total: ${fmt(Math.round(R.total))} g\n\n` +
-      sel.ings.map((x, i) => `${x.name}: ${fmt(R.grams[i])} g (${fmt(num(x.pct), num(x.pct) % 1 ? 1 : 0)}%)`).join("\n");
+      sel.ings.map((x, i) => `${x.name}: ${fmt(R.grams[i])} g (${fmt(num(x.pct), num(x.pct) % 1 ? 1 : 0)}%)`).join("\n") +
+      (sel.instr && sel.instr.trim() ? `\n\n— Instrucciones —\n${sel.instr}` : "");
     try { await navigator.clipboard.writeText(txt); setToast("Receta copiada"); }
     catch { setToast("No se pudo copiar"); }
     setTimeout(() => setToast(""), 2500);
@@ -258,6 +296,32 @@ export function CalculadoraPan({ onClose }) {
             <p style={{ fontSize: 13, color: C.gold, fontWeight: 600, margin: "6px 0 0" }}>
               Salen {fmt(R.units)} panes de {fmt(R.w, R.r > 0 ? 0 : 1)} g y sobran {fmt(Math.round(R.left))} g de masa.
             </p>
+          )}
+
+          {(edit || (sel.instr && sel.instr.trim())) && (
+            <div style={{ marginTop: 18 }}>
+              <div style={sect}>Instrucciones / método</div>
+              {edit ? (
+                <textarea
+                  value={sel.instr || ""}
+                  onChange={e => patchRecipe({ instr: e.target.value })}
+                  rows={12}
+                  placeholder="Paso a paso, reglas de bodega, empaque, etc."
+                  style={{ ...inp, textAlign: "left", fontFamily: "'Poppins',sans-serif", fontWeight: 400, fontSize: 13, lineHeight: 1.5, resize: "vertical", minHeight: 160 }}
+                />
+              ) : (
+                <>
+                  <button style={btn} onClick={() => setShowInstr(s => !s)}>
+                    {showInstr ? "▲ Ocultar instrucciones" : "📋 Ver instrucciones"}
+                  </button>
+                  {showInstr && (
+                    <div style={{ marginTop: 10, whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.55, color: C.ink, background: C.cream, border: `1px solid ${C.line}`, borderRadius: 10, padding: "12px 14px" }}>
+                      {sel.instr}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           )}
 
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 18 }}>
