@@ -34,6 +34,7 @@ const DocumentsPanel   = dynamic(() => import("@/components/DocumentsPanel").the
 const SuppliesPanel    = dynamic(() => import("@/components/SuppliesPanel").then(m => ({ default: m.SuppliesPanel })), { ssr: false });
 const CostingPanel     = dynamic(() => import("@/components/CostingPanel").then(m => ({ default: m.CostingPanel })), { ssr: false });
 const Calculadora3D    = dynamic(() => import("@/components/Calculadora3D").then(m => ({ default: m.Calculadora3D })), { ssr: false });
+const CalculadoraPan   = dynamic(() => import("@/components/CalculadoraPan").then(m => ({ default: m.CalculadoraPan })), { ssr: false });
 const ChefAssistant    = dynamic(() => import("@/components/ChefAssistant").then(m => ({ default: m.ChefAssistant })), { ssr: false });
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useLang, LangProvider } from "@/lib/LangContext";
@@ -86,6 +87,7 @@ export default function App() {
   const [showSupplies, setShowSupplies] = useState(false);
   const [showCosting, setShowCosting] = useState(false);
   const [showCalc3D, setShowCalc3D] = useState(false);
+  const [showCalcPan, setShowCalcPan] = useState(false);
   const [showBannerConfig, setShowBannerConfig] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importPreview, setImportPreview] = useState(null);  // { recipes, fileName }
@@ -894,6 +896,22 @@ export default function App() {
                   Bambu A1
                 </button>
               </div>
+              <button
+                onClick={() => setShowCalcPan(true)}
+                style={{
+                  width:"100%", marginTop:"6px", display:"flex", alignItems:"center", justifyContent:"center", gap:"6px",
+                  background:"rgba(212,114,26,0.18)",
+                  border:"1.5px solid rgba(212,114,26,0.35)", borderRadius:"10px",
+                  color:"#fff", padding:"9px 10px", cursor:"pointer",
+                  fontSize:"12px", fontWeight:"700", fontFamily:"Georgia,serif",
+                  transition:"all 0.2s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(212,114,26,0.32)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(212,114,26,0.18)"; }}
+              >
+                <span style={{ fontSize:"14px" }}>🍞</span>
+                Calculadora de Masas
+              </button>
             </div>
 
             {canSeeBodega && (
@@ -1161,6 +1179,9 @@ export default function App() {
         )}
         {showSupplies && isAdmin && (
           <SuppliesPanel onClose={()=>setShowSupplies(false)} />
+        )}
+        {showCalcPan && (
+          <CalculadoraPan onClose={()=>setShowCalcPan(false)} />
         )}
         {showCalc3D && (
           <Calculadora3D onClose={()=>setShowCalc3D(false)} />
