@@ -17,7 +17,7 @@ const SEED = [{
   wfinal: 80, merma: 15, round: 5, units: 300,
   ings: [
     ["Harina", 100], ["Azúcar", 8], ["Margarina", 10], ["Sal", 2],
-    ["Levadura", 2], ["Leche en polvo", 5], ["Agua", 52], ["Propionato", 0.5],
+    ["Levadura", 2], ["Leche en polvo", 5], ["Agua", 57], ["Propionato", 0.5],
   ].map(([name, pct]) => ({ name, pct })),
 }];
 
@@ -31,9 +31,14 @@ function loadRecipes() {
     const raw = localStorage.getItem(STORE_KEY);
     const r = raw ? JSON.parse(raw) : null;
     if (Array.isArray(r) && r.length) {
-      // Migracion: la receta semilla vieja pasa a llamarse "Formula base"
-      return r.map(x => (x.id === "pan-perro-1" || x.name === "Pan Perro #1")
-        ? { ...x, id: "formula-base", name: "Fórmula base" } : x);
+      // Migracion de la receta base: renombrar a "Formula base" y subir Agua 52% -> 57%
+      // (solo si seguia en el default viejo, para no pisar un valor que el usuario haya cambiado)
+      return r.map(x => {
+        const isBase = x.id === "pan-perro-1" || x.id === "formula-base" || x.name === "Pan Perro #1";
+        if (!isBase) return x;
+        const ings = (x.ings || []).map(i => (i.name === "Agua" && num(i.pct) === 52) ? { ...i, pct: 57 } : i);
+        return { ...x, id: "formula-base", name: "Fórmula base", ings };
+      });
     }
   } catch { /* ignore */ }
   return SEED.map(r => ({ ...r, ings: r.ings.map(i => ({ ...i })) }));
