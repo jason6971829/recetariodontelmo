@@ -12,8 +12,8 @@ import { useState, useEffect, useMemo } from "react";
 const STORE_KEY = "calcpan_recipes_v1";
 
 const SEED = [{
-  id: "pan-perro-1",
-  name: "Pan Perro #1",
+  id: "formula-base",
+  name: "Fórmula base",
   wfinal: 80, merma: 15, round: 5, units: 320,
   ings: [
     ["Harina", 100], ["Azúcar", 8], ["Margarina", 10], ["Sal", 2],
@@ -30,7 +30,11 @@ function loadRecipes() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
     const r = raw ? JSON.parse(raw) : null;
-    if (Array.isArray(r) && r.length) return r;
+    if (Array.isArray(r) && r.length) {
+      // Migracion: la receta semilla vieja pasa a llamarse "Formula base"
+      return r.map(x => (x.id === "pan-perro-1" || x.name === "Pan Perro #1")
+        ? { ...x, id: "formula-base", name: "Fórmula base" } : x);
+    }
   } catch { /* ignore */ }
   return SEED.map(r => ({ ...r, ings: r.ings.map(i => ({ ...i })) }));
 }
