@@ -14,10 +14,32 @@ const STORE_KEY = "calcpan_recipes_v1";
 const BASE = {
   id: "formula-base",
   name: "Fórmula base",
-  wfinal: 80, merma: 15, round: 5, units: 300, instr: "",
+  wfinal: 80, merma: 15, round: 5, units: 300,
+  instr: `ESTANDARIZACIÓN FÓRMULA BASE: formulación técnica oficial para 300 unidades de 95 g en crudo (80 g horneados), hidratación corregida al 57,0% sobre Harina Crema del Norte, método estricto de mezcla por fases (margarina y sal de últimas) y control térmico.
+
+PUNTO DE ADICIÓN EN LA AMASADORA
+• En seco (Vel 1) al tazón con la harina: Propionato, Leche y Azúcar.
+• Levadura fresca: desmenuzar sobre los secos (Vel 1).
+• Líquido total: 4.402 g hielo picado + 4.403 g agua helada.
+• Margarina Astra y Sal: DE ÚLTIMO, al pasar a Velocidad 2.
+
+PASO A PASO
+Paso 1 — Homogeneización de polvos secos (Vel 1, 2 min): harina crema del norte (15,45 kg), propionato (77 g), leche en polvo (772 g), azúcar (1,24 kg) y levadura desmenuzada (309 g). Encender Vel 1 por 2 min para mezclar uniformemente los secos.
+Paso 2 — Pre-hidratación y control de temperatura (Vel 1, 3–4 min): pesar 8.805 g de líquido total divididos en 4.402 g de hielo picado y 4.403 g de agua helada (temp ≤ 4 °C). Agregar el hielo picado directo sobre los secos y verter el agua helada en hilo continuo mientras gira en Vel 1, hasta que la harina absorba el 100% de la humedad libre.
+Paso 3 — Incorporación de grasa y sal (regla de oro de las últimas): una vez la masa tome consistencia firme y no quede harina suelta, incorporar de últimas 1.545 g de margarina Astra y 309 g de sal refinada. La sal y la grasa no entran al inicio para no inhibir la levadura ni impermeabilizar las proteínas antes de que absorban el agua.
+Paso 4 — Desarrollo de gluten y membrana (Vel 2, 8–10 min): pasar a Vel 2 y amasar hasta desarrollar el gluten al 100%, logrando una membrana/pantalla transparente elástica perfecta (Punto de Tela) que estire sin agrietarse. Temperatura final de masa: 23–25 °C máx.
+Paso 5 — Pesaje y división mecánica (10 bloques de 2.850 g): pesar 10 bloques exactos de 2.850 g. Pasar cada bloque por la divisora de 30 partes → 30 testos de 95 g crudo por bloque (300 panes en total).
+
+REGLAS OBLIGATORIAS (bodega, horno y control de moho)
+• Boleado apretado con tensión: bolear con presión (palma en copa) para una "piel" exterior lisa y muy tensa. Colocar en lata y dar un solo toque suave en el centro (prohibido aplastar duro, para garantizar crecimiento vertical).
+• Leudo en cámara Inoxforni: 34 °C y 80% HR por 55–65 min, hasta duplicar volumen.
+• Horneado: 170–175 °C por 12–13 min (inyectar 2–3 segundos de vapor al entrar). Al salir, el centro debe marcar 93–96 °C. Dar un golpe firme a la lata contra la mesa para evitar encogimiento.
+• REGLA DEL TERMÓMETRO (cero moho): PROHIBIDO embolsar por tiempo o reloj. Clavar el termómetro de punzón en el centro del pan y SOLO EMBOLSAR cuando marque menos de 26 °C. Si entra caliente a la bolsa, la condensación crea moho verde en 4 días.`,
   ings: [
-    ["Harina", 100], ["Azúcar", 8], ["Margarina", 10], ["Sal", 2],
-    ["Levadura", 2], ["Leche en polvo", 5], ["Agua", 57], ["Propionato", 0.5],
+    ["Harina Crema del Norte", 100], ["Propionato de Calcio", 0.5],
+    ["Leche en Polvo", 5], ["Azúcar Blanco", 8], ["Levadura Fresca", 2],
+    ["Líquido Total (Hielo + Agua)", 57], ["Margarina Industrial (Astra)", 10],
+    ["Sal Refinada", 2],
   ].map(([name, pct]) => ({ name, pct })),
 };
 
@@ -90,6 +112,15 @@ function loadRecipes() {
           ? { ...x, ings: CIMPA.ings.map(i => ({ ...i })), instr: CIMPA.instr }
           : x);
         try { localStorage.setItem("calcpan_cimpa_rev2", "1"); } catch { /* ignore */ }
+      }
+      // rev2 base: actualizar la Formula base a la ficha oficial (orden + instrucciones), una sola vez
+      let baseRev = null;
+      try { baseRev = localStorage.getItem("calcpan_base_rev2"); } catch { /* ignore */ }
+      if (!baseRev) {
+        out = out.map(x => x.id === "formula-base"
+          ? { ...x, ings: BASE.ings.map(i => ({ ...i })), instr: BASE.instr }
+          : x);
+        try { localStorage.setItem("calcpan_base_rev2", "1"); } catch { /* ignore */ }
       }
       return out;
     }
