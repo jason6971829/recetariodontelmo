@@ -38,7 +38,7 @@ REGLAS OBLIGATORIAS (bodega, horno y control de moho)
   ings: [
     ["Harina Crema del Norte", 100], ["Propionato de Calcio", 0.5],
     ["Leche en Polvo", 5], ["Azúcar Blanco", 8], ["Levadura Fresca", 2],
-    ["Líquido Total (Hielo + Agua)", 57], ["Margarina Industrial (Astra)", 10],
+    ["Líquido Total (Hielo + Agua)", 60.2], ["Margarina Industrial (Astra)", 10],
     ["Sal Refinada", 2],
   ].map(([name, pct]) => ({ name, pct })),
 };
@@ -73,7 +73,7 @@ REGLAS OBLIGATORIAS (bodega, horno y control de moho)
     ["Fécula de Papa (CIMPA)", 1], ["Dimodan HP SG (CIMPA)", 0.5],
     ["Propionato de Calcio", 0.5], ["Leche en Polvo", 5],
     ["Azúcar Blanco", 8], ["Levadura Fresca", 2],
-    ["Glicerina USP (CIMPA)", 0.6], ["Líquido Total (Hielo + Agua)", 57],
+    ["Glicerina USP (CIMPA)", 0.6], ["Líquido Total (Hielo + Agua)", 60.3],
     ["Margarina Industrial (Astra)", 10], ["Sal Refinada", 2],
   ].map(([name, pct]) => ({ name, pct })),
 };
@@ -121,6 +121,17 @@ function loadRecipes() {
           ? { ...x, ings: BASE.ings.map(i => ({ ...i })), instr: BASE.instr }
           : x);
         try { localStorage.setItem("calcpan_base_rev2", "1"); } catch { /* ignore */ }
+      }
+      // Correccion de hidratacion: +500 g de agua => CIMPA 60,3% y base 60,2% (una sola vez)
+      let waterRev = null;
+      try { waterRev = localStorage.getItem("calcpan_water_rev1"); } catch { /* ignore */ }
+      if (!waterRev) {
+        out = out.map(x => {
+          if (x.id !== "formula-base" && x.id !== "formula-cimpa") return x;
+          const target = x.id === "formula-cimpa" ? 60.3 : 60.2;
+          return { ...x, ings: (x.ings || []).map(i => String(i.name).startsWith("Líquido Total") ? { ...i, pct: target } : i) };
+        });
+        try { localStorage.setItem("calcpan_water_rev1", "1"); } catch { /* ignore */ }
       }
       return out;
     }
