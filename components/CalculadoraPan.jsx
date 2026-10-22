@@ -15,17 +15,17 @@ const BASE = {
   id: "formula-base",
   name: "Fórmula base",
   wfinal: 80, merma: 15, round: 5, units: 300,
-  instr: `ESTANDARIZACIÓN FÓRMULA BASE: formulación técnica oficial para 300 unidades de 95 g en crudo (80 g horneados), hidratación corregida al 57,0% sobre Harina Crema del Norte, método estricto de mezcla por fases (margarina y sal de últimas) y control térmico.
+  instr: `ESTANDARIZACIÓN FÓRMULA BASE: formulación técnica oficial para 300 unidades de 95 g en crudo (80 g horneados), hidratación corregida al 58,0% sobre Harina Crema del Norte, método estricto de mezcla por fases (margarina y sal de últimas) y control térmico.
 
 PUNTO DE ADICIÓN EN LA AMASADORA
 • En seco (Vel 1) al tazón con la harina: Propionato, Leche y Azúcar.
 • Levadura fresca: desmenuzar sobre los secos (Vel 1).
-• Líquido total: 4.402 g hielo picado + 4.403 g agua helada.
+• Líquido total: 4.480 g hielo picado + 4.480 g agua helada.
 • Margarina Astra y Sal: DE ÚLTIMO, al pasar a Velocidad 2.
 
 PASO A PASO
 Paso 1 — Homogeneización de polvos secos (Vel 1, 2 min): harina crema del norte (15,45 kg), propionato (77 g), leche en polvo (772 g), azúcar (1,24 kg) y levadura desmenuzada (309 g). Encender Vel 1 por 2 min para mezclar uniformemente los secos.
-Paso 2 — Pre-hidratación y control de temperatura (Vel 1, 3–4 min): pesar 8.805 g de líquido total divididos en 4.402 g de hielo picado y 4.403 g de agua helada (temp ≤ 4 °C). Agregar el hielo picado directo sobre los secos y verter el agua helada en hilo continuo mientras gira en Vel 1, hasta que la harina absorba el 100% de la humedad libre.
+Paso 2 — Pre-hidratación y control de temperatura (Vel 1, 3–4 min): pesar 8.960 g de líquido total divididos en 4.480 g de hielo picado y 4.480 g de agua helada (temp ≤ 4 °C). Agregar el hielo picado directo sobre los secos y verter el agua helada en hilo continuo mientras gira en Vel 1, hasta que la harina absorba el 100% de la humedad libre.
 Paso 3 — Incorporación de grasa y sal (regla de oro de las últimas): una vez la masa tome consistencia firme y no quede harina suelta, incorporar de últimas 1.545 g de margarina Astra y 309 g de sal refinada. La sal y la grasa no entran al inicio para no inhibir la levadura ni impermeabilizar las proteínas antes de que absorban el agua.
 Paso 4 — Desarrollo de gluten y membrana (Vel 2, 8–10 min): pasar a Vel 2 y amasar hasta desarrollar el gluten al 100%, logrando una membrana/pantalla transparente elástica perfecta (Punto de Tela) que estire sin agrietarse. Temperatura final de masa: 23–25 °C máx.
 Paso 5 — Pesaje y división mecánica (10 bloques de 2.850 g): pesar 10 bloques exactos de 2.850 g. Pasar cada bloque por la divisora de 30 partes → 30 testos de 95 g crudo por bloque (300 panes en total).
@@ -38,7 +38,7 @@ REGLAS OBLIGATORIAS (bodega, horno y control de moho)
   ings: [
     ["Harina Crema del Norte", 100], ["Propionato de Calcio", 0.5],
     ["Leche en Polvo", 5], ["Azúcar Blanco", 8], ["Levadura Fresca", 2],
-    ["Líquido Total (Hielo + Agua)", 60.2], ["Margarina Industrial (Astra)", 10],
+    ["Líquido Total (Hielo + Agua)", 58], ["Margarina Industrial (Astra)", 10],
     ["Sal Refinada", 2],
   ].map(([name, pct]) => ({ name, pct })),
 };
@@ -47,18 +47,18 @@ const CIMPA = {
   id: "formula-cimpa",
   name: "Fórmula CIMPA",
   wfinal: 80, merma: 15, round: 5, units: 300,
-  instr: `FORMULACIÓN DEFINITIVA ESTANDARIZADA: ajustada para 300 panes de 95 g en crudo (80 g horneados), hidratación 57,0% sobre Harina Crema del Norte, con aditivos CIMPA.
+  instr: `FORMULACIÓN DEFINITIVA ESTANDARIZADA: ajustada para 300 panes de 95 g en crudo (80 g horneados), hidratación 58,0% sobre Harina Crema del Norte, con aditivos CIMPA.
 
 PUNTO DE ADICIÓN EN LA AMASADORA
 • En seco (Vel 1) con la harina: Gluten, Fécula, Dimodan, Propionato, Leche y Azúcar.
 • Levadura fresca: desmenuzar sobre los secos (Vel 1).
 • Glicerina: disolver dentro del agua helada.
-• Líquido total: 4.318 g hielo picado seco + 4.318 g agua con glicerina.
+• Líquido total: 4.394 g hielo picado seco + 4.394 g agua con glicerina.
 • Margarina Astra y Sal: DE ÚLTIMO, al iniciar Velocidad 2.
 
 PASO A PASO
 Paso 1 — Mezclado en seco (Vel 1, 2 min): harina, gluten, fécula, Dimodan, propionato, leche, azúcar y levadura desmenuzada. Encender Vel 1 por 2 min para homogeneizar los polvos.
-Paso 2 — Pre-hidratación y control de temperatura (Vel 1, 3–4 min): disolver 91 g de glicerina en 4.318 g de agua helada. Agregar 4.318 g de hielo picado directo sobre los secos y verter el agua helada con glicerina en hilo continuo mientras gira en Vel 1, hasta que la harina absorba toda la humedad.
+Paso 2 — Pre-hidratación y control de temperatura (Vel 1, 3–4 min): disolver 91 g de glicerina en 4.394 g de agua helada. Agregar 4.394 g de hielo picado directo sobre los secos y verter el agua helada con glicerina en hilo continuo mientras gira en Vel 1, hasta que la harina absorba toda la humedad.
 Paso 3 — Incorporación de grasa y sal (regla de oro de las últimas): con la masa ya con cuerpo y pre-estructura (sin polvo libre), agregar 1.515 g de margarina Astra y 303 g de sal refinada. La sal y la margarina van de últimas para no frenar la levadura ni impermeabilizar las proteínas antes de absorber el agua.
 Paso 4 — Desarrollo de gluten y membrana (Vel 2, 8–10 min): amasar vigorosamente hasta una membrana/pantalla transparente elástica perfecta (Punto de Tela 100%) que estire sin romperse. Temperatura final de masa: 23–25 °C máx.
 Paso 5 — División mecánica (10 bloques de 2.850 g): pesar 10 bloques exactos de 2.850 g. Pasar cada bloque por la divisora de 30 partes → 30 testos de 95 g crudo por bloque (300 panes en total).
@@ -73,7 +73,7 @@ REGLAS OBLIGATORIAS (bodega, horno y control de moho)
     ["Fécula de Papa (CIMPA)", 1], ["Dimodan HP SG (CIMPA)", 0.5],
     ["Propionato de Calcio", 0.5], ["Leche en Polvo", 5],
     ["Azúcar Blanco", 8], ["Levadura Fresca", 2],
-    ["Glicerina USP (CIMPA)", 0.6], ["Líquido Total (Hielo + Agua)", 60.3],
+    ["Glicerina USP (CIMPA)", 0.6], ["Líquido Total (Hielo + Agua)", 58],
     ["Margarina Industrial (Astra)", 10], ["Sal Refinada", 2],
   ].map(([name, pct]) => ({ name, pct })),
 };
@@ -122,16 +122,21 @@ function loadRecipes() {
           : x);
         try { localStorage.setItem("calcpan_base_rev2", "1"); } catch { /* ignore */ }
       }
-      // Correccion de hidratacion: +500 g de agua => CIMPA 60,3% y base 60,2% (una sola vez)
+      // Correccion de hidratacion rev2: Liquido Total = 58% en ambas formulas (una sola vez).
+      // Reemplaza la rev1 (60,3% / 60,2%); tambien refresca las instrucciones con la hidratacion nueva.
       let waterRev = null;
-      try { waterRev = localStorage.getItem("calcpan_water_rev1"); } catch { /* ignore */ }
+      try { waterRev = localStorage.getItem("calcpan_water_rev2"); } catch { /* ignore */ }
       if (!waterRev) {
         out = out.map(x => {
           if (x.id !== "formula-base" && x.id !== "formula-cimpa") return x;
-          const target = x.id === "formula-cimpa" ? 60.3 : 60.2;
-          return { ...x, ings: (x.ings || []).map(i => String(i.name).startsWith("Líquido Total") ? { ...i, pct: target } : i) };
+          const seed = x.id === "formula-cimpa" ? CIMPA : BASE;
+          return {
+            ...x,
+            instr: seed.instr,
+            ings: (x.ings || []).map(i => String(i.name).startsWith("Líquido Total") ? { ...i, pct: 58 } : i),
+          };
         });
-        try { localStorage.setItem("calcpan_water_rev1", "1"); } catch { /* ignore */ }
+        try { localStorage.setItem("calcpan_water_rev2", "1"); } catch { /* ignore */ }
       }
       return out;
     }
