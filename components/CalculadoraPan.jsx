@@ -46,7 +46,7 @@ REGLAS OBLIGATORIAS (bodega, horno y control de moho)
 
 const CIMPA = {
   id: "formula-cimpa",
-  name: "Pan Burger",
+  name: "Fórmula CIMPA",
   wfinal: 80, merma: 15, round: 5, units: 200,
   instr: `FORMULACIÓN DEFINITIVA ESTANDARIZADA: ajustada para {unidades} panes de {peso} g en crudo ({final} g horneados), hidratación {hidratacion}% sobre Harina Crema del Norte, con aditivos CIMPA.
 
@@ -180,6 +180,13 @@ function loadRecipes() {
       if (!baseRestore) {
         if (!out.some(x => x.id === "formula-base")) out = [clone(BASE), ...out];
         try { localStorage.setItem("calcpan_base_restore_v1", "1"); } catch { /* ignore */ }
+      }
+      // Volver al nombre "Formula CIMPA" (el pan a producir ahora va en su propio campo), una sola vez
+      let cimpaName = null;
+      try { cimpaName = localStorage.getItem("calcpan_cimpa_name_v2"); } catch { /* ignore */ }
+      if (!cimpaName) {
+        out = out.map(x => x.id === "formula-cimpa" && x.name === "Pan Burger" ? { ...x, name: CIMPA.name } : x);
+        try { localStorage.setItem("calcpan_cimpa_name_v2", "1"); } catch { /* ignore */ }
       }
       return out;
     }
@@ -358,7 +365,7 @@ export function CalculadoraPan({ onClose }) {
   };
 
   const copyRecipe = async () => {
-    const txt = `${sel.name}\n${fmt(R.units)} unidades × ${fmt(R.w, R.r > 0 ? 0 : 1)} g\nMasa total: ${fmt(Math.round(R.total))} g\n\n` +
+    const txt = `${sel.name}${sel.pan && sel.pan.trim() ? " — " + sel.pan.trim() : ""}\n${fmt(R.units)} unidades × ${fmt(R.w, R.r > 0 ? 0 : 1)} g\nMasa total: ${fmt(Math.round(R.total))} g\n\n` +
       sel.ings.map((x, i) => `${x.name}: ${fmt(R.grams[i])} g (${fmt(num(x.pct), num(x.pct) % 1 ? 1 : 0)}%)`).join("\n") +
       (sel.instr && sel.instr.trim() ? `\n\n— Instrucciones —\n${renderInstr(sel.instr, sel, R)}` : "");
     try { await navigator.clipboard.writeText(txt); setToast("Receta copiada"); }
@@ -418,7 +425,16 @@ export function CalculadoraPan({ onClose }) {
             </div>
           )}
 
-          <div style={sect}>Lote</div>
+          <div style={{ ...sect, display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
+            <span style={{ paddingBottom: 2 }}>Lote</span>
+            <input
+              aria-label="Pan a producir"
+              placeholder="Pan a producir (ej. Pan burger)"
+              value={sel.pan || ""}
+              onChange={e => patchRecipe({ pan: e.target.value })}
+              style={{ ...inp, textAlign: "left", width: "auto", flex: "0 1 60%", minWidth: 0, padding: "6px 10px", fontSize: 14, letterSpacing: 0, textTransform: "none", fontFamily: "'Poppins',sans-serif", marginBottom: 6 }}
+            />
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
             <label style={lbl}>Unidades
               <NumInput inputMode="numeric" min="0" step="1" style={drive === "units" ? inpDrive : inp} value={R.units} onChange={v => setUnits(v)} />
