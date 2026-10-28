@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 
 // Calculadora de porcentaje panadero — herramienta independiente.
 // Harina = 100%. Reglas:
@@ -254,6 +255,21 @@ const sect = { fontFamily: "Georgia, serif", fontSize: 11, fontWeight: 700, lett
 const btn = { border: `1.5px solid ${C.line}`, background: "#fff", color: C.ink, font: "inherit", fontWeight: 700, fontSize: 12, padding: "7px 12px", borderRadius: 8, cursor: "pointer" };
 const btnGold = { ...btn, background: C.gold, borderColor: C.gold, color: "#fff" };
 
+// Impresion: solo se imprime la calculadora, tal cual se ve (sin botones), en paginas completas.
+// Las instrucciones salen solo si estan desplegadas ("Ver instrucciones").
+const PRINT_CSS = `
+@media print {
+  @page { margin: 10mm; }
+  html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
+  body > *:not(.calcpan-print-root) { display: none !important; }
+  .calcpan-print-root { position: static !important; background: #fff !important; padding: 0 !important; display: block !important; }
+  .calcpan-card { max-width: none !important; max-height: none !important; overflow: visible !important; box-shadow: none !important; border-radius: 0 !important; }
+  .calcpan-body { overflow: visible !important; }
+  .calcpan-noprint { display: none !important; }
+  .calcpan-print-root * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .calcpan-print-root tr { break-inside: avoid; }
+}`;
+
 // Input numerico que, mientras se edita, muestra lo que el usuario escribe:
 // al borrar queda vacio (no "0") y se quitan los ceros a la izquierda ("05" -> "5").
 function NumInput({ value, onChange, ...props }) {
@@ -321,6 +337,7 @@ export function CalculadoraPan({ onClose }) {
     const r = { ...sel, id: uid(), name: sel.name + " (copia)", ings: sel.ings.map(x => ({ ...x })) };
     setRecipes(rs => [...rs, r]); setSelId(r.id);
   };
+  const printRecipe = () => { setConfirmDel(false); setTimeout(() => window.print(), 50); };
   const delRecipe = () => {
     setConfirmDel(false);
     setRecipes(rs => {
@@ -346,9 +363,10 @@ export function CalculadoraPan({ onClose }) {
     </div>
   );
 
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(10,15,25,0.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 680, maxHeight: "92vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 30px 80px rgba(0,0,0,0.5)", fontFamily: "'Poppins',sans-serif" }}>
+  return createPortal(
+    <div className="calcpan-print-root" style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(10,15,25,0.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }}>
+      <style>{PRINT_CSS}</style>
+      <div className="calcpan-card" style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 680, maxHeight: "92vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 30px 80px rgba(0,0,0,0.5)", fontFamily: "'Poppins',sans-serif" }}>
         {/* Header */}
         <div style={{ background: `linear-gradient(135deg, ${C.navy}, ${C.navyD})`, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
           <div>
@@ -356,7 +374,7 @@ export function CalculadoraPan({ onClose }) {
             <div style={{ color: "#fff", fontFamily: "Georgia,serif", fontSize: 18, fontWeight: 700, marginTop: 3 }}>🍞 Calculadora de Masas</div>
             <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginTop: 2 }}>Porcentaje panadero · harina = 100%</div>
           </div>
-          <button onClick={onClose} title="Cerrar" style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, color: "#fff", width: 36, height: 36, cursor: "pointer", fontSize: 20, flexShrink: 0 }}>×</button>
+          <button className="calcpan-noprint" onClick={onClose} title="Cerrar" style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, color: "#fff", width: 36, height: 36, cursor: "pointer", fontSize: 20, flexShrink: 0 }}>×</button>
         </div>
 
         {/* Selector de receta */}
@@ -364,13 +382,14 @@ export function CalculadoraPan({ onClose }) {
           <select value={selId} onChange={e => { setSelId(e.target.value); setConfirmDel(false); }} style={{ ...inp, textAlign: "left", width: "auto", flex: 1, minWidth: 140, fontWeight: 700 }}>
             {recipes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
-          <button style={btn} onClick={newRecipe}>+ Nueva</button>
-          <button style={btn} onClick={dupRecipe}>Duplicar</button>
-          <button style={{ ...btn, color: "#c0392b", borderColor: "#e8c5bf" }} onClick={() => setConfirmDel(true)}>Borrar</button>
-          <button style={edit ? btnGold : btn} onClick={() => setEdit(e => !e)}>{edit ? "Listo ✓" : "✏️ Editar fórmula"}</button>
+          <button className="calcpan-noprint" style={btn} onClick={printRecipe}>🖨️ Imprimir</button>
+          <button className="calcpan-noprint" style={btn} onClick={newRecipe}>+ Nueva</button>
+          <button className="calcpan-noprint" style={btn} onClick={dupRecipe}>Duplicar</button>
+          <button className="calcpan-noprint" style={{ ...btn, color: "#c0392b", borderColor: "#e8c5bf" }} onClick={() => setConfirmDel(true)}>Borrar</button>
+          <button className="calcpan-noprint" style={edit ? btnGold : btn} onClick={() => setEdit(e => !e)}>{edit ? "Listo ✓" : "✏️ Editar fórmula"}</button>
         </div>
         {confirmDel && (
-          <div role="alertdialog" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "12px 20px", background: "#FDECEA", borderBottom: "1.5px solid #e8c5bf", flexShrink: 0 }}>
+          <div className="calcpan-noprint" role="alertdialog" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "12px 20px", background: "#FDECEA", borderBottom: "1.5px solid #e8c5bf", flexShrink: 0 }}>
             <span style={{ flex: 1, minWidth: 180, fontSize: 13, fontWeight: 600, color: "#8e2b20" }}>
               ⚠️ ¿Seguro que querés borrar «{sel?.name}»? No se puede deshacer.
             </span>
@@ -380,7 +399,7 @@ export function CalculadoraPan({ onClose }) {
         )}
 
         {/* Body */}
-        <div style={{ overflowY: "auto", flex: 1, padding: "16px 20px 24px", background: "#fff" }}>
+        <div className="calcpan-body" style={{ overflowY: "auto", flex: 1, padding: "16px 20px 24px", background: "#fff" }}>
           {edit && (
             <div style={{ gridColumn: "1/-1" }}>
               <label style={{ ...lbl, marginBottom: 12 }}>Nombre de la receta
@@ -474,7 +493,7 @@ export function CalculadoraPan({ onClose }) {
           )}
 
           {(edit || (sel.instr && sel.instr.trim())) && (
-            <div style={{ marginTop: 18 }}>
+            <div className={!edit && !showInstr ? "calcpan-noprint" : undefined} style={{ marginTop: 18 }}>
               <div style={sect}>Instrucciones / método</div>
               {edit ? (<>
                 <textarea
@@ -489,7 +508,7 @@ export function CalculadoraPan({ onClose }) {
                 </p>
               </>) : (
                 <>
-                  <button style={btn} onClick={() => setShowInstr(s => !s)}>
+                  <button className="calcpan-noprint" style={btn} onClick={() => setShowInstr(s => !s)}>
                     {showInstr ? "▲ Ocultar instrucciones" : "📋 Ver instrucciones"}
                   </button>
                   {showInstr && (
@@ -502,12 +521,13 @@ export function CalculadoraPan({ onClose }) {
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 18 }}>
+          <div className="calcpan-noprint" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 18 }}>
             <button style={btnGold} onClick={copyRecipe}>Copiar receta</button>
             {toast && <span style={{ fontSize: 13, color: C.navy, fontWeight: 600 }}>{toast}</span>}
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
