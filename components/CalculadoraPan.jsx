@@ -257,13 +257,16 @@ const btnGold = { ...btn, background: C.gold, borderColor: C.gold, color: "#fff"
 
 // Impresion: solo se imprime la calculadora, tal cual se ve (sin botones), en paginas completas.
 // Las instrucciones salen solo si estan desplegadas ("Ver instrucciones").
+const CHECK_COLS = 6;
 const PRINT_CSS = `
+.calcpan-printonly { display: none; }
 @media print {
-  @page { margin: 10mm; }
+  .calcpan-printonly { display: table-cell !important; }
+  @page { size: letter portrait; margin: 10mm; }
   html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
   body > *:not(.calcpan-print-root) { display: none !important; }
   .calcpan-print-root { position: static !important; background: #fff !important; padding: 0 !important; display: block !important; }
-  .calcpan-card { max-width: none !important; max-height: none !important; overflow: visible !important; box-shadow: none !important; border-radius: 0 !important; }
+  .calcpan-card { width: 100% !important; max-width: none !important; max-height: none !important; overflow: visible !important; box-shadow: none !important; border-radius: 0 !important; }
   .calcpan-body { overflow: visible !important; }
   .calcpan-noprint { display: none !important; }
   .calcpan-print-root * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -442,6 +445,9 @@ export function CalculadoraPan({ onClose }) {
                   <th style={{ textAlign: "right", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#9a8a7e", padding: "6px 4px", borderBottom: `1px solid ${C.line}`, width: 70 }}>%</th>
                   <th style={{ textAlign: "right", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#9a8a7e", padding: "6px 4px", borderBottom: `1px solid ${C.line}`, width: 130 }}>Gramos</th>
                   {edit && <th style={{ width: 30, borderBottom: `1px solid ${C.line}` }} />}
+                  {Array.from({ length: CHECK_COLS }, (_, k) => (
+                    <th key={`chk-h-${k}`} className="calcpan-printonly" style={{ textAlign: "center", fontSize: 11, color: "#9a8a7e", padding: "6px 2px", borderBottom: `1px solid ${C.line}`, width: 28 }}>{k + 1}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -465,6 +471,11 @@ export function CalculadoraPan({ onClose }) {
                         <button onClick={() => delIng(i)} title="Quitar" style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 16 }}>×</button>
                       </td>
                     )}
+                    {Array.from({ length: CHECK_COLS }, (_, k) => (
+                      <td key={`chk-${k}`} className="calcpan-printonly" style={{ padding: "6px 2px", borderBottom: `1px solid #f0ebe5`, textAlign: "center" }}>
+                        <span style={{ display: "inline-block", width: 16, height: 16, border: `1.5px solid ${C.ink}`, borderRadius: 3 }} />
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
@@ -476,6 +487,9 @@ export function CalculadoraPan({ onClose }) {
                     <NumInput inputMode="numeric" min="0" step="1" style={{ ...inp, padding: "7px 8px" }} value={Math.round(R.total)} onChange={v => setTotal(v)} />
                   </td>
                   {edit && <td style={{ borderTop: `2px solid ${C.ink}` }} />}
+                  {Array.from({ length: CHECK_COLS }, (_, k) => (
+                    <td key={`chk-f-${k}`} className="calcpan-printonly" style={{ borderTop: `2px solid ${C.ink}` }} />
+                  ))}
                 </tr>
               </tfoot>
             </table>
