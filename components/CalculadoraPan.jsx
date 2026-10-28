@@ -276,6 +276,7 @@ const PRINT_CSS = `
 .calcpan-printonly { display: none; }
 @media print {
   .calcpan-printonly { display: table-cell !important; }
+  .calcpan-panname { font-size: 18px !important; font-weight: 700 !important; }
   @page { size: letter portrait; margin: 10mm; }
   html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
   body > *:not(.calcpan-print-root) { display: none !important; }
@@ -428,6 +429,7 @@ export function CalculadoraPan({ onClose }) {
           <div style={{ ...sect, display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
             <span style={{ paddingBottom: 2 }}>Lote</span>
             <input
+              className="calcpan-panname"
               aria-label="Pan a producir"
               placeholder="Pan a producir (ej. Pan burger)"
               value={sel.pan || ""}
