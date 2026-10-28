@@ -15,20 +15,20 @@ const BASE = {
   id: "formula-base",
   name: "Fórmula base",
   wfinal: 80, merma: 15, round: 5, units: 300,
-  instr: `ESTANDARIZACIÓN FÓRMULA BASE: formulación técnica oficial para 300 unidades de 95 g en crudo (80 g horneados), hidratación corregida al 57,0% sobre Harina Crema del Norte, método estricto de mezcla por fases (margarina y sal de últimas) y control térmico.
+  instr: `ESTANDARIZACIÓN FÓRMULA BASE: formulación técnica oficial para {unidades} unidades de {peso} g en crudo ({final} g horneados), hidratación al {hidratacion}% sobre Harina Crema del Norte, método estricto de mezcla por fases (margarina y sal de últimas) y control térmico.
 
 PUNTO DE ADICIÓN EN LA AMASADORA
 • En seco (Vel 1) al tazón con la harina: Propionato, Leche y Azúcar.
 • Levadura fresca: desmenuzar sobre los secos (Vel 1).
-• Líquido total: 4.402 g hielo picado + 4.403 g agua helada.
+• Líquido total: {hielo} g hielo picado + {agua} g agua helada.
 • Margarina Astra y Sal: DE ÚLTIMO, al pasar a Velocidad 2.
 
 PASO A PASO
-Paso 1 — Homogeneización de polvos secos (Vel 1, 2 min): harina crema del norte (15,45 kg), propionato (77 g), leche en polvo (772 g), azúcar (1,24 kg) y levadura desmenuzada (309 g). Encender Vel 1 por 2 min para mezclar uniformemente los secos.
-Paso 2 — Pre-hidratación y control de temperatura (Vel 1, 3–4 min): pesar 8.805 g de líquido total divididos en 4.402 g de hielo picado y 4.403 g de agua helada (temp ≤ 4 °C). Agregar el hielo picado directo sobre los secos y verter el agua helada en hilo continuo mientras gira en Vel 1, hasta que la harina absorba el 100% de la humedad libre.
-Paso 3 — Incorporación de grasa y sal (regla de oro de las últimas): una vez la masa tome consistencia firme y no quede harina suelta, incorporar de últimas 1.545 g de margarina Astra y 309 g de sal refinada. La sal y la grasa no entran al inicio para no inhibir la levadura ni impermeabilizar las proteínas antes de que absorban el agua.
+Paso 1 — Homogeneización de polvos secos (Vel 1, 2 min): harina crema del norte ({kg:Harina} kg), propionato ({g:Propionato} g), leche en polvo ({g:Leche} g), azúcar ({g:Azúcar} g) y levadura desmenuzada ({g:Levadura} g). Encender Vel 1 por 2 min para mezclar uniformemente los secos.
+Paso 2 — Pre-hidratación y control de temperatura (Vel 1, 3–4 min): pesar {g:Líquido Total} g de líquido total divididos en {hielo} g de hielo picado y {agua} g de agua helada (temp ≤ 4 °C). Agregar el hielo picado directo sobre los secos y verter el agua helada en hilo continuo mientras gira en Vel 1, hasta que la harina absorba el 100% de la humedad libre.
+Paso 3 — Incorporación de grasa y sal (regla de oro de las últimas): una vez la masa tome consistencia firme y no quede harina suelta, incorporar de últimas {g:Margarina} g de margarina Astra y {g:Sal} g de sal refinada. La sal y la grasa no entran al inicio para no inhibir la levadura ni impermeabilizar las proteínas antes de que absorban el agua.
 Paso 4 — Desarrollo de gluten y membrana (Vel 2, 8–10 min): pasar a Vel 2 y amasar hasta desarrollar el gluten al 100%, logrando una membrana/pantalla transparente elástica perfecta (Punto de Tela) que estire sin agrietarse. Temperatura final de masa: 23–25 °C máx.
-Paso 5 — Pesaje y división mecánica (10 bloques de 2.850 g): pesar 10 bloques exactos de 2.850 g. Pasar cada bloque por la divisora de 30 partes → 30 testos de 95 g crudo por bloque (300 panes en total).
+Paso 5 — Pesaje y división mecánica: {division}
 
 REGLAS OBLIGATORIAS (bodega, horno y control de moho)
 • Boleado apretado con tensión: bolear con presión (palma en copa) para una "piel" exterior lisa y muy tensa. Colocar en lata y dar un solo toque suave en el centro (prohibido aplastar duro, para garantizar crecimiento vertical).
@@ -47,21 +47,21 @@ const CIMPA = {
   id: "formula-cimpa",
   name: "Pan Burger",
   wfinal: 80, merma: 15, round: 5, units: 200,
-  instr: `FORMULACIÓN DEFINITIVA ESTANDARIZADA: ajustada para 300 panes de 95 g en crudo (80 g horneados), hidratación 57,0% sobre Harina Crema del Norte, con aditivos CIMPA.
+  instr: `FORMULACIÓN DEFINITIVA ESTANDARIZADA: ajustada para {unidades} panes de {peso} g en crudo ({final} g horneados), hidratación {hidratacion}% sobre Harina Crema del Norte, con aditivos CIMPA.
 
 PUNTO DE ADICIÓN EN LA AMASADORA
 • En seco (Vel 1) con la harina: Gluten, Fécula, Dimodan, Propionato, Leche y Azúcar.
 • Levadura fresca: desmenuzar sobre los secos (Vel 1).
 • Glicerina: disolver dentro del agua helada.
-• Líquido total: 4.318 g hielo picado seco + 4.318 g agua con glicerina.
+• Líquido total: {hielo} g hielo picado seco + {agua} g agua con glicerina.
 • Margarina Astra y Sal: DE ÚLTIMO, al iniciar Velocidad 2.
 
 PASO A PASO
-Paso 1 — Mezclado en seco (Vel 1, 2 min): harina, gluten, fécula, Dimodan, propionato, leche, azúcar y levadura desmenuzada. Encender Vel 1 por 2 min para homogeneizar los polvos.
-Paso 2 — Pre-hidratación y control de temperatura (Vel 1, 3–4 min): disolver 91 g de glicerina en 4.318 g de agua helada. Agregar 4.318 g de hielo picado directo sobre los secos y verter el agua helada con glicerina en hilo continuo mientras gira en Vel 1, hasta que la harina absorba toda la humedad.
-Paso 3 — Incorporación de grasa y sal (regla de oro de las últimas): con la masa ya con cuerpo y pre-estructura (sin polvo libre), agregar 1.515 g de margarina Astra y 303 g de sal refinada. La sal y la margarina van de últimas para no frenar la levadura ni impermeabilizar las proteínas antes de absorber el agua.
+Paso 1 — Mezclado en seco (Vel 1, 2 min): harina ({kg:Harina} kg), gluten ({g:Gluten} g), fécula ({g:Fécula} g), Dimodan ({g:Dimodan} g), propionato ({g:Propionato} g), leche ({g:Leche} g), azúcar ({g:Azúcar} g) y levadura desmenuzada ({g:Levadura} g). Encender Vel 1 por 2 min para homogeneizar los polvos.
+Paso 2 — Pre-hidratación y control de temperatura (Vel 1, 3–4 min): disolver {g:Glicerina} g de glicerina en {agua} g de agua helada. Agregar {hielo} g de hielo picado directo sobre los secos y verter el agua helada con glicerina en hilo continuo mientras gira en Vel 1, hasta que la harina absorba toda la humedad.
+Paso 3 — Incorporación de grasa y sal (regla de oro de las últimas): con la masa ya con cuerpo y pre-estructura (sin polvo libre), agregar {g:Margarina} g de margarina Astra y {g:Sal} g de sal refinada. La sal y la margarina van de últimas para no frenar la levadura ni impermeabilizar las proteínas antes de absorber el agua.
 Paso 4 — Desarrollo de gluten y membrana (Vel 2, 8–10 min): amasar vigorosamente hasta una membrana/pantalla transparente elástica perfecta (Punto de Tela 100%) que estire sin romperse. Temperatura final de masa: 23–25 °C máx.
-Paso 5 — División mecánica (10 bloques de 2.850 g): pesar 10 bloques exactos de 2.850 g. Pasar cada bloque por la divisora de 30 partes → 30 testos de 95 g crudo por bloque (300 panes en total).
+Paso 5 — División mecánica: {division}
 
 REGLAS OBLIGATORIAS (bodega, horno y control de moho)
 • Boleado apretado con tensión: bolear con fuerza (palma en copa) para una "piel" exterior lisa y muy tensa. Colocar en lata y dar un solo toque suave en el centro (sin aplastar).
@@ -165,6 +165,14 @@ function loadRecipes() {
           : [...out, fixed];
         try { localStorage.setItem("calcpan_burger_v1", "1"); } catch { /* ignore */ }
       }
+      // Instrucciones vivas: reemplazar los textos con numeros fijos por la version con marcadores (una sola vez)
+      let instrTpl = null;
+      try { instrTpl = localStorage.getItem("calcpan_instr_tpl_v1"); } catch { /* ignore */ }
+      if (!instrTpl) {
+        out = out.map(x => x.id === "formula-base" ? { ...x, instr: BASE.instr }
+          : x.id === "formula-cimpa" ? { ...x, instr: CIMPA.instr } : x);
+        try { localStorage.setItem("calcpan_instr_tpl_v1", "1"); } catch { /* ignore */ }
+      }
       return out;
     }
   } catch { /* ignore */ }
@@ -172,6 +180,50 @@ function loadRecipes() {
 }
 function saveRecipes(list) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(list)); } catch { /* ignore */ }
+}
+
+// ── Instrucciones vivas: los marcadores {..} se reemplazan con los numeros de la formula ──
+// {unidades} {peso} (a bolear) {final} (horneado) {hidratacion} {g:Ingrediente} {kg:Ingrediente}
+// {hielo} {agua} (mitades del Liquido Total) {division} (bloques para divisora de 30)
+const DIVISORA = 30;
+const normName = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+function renderInstr(text, rec, R) {
+  if (!text || !R) return text || "";
+  const gramsOf = (name) => {
+    const k = normName(name);
+    const i = rec.ings.findIndex(x => normName(x.name).startsWith(k));
+    return i >= 0 ? R.grams[i] : null;
+  };
+  const liq = gramsOf("Líquido Total") ?? gramsOf("Agua") ?? 0;
+  const liqIng = rec.ings.find(x => normName(x.name).startsWith("liquido total")) || rec.ings.find(x => normName(x.name).startsWith("agua"));
+  const hielo = Math.floor(liq / 2);
+  const w = fmt(R.w, R.r > 0 ? 0 : 1);
+  const division = () => {
+    const full = Math.floor(R.units / DIVISORA), rest = R.units % DIVISORA;
+    const bloque = fmt(Math.round(DIVISORA * R.w));
+    const parts = [];
+    if (full) parts.push(`${full} ${full === 1 ? "bloque" : "bloques"} de ${bloque} g`);
+    if (rest) parts.push(`1 bloque de ${fmt(Math.round(rest * R.w))} g (${rest} testos)`);
+    return `pesar ${parts.join(" + ") || "0 bloques"}. Pasar cada bloque por la divisora de ${DIVISORA} partes → testos de ${w} g crudo (${fmt(R.units)} panes en total).`;
+  };
+  const simple = {
+    unidades: () => fmt(R.units),
+    peso: () => w,
+    final: () => fmt(num(rec.wfinal), num(rec.wfinal) % 1 ? 1 : 0),
+    hidratacion: () => fmt(num(liqIng?.pct), 1),
+    hielo: () => fmt(hielo),
+    agua: () => fmt(liq - hielo),
+    division,
+  };
+  return text.replace(/\{(g|kg):([^}]+)\}|\{([a-z]+)\}/gi, (m, unit, name, key) => {
+    if (unit) {
+      const g = gramsOf(name);
+      if (g == null) return m;
+      return unit.toLowerCase() === "kg" ? fmt(g / 1000, 2) : fmt(g);
+    }
+    const f = simple[key.toLowerCase()];
+    return f ? f() : m;
+  });
 }
 
 function compute(rec, drive, driverUnits, driverFlour) {
@@ -281,7 +333,7 @@ export function CalculadoraPan({ onClose }) {
   const copyRecipe = async () => {
     const txt = `${sel.name}\n${fmt(R.units)} unidades × ${fmt(R.w, R.r > 0 ? 0 : 1)} g\nMasa total: ${fmt(Math.round(R.total))} g\n\n` +
       sel.ings.map((x, i) => `${x.name}: ${fmt(R.grams[i])} g (${fmt(num(x.pct), num(x.pct) % 1 ? 1 : 0)}%)`).join("\n") +
-      (sel.instr && sel.instr.trim() ? `\n\n— Instrucciones —\n${sel.instr}` : "");
+      (sel.instr && sel.instr.trim() ? `\n\n— Instrucciones —\n${renderInstr(sel.instr, sel, R)}` : "");
     try { await navigator.clipboard.writeText(txt); setToast("Receta copiada"); }
     catch { setToast("No se pudo copiar"); }
     setTimeout(() => setToast(""), 2500);
@@ -424,7 +476,7 @@ export function CalculadoraPan({ onClose }) {
           {(edit || (sel.instr && sel.instr.trim())) && (
             <div style={{ marginTop: 18 }}>
               <div style={sect}>Instrucciones / método</div>
-              {edit ? (
+              {edit ? (<>
                 <textarea
                   value={sel.instr || ""}
                   onChange={e => patchRecipe({ instr: e.target.value })}
@@ -432,14 +484,17 @@ export function CalculadoraPan({ onClose }) {
                   placeholder="Paso a paso, reglas de bodega, empaque, etc."
                   style={{ ...inp, textAlign: "left", fontFamily: "'Poppins',sans-serif", fontWeight: 400, fontSize: 13, lineHeight: 1.5, resize: "vertical", minHeight: 160 }}
                 />
-              ) : (
+                <p style={{ fontSize: 11, color: "#8a7a6e", margin: "6px 0 0", lineHeight: 1.5 }}>
+                  Números automáticos: <b>{"{unidades}"}</b>, <b>{"{peso}"}</b> (a bolear), <b>{"{final}"}</b>, <b>{"{hidratacion}"}</b>, <b>{"{g:Sal}"}</b> (gramos de un ingrediente), <b>{"{kg:Harina}"}</b>, <b>{"{hielo}"}</b> / <b>{"{agua}"}</b> (mitades del líquido) y <b>{"{division}"}</b> (bloques para la divisora). Se actualizan solos al cambiar la fórmula.
+                </p>
+              </>) : (
                 <>
                   <button style={btn} onClick={() => setShowInstr(s => !s)}>
                     {showInstr ? "▲ Ocultar instrucciones" : "📋 Ver instrucciones"}
                   </button>
                   {showInstr && (
                     <div style={{ marginTop: 10, whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.55, color: C.ink, background: C.cream, border: `1px solid ${C.line}`, borderRadius: 10, padding: "12px 14px" }}>
-                      {sel.instr}
+                      {renderInstr(sel.instr, sel, R)}
                     </div>
                   )}
                 </>
