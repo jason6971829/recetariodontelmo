@@ -191,6 +191,26 @@ const sect = { fontFamily: "Georgia, serif", fontSize: 11, fontWeight: 700, lett
 const btn = { border: `1.5px solid ${C.line}`, background: "#fff", color: C.ink, font: "inherit", fontWeight: 700, fontSize: 12, padding: "7px 12px", borderRadius: 8, cursor: "pointer" };
 const btnGold = { ...btn, background: C.gold, borderColor: C.gold, color: "#fff" };
 
+// Input numerico que, mientras se edita, muestra lo que el usuario escribe:
+// al borrar queda vacio (no "0") y se quitan los ceros a la izquierda ("05" -> "5").
+function NumInput({ value, onChange, ...props }) {
+  const [draft, setDraft] = useState(null);
+  return (
+    <input
+      {...props}
+      type="number"
+      value={draft ?? value}
+      onFocus={e => { setDraft(String(value ?? "")); e.target.select(); }}
+      onBlur={() => setDraft(null)}
+      onChange={e => {
+        const v = e.target.value.replace(/^0+(?=\d)/, "");
+        setDraft(v);
+        onChange(v);
+      }}
+    />
+  );
+}
+
 export function CalculadoraPan({ onClose }) {
   const [recipes, setRecipes] = useState(() => (typeof window !== "undefined" ? loadRecipes() : SEED));
   const [selId, setSelId] = useState(() => (typeof window !== "undefined" ? (loadRecipes()[0]?.id) : SEED[0].id));
@@ -309,16 +329,16 @@ export function CalculadoraPan({ onClose }) {
           <div style={sect}>Lote</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
             <label style={lbl}>Unidades
-              <input type="number" inputMode="numeric" min="0" step="1" style={drive === "units" ? inpDrive : inp} value={R.units} onChange={e => setUnits(e.target.value)} />
+              <NumInput inputMode="numeric" min="0" step="1" style={drive === "units" ? inpDrive : inp} value={R.units} onChange={v => setUnits(v)} />
             </label>
             <label style={lbl}>Peso final por pan (g)
-              <input type="number" inputMode="decimal" min="0" step="1" style={inp} value={sel.wfinal} onChange={e => patchRecipe({ wfinal: e.target.value })} />
+              <NumInput inputMode="decimal" min="0" step="1" style={inp} value={sel.wfinal} onChange={v => patchRecipe({ wfinal: v })} />
             </label>
             <label style={lbl}>Merma (%)
-              <input type="number" inputMode="decimal" min="0" step="0.5" style={inp} value={sel.merma} onChange={e => patchRecipe({ merma: e.target.value })} />
+              <NumInput inputMode="decimal" min="0" step="0.5" style={inp} value={sel.merma} onChange={v => patchRecipe({ merma: v })} />
             </label>
             <label style={lbl}>Redondear peso a (g)
-              <input type="number" inputMode="numeric" min="0" step="1" style={inp} value={sel.round} onChange={e => patchRecipe({ round: e.target.value })} />
+              <NumInput inputMode="numeric" min="0" step="1" style={inp} value={sel.round} onChange={v => patchRecipe({ round: v })} />
             </label>
           </div>
           <div style={{ fontFamily: "'Poppins',sans-serif", fontSize: 12, color: "#8a7a6e", background: "#FBEFE3", borderRadius: 8, padding: "8px 10px", marginBottom: 18 }}>
@@ -352,11 +372,11 @@ export function CalculadoraPan({ onClose }) {
                     </td>
                     <td style={{ padding: "6px 4px", borderBottom: `1px solid #f0ebe5`, textAlign: "right", fontFamily: "'Poppins',sans-serif", color: "#8a7a6e" }}>
                       {edit
-                        ? <input type="number" step="0.1" min="0" style={{ ...inp, padding: "6px 8px" }} value={x.pct} onChange={e => patchIng(i, { pct: e.target.value })} />
+                        ? <NumInput step="0.1" min="0" style={{ ...inp, padding: "6px 8px" }} value={x.pct} onChange={v => patchIng(i, { pct: v })} />
                         : fmt(num(x.pct), num(x.pct) % 1 ? 1 : 0)}
                     </td>
                     <td style={{ padding: "6px 4px", borderBottom: `1px solid #f0ebe5` }}>
-                      <input type="number" inputMode="numeric" min="0" step="1" style={{ ...inp, padding: "7px 8px" }} value={R.grams[i]} onChange={e => setGram(i, e.target.value)} />
+                      <NumInput inputMode="numeric" min="0" step="1" style={{ ...inp, padding: "7px 8px" }} value={R.grams[i]} onChange={v => setGram(i, v)} />
                     </td>
                     {edit && (
                       <td style={{ padding: "6px 0", borderBottom: `1px solid #f0ebe5`, textAlign: "center" }}>
@@ -371,7 +391,7 @@ export function CalculadoraPan({ onClose }) {
                   <td style={{ padding: "8px 4px", fontWeight: 700, color: C.navy, borderTop: `2px solid ${C.ink}` }}>Masa total</td>
                   <td style={{ padding: "8px 4px", textAlign: "right", fontWeight: 700, color: "#8a7a6e", borderTop: `2px solid ${C.ink}` }}>{fmt(R.SUM, 1)}%</td>
                   <td style={{ padding: "6px 4px", borderTop: `2px solid ${C.ink}` }}>
-                    <input type="number" inputMode="numeric" min="0" step="1" style={{ ...inp, padding: "7px 8px" }} value={Math.round(R.total)} onChange={e => setTotal(e.target.value)} />
+                    <NumInput inputMode="numeric" min="0" step="1" style={{ ...inp, padding: "7px 8px" }} value={Math.round(R.total)} onChange={v => setTotal(v)} />
                   </td>
                   {edit && <td style={{ borderTop: `2px solid ${C.ink}` }} />}
                 </tr>
