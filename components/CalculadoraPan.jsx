@@ -174,6 +174,13 @@ function loadRecipes() {
           : x.id === "formula-cimpa" ? { ...x, instr: CIMPA.instr } : x);
         try { localStorage.setItem("calcpan_instr_tpl_v1", "1"); } catch { /* ignore */ }
       }
+      // Restaurar la Formula base si se habia borrado (una sola vez; si se vuelve a borrar, no vuelve)
+      let baseRestore = null;
+      try { baseRestore = localStorage.getItem("calcpan_base_restore_v1"); } catch { /* ignore */ }
+      if (!baseRestore) {
+        if (!out.some(x => x.id === "formula-base")) out = [clone(BASE), ...out];
+        try { localStorage.setItem("calcpan_base_restore_v1", "1"); } catch { /* ignore */ }
+      }
       return out;
     }
   } catch { /* ignore */ }
