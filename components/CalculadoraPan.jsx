@@ -45,8 +45,8 @@ REGLAS OBLIGATORIAS (bodega, horno y control de moho)
 
 const CIMPA = {
   id: "formula-cimpa",
-  name: "Fórmula CIMPA",
-  wfinal: 80, merma: 15, round: 5, units: 300,
+  name: "Pan Burger",
+  wfinal: 80, merma: 15, round: 5, units: 200,
   instr: `FORMULACIÓN DEFINITIVA ESTANDARIZADA: ajustada para 300 panes de 95 g en crudo (80 g horneados), hidratación 57,0% sobre Harina Crema del Norte, con aditivos CIMPA.
 
 PUNTO DE ADICIÓN EN LA AMASADORA
@@ -153,6 +153,17 @@ function loadRecipes() {
           };
         });
         try { localStorage.setItem("calcpan_water_rev3", "1"); } catch { /* ignore */ }
+      }
+      // Pan Burger: la ex "Formula CIMPA" queda fija (nombre, lote 200 u y fórmula), una sola vez.
+      // Si alguien la habia borrado, vuelve a aparecer.
+      let burgerRev = null;
+      try { burgerRev = localStorage.getItem("calcpan_burger_v1"); } catch { /* ignore */ }
+      if (!burgerRev) {
+        const fixed = clone(CIMPA);
+        out = out.some(x => x.id === "formula-cimpa")
+          ? out.map(x => x.id === "formula-cimpa" ? { ...fixed, instr: x.instr || fixed.instr } : x)
+          : [...out, fixed];
+        try { localStorage.setItem("calcpan_burger_v1", "1"); } catch { /* ignore */ }
       }
       return out;
     }
