@@ -477,8 +477,18 @@ export function CalculadoraPan({ onClose }) {
               <NumInput inputMode="numeric" min="0" step="1" style={inp} value={sel.round} onChange={v => patchRecipe({ round: v })} />
             </label>
           </div>
-          <div style={{ fontFamily: "'Poppins',sans-serif", fontSize: 12, color: "#8a7a6e", background: "#FBEFE3", borderRadius: 8, padding: "8px 10px", marginBottom: 18 }}>
+          <div style={{ fontFamily: "'Poppins',sans-serif", fontSize: 12, color: "#8a7a6e", background: "#FBEFE3", borderRadius: 8, padding: "8px 10px", marginBottom: 10 }}>
             {fmt(num(sel.wfinal))} g + {fmt(num(sel.merma), 1)}% merma = {fmt(R.raw, 1)} g → <b style={{ color: C.gold }}>{fmt(R.w, R.r > 0 ? 0 : 1)} g a bolear</b>
+          </div>
+          {/* Peso del bloque que entra a la boleadora (un testo por hueco) */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, border: `2px solid ${C.gold}`, background: "#FFF7EF", borderRadius: 10, padding: "10px 14px", marginBottom: 18 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: C.navy }}>Masa por boleadora</div>
+              <div style={{ fontSize: 12, color: "#8a7a6e", marginTop: 2 }}>{DIVISORA} huecos × {fmt(R.w, R.r > 0 ? 0 : 1)} g</div>
+            </div>
+            <strong style={{ fontFamily: "'Poppins',sans-serif", fontSize: 30, fontWeight: 800, color: C.gold, lineHeight: 1 }}>
+              {fmt(Math.round(DIVISORA * R.w))} g
+            </strong>
           </div>
 
           <div style={sect}>Fórmula</div>
