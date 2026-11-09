@@ -79,7 +79,8 @@ REGLAS OBLIGATORIAS (bodega, horno y control de moho)
   ].map(([name, pct]) => ({ name, pct })),
 };
 
-const SEED = [BASE, CIMPA];
+// La Formula base ya no se ofrece (generaba confusion); queda BASE solo para las migraciones viejas.
+const SEED = [CIMPA];
 const clone = (r) => ({ ...r, ings: r.ings.map(i => ({ ...i })) });
 
 const fmt = (v, d = 0) =>
@@ -174,13 +175,6 @@ function loadRecipes() {
           : x.id === "formula-cimpa" ? { ...x, instr: CIMPA.instr } : x);
         try { localStorage.setItem("calcpan_instr_tpl_v1", "1"); } catch { /* ignore */ }
       }
-      // Restaurar la Formula base si se habia borrado (una sola vez; si se vuelve a borrar, no vuelve)
-      let baseRestore = null;
-      try { baseRestore = localStorage.getItem("calcpan_base_restore_v1"); } catch { /* ignore */ }
-      if (!baseRestore) {
-        if (!out.some(x => x.id === "formula-base")) out = [clone(BASE), ...out];
-        try { localStorage.setItem("calcpan_base_restore_v1", "1"); } catch { /* ignore */ }
-      }
       // Volver al nombre "Formula CIMPA" (el pan a producir ahora va en su propio campo), una sola vez
       let cimpaName = null;
       try { cimpaName = localStorage.getItem("calcpan_cimpa_name_v2"); } catch { /* ignore */ }
@@ -198,6 +192,14 @@ function loadRecipes() {
           ings: (x.ings || []).map(i => String(i.name).startsWith("Líquido Total") ? { ...i, pct: 58.5 } : i),
         });
         try { localStorage.setItem("calcpan_cimpa_rev3", "1"); } catch { /* ignore */ }
+      }
+      // Quitar la Formula base (una sola vez). Si no queda ninguna formula, vuelve la CIMPA.
+      let baseRemoved = null;
+      try { baseRemoved = localStorage.getItem("calcpan_base_removed_v1"); } catch { /* ignore */ }
+      if (!baseRemoved) {
+        out = out.filter(x => x.id !== "formula-base");
+        if (!out.length) out = SEED.map(clone);
+        try { localStorage.setItem("calcpan_base_removed_v1", "1"); } catch { /* ignore */ }
       }
       return out;
     }
