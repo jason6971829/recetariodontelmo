@@ -47,7 +47,7 @@ REGLAS OBLIGATORIAS (bodega, horno y control de moho)
 const CIMPA = {
   id: "formula-cimpa",
   name: "Fórmula CIMPA",
-  wfinal: 80, merma: 15, round: 5, units: 200,
+  wfinal: 80, merma: 6, round: 5, units: 200,
   instr: `FORMULACIÓN DEFINITIVA ESTANDARIZADA: ajustada para {unidades} panes de {peso} g en crudo ({final} g horneados), hidratación {hidratacion}% sobre Harina Crema del Norte, con aditivos CIMPA.
 
 PUNTO DE ADICIÓN EN LA AMASADORA
@@ -74,7 +74,7 @@ REGLAS OBLIGATORIAS (bodega, horno y control de moho)
     ["Fécula de Papa (CIMPA)", 1], ["Dimodan HP SG (CIMPA)", 0.5],
     ["Propionato de Calcio", 0.5], ["Leche en Polvo", 5],
     ["Azúcar Blanco", 8], ["Levadura Fresca", 2],
-    ["Glicerina USP (CIMPA)", 0.6], ["Líquido Total (Hielo + Agua)", 57],
+    ["Glicerina USP (CIMPA)", 0.6], ["Líquido Total (Hielo + Agua)", 58.5],
     ["Margarina Industrial (Astra)", 10], ["Sal Refinada", 2],
   ].map(([name, pct]) => ({ name, pct })),
 };
@@ -187,6 +187,17 @@ function loadRecipes() {
       if (!cimpaName) {
         out = out.map(x => x.id === "formula-cimpa" && x.name === "Pan Burger" ? { ...x, name: CIMPA.name } : x);
         try { localStorage.setItem("calcpan_cimpa_name_v2", "1"); } catch { /* ignore */ }
+      }
+      // CIMPA rev3: merma 6% (85 g a bolear) y Liquido Total 58,5%, una sola vez (respeta las unidades)
+      let cimpaRev3 = null;
+      try { cimpaRev3 = localStorage.getItem("calcpan_cimpa_rev3"); } catch { /* ignore */ }
+      if (!cimpaRev3) {
+        out = out.map(x => x.id !== "formula-cimpa" ? x : {
+          ...x,
+          merma: CIMPA.merma,
+          ings: (x.ings || []).map(i => String(i.name).startsWith("Líquido Total") ? { ...i, pct: 58.5 } : i),
+        });
+        try { localStorage.setItem("calcpan_cimpa_rev3", "1"); } catch { /* ignore */ }
       }
       return out;
     }
