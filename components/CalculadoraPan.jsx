@@ -47,19 +47,19 @@ REGLAS OBLIGATORIAS (bodega, horno y control de moho)
 const CIMPA = {
   id: "formula-cimpa",
   name: "Fórmula CIMPA",
-  wfinal: 80, merma: 6, round: 5, units: 200,
+  wfinal: 80, merma: 6, round: 5, units: 300,
   instr: `FORMULACIÓN DEFINITIVA ESTANDARIZADA: ajustada para {unidades} panes de {peso} g en crudo ({final} g horneados), hidratación {hidratacion}% sobre Harina Crema del Norte, con aditivos CIMPA.
 
 PUNTO DE ADICIÓN EN LA AMASADORA
 • En seco (Vel 1) con la harina: Gluten, Fécula, Dimodan, Propionato, Leche y Azúcar.
 • Levadura fresca: desmenuzar sobre los secos (Vel 1).
-• Glicerina: disolver dentro del agua helada.
-• Líquido total: {hielo} g hielo picado seco + {agua} g agua con glicerina.
+• Glicerina y Glucosa líquida: disolver dentro del agua helada.
+• Líquido total: {hielo} g hielo picado seco + {agua} g agua con glicerina y glucosa.
 • Margarina Astra y Sal: DE ÚLTIMO, al iniciar Velocidad 2.
 
 PASO A PASO
 Paso 1 — Mezclado en seco (Vel 1, 2 min): harina ({kg:Harina} kg), gluten ({g:Gluten} g), fécula ({g:Fécula} g), Dimodan ({g:Dimodan} g), propionato ({g:Propionato} g), leche ({g:Leche} g), azúcar ({g:Azúcar} g) y levadura desmenuzada ({g:Levadura} g). Encender Vel 1 por 2 min para homogeneizar los polvos.
-Paso 2 — Pre-hidratación y control de temperatura (Vel 1, 3–4 min): disolver {g:Glicerina} g de glicerina en {agua} g de agua helada. Agregar {hielo} g de hielo picado directo sobre los secos y verter el agua helada con glicerina en hilo continuo mientras gira en Vel 1, hasta que la harina absorba toda la humedad.
+Paso 2 — Pre-hidratación y control de temperatura (Vel 1, 3–4 min): disolver {g:Glicerina} g de glicerina y {g:Glucosa} g de glucosa líquida en {agua} g de agua helada (antes de prender la amasadora). Agregar {hielo} g de hielo picado directo sobre los secos y verter el agua helada con glicerina y glucosa en hilo continuo mientras gira en Vel 1, hasta que la harina absorba toda la humedad.
 Paso 3 — Incorporación de grasa y sal (regla de oro de las últimas): con la masa ya con cuerpo y pre-estructura (sin polvo libre), agregar {g:Margarina} g de margarina Astra y {g:Sal} g de sal refinada. La sal y la margarina van de últimas para no frenar la levadura ni impermeabilizar las proteínas antes de absorber el agua.
 Paso 4 — Desarrollo de gluten y membrana (Vel 2, 8–10 min): amasar vigorosamente hasta una membrana/pantalla transparente elástica perfecta (Punto de Tela 100%) que estire sin romperse. Temperatura final de masa: 23–25 °C máx.
 Paso 5 — División mecánica: {division}
@@ -73,8 +73,9 @@ REGLAS OBLIGATORIAS (bodega, horno y control de moho)
     ["Harina Crema del Norte", 100], ["Gluten Vital (CIMPA)", 1.5],
     ["Fécula de Papa (CIMPA)", 1], ["Dimodan HP SG (CIMPA)", 0.5],
     ["Propionato de Calcio", 0.5], ["Leche en Polvo", 5],
-    ["Azúcar Blanco", 8], ["Levadura Fresca", 2],
-    ["Glicerina USP (CIMPA)", 0.6], ["Líquido Total (Hielo + Agua)", 58.5],
+    ["Azúcar Blanco", 6], ["Levadura Fresca", 2],
+    ["Glicerina USP (CIMPA)", 0.6], ["Glucosa Líquida (CIMPA)", 2],
+    ["Líquido Total (Hielo + Agua)", 58.5],
     ["Margarina Industrial (Astra)", 10], ["Sal Refinada", 2],
   ].map(([name, pct]) => ({ name, pct })),
 };
@@ -200,6 +201,18 @@ function loadRecipes() {
         out = out.filter(x => x.id !== "formula-base");
         if (!out.length) out = SEED.map(clone);
         try { localStorage.setItem("calcpan_base_removed_v1", "1"); } catch { /* ignore */ }
+      }
+      // CIMPA rev4: azucar 8% -> 6% + Glucosa Liquida 2%; lote 300 u / 80 g / 6% (una sola vez, conserva el pan a producir)
+      let cimpaRev4 = null;
+      try { cimpaRev4 = localStorage.getItem("calcpan_cimpa_rev4"); } catch { /* ignore */ }
+      if (!cimpaRev4) {
+        out = out.map(x => x.id !== "formula-cimpa" ? x : {
+          ...x,
+          units: CIMPA.units, wfinal: CIMPA.wfinal, merma: CIMPA.merma, round: CIMPA.round,
+          ings: CIMPA.ings.map(i => ({ ...i })),
+          instr: CIMPA.instr,
+        });
+        try { localStorage.setItem("calcpan_cimpa_rev4", "1"); } catch { /* ignore */ }
       }
       return out;
     }
