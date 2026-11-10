@@ -1,4 +1,4 @@
-const CACHE_NAME = "dontelmo-v23";
+const CACHE_NAME = "dontelmo-v24";
 const STATIC_ASSETS = ["/", "/manifest.json"];
 
 // Instalar: cachear assets estáticos (NO skipWaiting aquí)

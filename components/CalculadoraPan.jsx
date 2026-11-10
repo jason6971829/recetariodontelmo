@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 
 // Calculadora de porcentaje panadero — herramienta independiente.
@@ -81,8 +81,22 @@ REGLAS OBLIGATORIAS (bodega, horno y control de moho)
 };
 
 // La Formula base ya no se ofrece (generaba confusion); queda BASE solo para las migraciones viejas.
-const SEED = [CIMPA];
-const clone = (r) => ({ ...r, ings: r.ings.map(i => ({ ...i })) });
+// Panes del dia a dia: cada uno tiene su lote (unidades, peso, merma) pero usan la formula de
+// "Formula CIMPA" (baseId): cambiar un porcentaje o las instrucciones cambia todos los panes.
+const PRESETS = [
+  { id: "pan-burger",      name: "Pan Burger",      pan: "Pan burger",      units: 300, wfinal: 80, merma: 6, round: 5, biga: true, baseId: "formula-cimpa" },
+  { id: "pan-burger-mini", name: "Pan Burger Mini", pan: "Pan burger mini", units: 60,  wfinal: 50, merma: 6, round: 5, biga: true, baseId: "formula-cimpa" },
+  { id: "pan-sandwich",    name: "Pan Sandwich",    pan: "Pan sandwich",    units: 32,  wfinal: 90, merma: 6, round: 5, biga: true, baseId: "formula-cimpa" },
+  { id: "pan-perro",       name: "Pan Perro",       pan: "Pan perro",       units: 160, wfinal: 85, merma: 6, round: 5, biga: true, baseId: "formula-cimpa" },
+];
+const SEED = [...PRESETS, CIMPA];
+const clone = (r) => ({ ...r, ...(r.ings ? { ings: r.ings.map(i => ({ ...i })) } : {}) });
+// Une un pan con su formula base (si tiene): ings e instrucciones salen de la base
+function resolveRecipe(rec, list) {
+  if (!rec) return rec;
+  const base = rec.baseId ? list.find(r => r.id === rec.baseId) : null;
+  return base ? { ...rec, ings: base.ings || [], instr: base.instr } : { ...rec, ings: rec.ings || [] };
+}
 
 const fmt = (v, d = 0) =>
   (isFinite(v) ? v : 0).toLocaleString("es-CO", { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -224,6 +238,18 @@ function loadRecipes() {
         });
         try { localStorage.setItem("calcpan_cimpa_rev5", "1"); } catch { /* ignore */ }
       }
+      // Panes del dia a dia (Burger, Burger Mini, Sandwich, Perro) sobre la Formula CIMPA, una sola vez
+      let presets = null;
+      try { presets = localStorage.getItem("calcpan_presets_v1"); } catch { /* ignore */ }
+      if (!presets) {
+        if (!out.some(x => x.id === "formula-cimpa")) out = [...out, clone(CIMPA)];
+        const missing = PRESETS.filter(pr => !out.some(x => x.id === pr.id)).map(clone);
+        out = [...missing, ...out];
+        try { localStorage.setItem("calcpan_presets_v1", "1"); } catch { /* ignore */ }
+      }
+      // Guardar ya el resultado: las marcas de migracion quedan puestas y, si el componente
+      // se vuelve a montar antes del autoguardado, no se pierde lo migrado.
+      saveRecipes(out);
       return out;
     }
   } catch { /* ignore */ }
@@ -372,9 +398,15 @@ const PRINT_CSS = `
 // al borrar queda vacio (no "0") y se quitan los ceros a la izquierda ("05" -> "5").
 function NumInput({ value, onChange, ...props }) {
   const [draft, setDraft] = useState(null);
+  const ref = useRef(null);
+  // Si el valor cambia desde afuera (ej. se eligio otro pan) y no se esta escribiendo aca, mostrar el nuevo
+  useEffect(() => {
+    if (typeof document !== "undefined" && ref.current !== document.activeElement) setDraft(null);
+  }, [value]);
   return (
     <input
       {...props}
+      ref={ref}
       type="number"
       value={draft ?? value}
       onFocus={e => { setDraft(String(value ?? "")); e.target.select(); }}
@@ -390,7 +422,7 @@ function NumInput({ value, onChange, ...props }) {
 
 export function CalculadoraPan({ onClose }) {
   const [recipes, setRecipes] = useState(() => (typeof window !== "undefined" ? loadRecipes() : SEED));
-  const [selId, setSelId] = useState(() => (typeof window !== "undefined" ? (loadRecipes()[0]?.id) : SEED[0].id));
+  const [selId, setSelId] = useState(() => recipes[0]?.id ?? SEED[0].id);
   const [edit, setEdit] = useState(false);
   const [drive, setDrive] = useState("units");
   const [driverUnits, setDriverUnits] = useState(320);
@@ -401,7 +433,9 @@ export function CalculadoraPan({ onClose }) {
   const [view, setView] = useState("calc"); // "calc" | "plan" (biga consolidada)
   const [plan, setPlan] = useState(() => (typeof window !== "undefined" ? loadPlan() : null));
 
-  const sel = recipes.find(r => r.id === selId) || recipes[0];
+  const selRaw = recipes.find(r => r.id === selId) || recipes[0];
+  const sel = resolveRecipe(selRaw, recipes);
+  const baseRec = selRaw?.baseId ? recipes.find(r => r.id === selRaw.baseId) : null;
 
   useEffect(() => { saveRecipes(recipes); }, [recipes]);
   useEffect(() => { if (plan) savePlan(plan); }, [plan]);
@@ -428,7 +462,7 @@ export function CalculadoraPan({ onClose }) {
 
   // Consolidado: cada lote = receta + unidades; la biga se calcula sobre la harina sumada
   const planRows = (plan && plan.length ? plan : [{ id: "l1", recipeId: sel.id, units: R.units, pan: sel.pan || "" }])
-    .map(l => ({ ...l, rec: recipes.find(r => r.id === l.recipeId) }))
+    .map(l => ({ ...l, rec: resolveRecipe(recipes.find(r => r.id === l.recipeId), recipes) }))
     .filter(l => l.rec)
     .map(l => {
       const LR = compute(l.rec, "units", l.units, 0);
@@ -444,9 +478,11 @@ export function CalculadoraPan({ onClose }) {
 
   // ── mutadores de receta ─────────────────────────────────────────
   const patchRecipe = (patch) => setRecipes(rs => rs.map(r => r.id === selId ? { ...r, ...patch } : r));
-  const patchIng = (i, patch) => setRecipes(rs => rs.map(r => r.id === selId ? { ...r, ings: r.ings.map((x, j) => j === i ? { ...x, ...patch } : x) } : r));
-  const addIng = () => setRecipes(rs => rs.map(r => r.id === selId ? { ...r, ings: [...r.ings, { name: "Nuevo", pct: 0 }] } : r));
-  const delIng = (i) => setRecipes(rs => rs.map(r => r.id === selId ? { ...r, ings: r.ings.filter((_, j) => j !== i) } : r));
+  const formulaId = baseRec ? baseRec.id : sel.id;
+  const patchFormula = (fn) => setRecipes(rs => rs.map(r => r.id === formulaId ? { ...r, ...fn(r) } : r));
+  const patchIng = (i, patch) => patchFormula(r => ({ ings: (r.ings || []).map((x, j) => j === i ? { ...x, ...patch } : x) }));
+  const addIng = () => patchFormula(r => ({ ings: [...(r.ings || []), { name: "Nuevo", pct: 0 }] }));
+  const delIng = (i) => patchFormula(r => ({ ings: (r.ings || []).filter((_, j) => j !== i) }));
 
   const setUnits = (v) => { setDrive("units"); setDriverUnits(v); patchRecipe({ units: Math.round(num(v)) }); };
   const setGram = (i, v) => { const pct = num(sel.ings[i].pct) || 100; setDrive("flour"); setDriverFlour(num(v) * 100 / pct); };
@@ -457,15 +493,18 @@ export function CalculadoraPan({ onClose }) {
     setRecipes(rs => [...rs, r]); setSelId(r.id); setEdit(true);
   };
   const dupRecipe = () => {
-    const r = { ...sel, id: uid(), name: sel.name + " (copia)", ings: sel.ings.map(x => ({ ...x })) };
+    const r = { ...clone(selRaw), id: uid(), name: sel.name + " (copia)" };
     setRecipes(rs => [...rs, r]); setSelId(r.id);
   };
   const printRecipe = () => { setConfirmDel(false); setTimeout(() => window.print(), 50); };
   const delRecipe = () => {
     setConfirmDel(false);
     setRecipes(rs => {
-      const next = rs.filter(r => r.id !== selId);
-      if (!next.length) { const s = SEED.map(r => ({ ...r, ings: r.ings.map(i => ({ ...i })) })); setSelId(s[0].id); return s; }
+      const gone = rs.find(r => r.id === selId);
+      const next = rs.filter(r => r.id !== selId).map(r => r.baseId === selId
+        ? { ...r, baseId: undefined, ings: (gone?.ings || []).map(i => ({ ...i })), instr: gone?.instr || "" }
+        : r);
+      if (!next.length) { const s = SEED.map(clone); setSelId(s[0].id); return s; }
       setSelId(next[0].id); return next;
     });
   };
@@ -620,6 +659,11 @@ export function CalculadoraPan({ onClose }) {
               <label style={{ ...lbl, marginBottom: 12 }}>Nombre de la receta
                 <input style={{ ...inp, textAlign: "left" }} value={sel.name} onChange={e => patchRecipe({ name: e.target.value })} />
               </label>
+              {baseRec && (
+                <p style={{ fontSize: 12, color: C.navy, background: "#F4F7FB", border: `1px solid ${C.line}`, borderRadius: 8, padding: "8px 10px", margin: "0 0 12px", lineHeight: 1.5 }}>
+                  Este pan usa la fórmula de <b>{baseRec.name}</b>: si cambiás porcentajes, ingredientes o instrucciones, cambian en todos los panes que la usan. Las unidades, el peso y la merma son solo de este pan.
+                </p>
+              )}
             </div>
           )}
 
@@ -634,7 +678,7 @@ export function CalculadoraPan({ onClose }) {
               style={{ ...inp, textAlign: "left", width: "auto", flex: "0 1 60%", minWidth: 0, padding: "6px 10px", fontSize: 14, letterSpacing: 0, textTransform: "none", fontFamily: "'Poppins',sans-serif", marginBottom: 6 }}
             />
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+          <div key={selId} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
             <label style={lbl}>Unidades
               <NumInput inputMode="numeric" min="0" step="1" style={drive === "units" ? inpDrive : inp} value={R.units} onChange={v => setUnits(v)} />
             </label>
@@ -783,7 +827,7 @@ export function CalculadoraPan({ onClose }) {
               {edit ? (<>
                 <textarea
                   value={sel.instr || ""}
-                  onChange={e => patchRecipe({ instr: e.target.value })}
+                  onChange={e => patchFormula(() => ({ instr: e.target.value }))}
                   rows={12}
                   placeholder="Paso a paso, reglas de bodega, empaque, etc."
                   style={{ ...inp, textAlign: "left", fontFamily: "'Poppins',sans-serif", fontWeight: 400, fontSize: 13, lineHeight: 1.5, resize: "vertical", minHeight: 160 }}
