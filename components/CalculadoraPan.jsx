@@ -380,7 +380,9 @@ const btnGold = { ...btn, background: C.gold, borderColor: C.gold, color: "#fff"
 const CHECK_COLS = 6;
 const PRINT_CSS = `
 .calcpan-printonly { display: none; }
+.calcpan-sheet { display: none; }
 @media print {
+  .calcpan-sheet { display: block !important; break-before: page; page-break-before: always; }
   .calcpan-printonly { display: table-cell !important; }
   .calcpan-panname { font-size: 18px !important; font-weight: 700 !important; }
   @page { size: letter portrait; margin: 10mm; }
@@ -432,6 +434,7 @@ export function CalculadoraPan({ onClose }) {
   const [confirmDel, setConfirmDel] = useState(false);
   const [view, setView] = useState("calc"); // "calc" | "plan" (biga consolidada)
   const [plan, setPlan] = useState(() => (typeof window !== "undefined" ? loadPlan() : null));
+  const [planInstr, setPlanInstr] = useState(false); // incluir instrucciones en las hojas impresas
 
   // Las formulas madre que usan otros panes (ej. Formula CIMPA) no se muestran: se editan desde cualquiera de sus panes
   const visible = recipes.filter(r => !recipes.some(x => x.baseId === r.id));
@@ -501,6 +504,80 @@ export function CalculadoraPan({ onClose }) {
     setRecipes(rs => [...rs, r]); setSelId(r.id);
   };
   const printRecipe = () => { setConfirmDel(false); setTimeout(() => window.print(), 50); };
+
+  const th = { fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#9a8a7e", padding: "6px 4px", borderBottom: `1px solid ${C.line}` };
+  const td = { padding: "6px 4px", borderBottom: "1px solid #f0ebe5" };
+  const box = <span style={{ display: "inline-block", width: 16, height: 16, border: `1.5px solid ${C.ink}`, borderRadius: 3 }} />;
+  const renderSheet = (l, n, total) => {
+    const rec = l.rec, LR = l.LR, b = computeBiga(rec, LR);
+    const wTxt = fmt(LR.w, LR.r > 0 ? 0 : 1);
+    const instr = planInstr && rec.instr && rec.instr.trim()
+      ? bigaInstrHead(b) + renderInstr(rec.instr, rec, { ...LR, grams: b.grams }) : "";
+    return (
+      <div key={`sheet-${l.id}`} className="calcpan-sheet" style={{ fontFamily: "'Poppins',sans-serif", color: C.ink }}>
+        <div style={{ background: `linear-gradient(135deg, ${C.navy}, ${C.navyD})`, color: "#fff", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 10 }}>
+          <div>
+            <div style={{ color: C.gold, fontSize: 10, fontWeight: 700, letterSpacing: 3, fontFamily: "Georgia,serif" }}>DON TELMO® · 1958 · COMPANY</div>
+            <div style={{ fontFamily: "Georgia,serif", fontSize: 22, fontWeight: 700, marginTop: 2 }}>{(l.pan && l.pan.trim()) || rec.name}</div>
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.8 }}>Receta {n} de {total}</div>
+        </div>
+        <div style={{ fontSize: 12, color: "#8a7a6e", margin: "10px 0" }}>
+          {fmt(num(rec.wfinal))} g de peso final + {fmt(num(rec.merma), 1)}% merma → <b style={{ color: C.gold }}>{wTxt} g a bolear</b>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 12 }}>
+          {kpi("Unidades", fmt(LR.units))}
+          {kpi("Peso a bolear", wTxt + " g")}
+          {kpi("Masa total", fmt(Math.round(LR.total)) + " g")}
+          {kpi(`Boleadora (${DIVISORA})`, fmt(Math.round(DIVISORA * LR.w)) + " g")}
+        </div>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontVariantNumeric: "tabular-nums" }}>
+          <thead>
+            <tr>
+              <th style={{ ...th, textAlign: "left" }}>Ingrediente (mojadora)</th>
+              <th style={{ ...th, textAlign: "right", width: 50 }}>%</th>
+              <th style={{ ...th, textAlign: "right", width: 90 }}>Gramos</th>
+              {Array.from({ length: CHECK_COLS }, (_, k) => <th key={k} style={{ ...th, textAlign: "center", width: 26, padding: "6px 2px" }}>{k + 1}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            <tr style={{ background: "#F4F7FB" }}>
+              <td style={{ ...td, fontWeight: 700, color: C.navy }}>🌙 Biga madura (de la tina)</td>
+              <td style={{ ...td, textAlign: "right", color: "#8a7a6e" }}>—</td>
+              <td style={{ ...td, textAlign: "right", fontWeight: 800, color: C.navy }}>{fmt(b.total)}</td>
+              {Array.from({ length: CHECK_COLS }, (_, k) => <td key={k} style={{ ...td, textAlign: "center", padding: "6px 2px" }}>{box}</td>)}
+            </tr>
+            {rec.ings.map((x, i) => (
+              <tr key={i}>
+                <td style={{ ...td, fontWeight: 600 }}>
+                  {x.name}
+                  {reducedRow(b, i) && <div style={{ fontSize: 10, fontWeight: 600, color: C.navy }}>restante (ya descontada la biga)</div>}
+                </td>
+                <td style={{ ...td, textAlign: "right", color: "#8a7a6e" }}>{fmt(num(x.pct), num(x.pct) % 1 ? 1 : 0)}</td>
+                <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmt(b.grams[i])}</td>
+                {Array.from({ length: CHECK_COLS }, (_, k) => <td key={k} style={{ ...td, textAlign: "center", padding: "6px 2px" }}>{box}</td>)}
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td style={{ padding: "8px 4px", fontWeight: 700, color: C.navy, borderTop: `2px solid ${C.ink}` }}>Masa total</td>
+              <td style={{ padding: "8px 4px", textAlign: "right", fontWeight: 700, color: "#8a7a6e", borderTop: `2px solid ${C.ink}` }}>{fmt(LR.SUM, 1)}%</td>
+              <td style={{ padding: "8px 4px", textAlign: "right", fontWeight: 800, borderTop: `2px solid ${C.ink}` }}>{fmt(Math.round(LR.total))}</td>
+              <td colSpan={CHECK_COLS} style={{ borderTop: `2px solid ${C.ink}` }} />
+            </tr>
+          </tfoot>
+        </table>
+        {b.warn.map(w => <div key={w} style={{ fontSize: 12, color: "#c0392b", fontWeight: 600, marginTop: 4 }}>⚠️ {w}</div>)}
+        {instr && (
+          <div style={{ marginTop: 12 }}>
+            <div style={sect}>Instrucciones / método</div>
+            <div style={{ whiteSpace: "pre-wrap", fontSize: 12, lineHeight: 1.5, background: C.cream, border: `1px solid ${C.line}`, borderRadius: 10, padding: "10px 12px" }}>{instr}</div>
+          </div>
+        )}
+      </div>
+    );
+  };
   const delRecipe = () => {
     setConfirmDel(false);
     setRecipes(rs => {
@@ -654,8 +731,22 @@ export function CalculadoraPan({ onClose }) {
                 <strong style={{ fontSize: 30, fontWeight: 800, color: C.gold, lineHeight: 1 }}>{fmt(planBiga.total)} g</strong>
               </div>
               <p style={{ fontSize: 12, color: "#8a7a6e", margin: "10px 0 0", lineHeight: 1.5 }}>
-                Al día siguiente, cada lote toma de la tina la cantidad de la columna <b>Biga madura</b>. En la calculadora, abrí cada fórmula con <b>Con biga del día anterior</b> activado para ver la mojadora ya descontada.
+                Al día siguiente, cada lote toma de la tina la cantidad de la columna <b>Biga madura</b>. Cada hoja de receta impresa ya trae la mojadora con la biga descontada.
               </p>
+
+              <div className="calcpan-noprint" style={{ marginTop: 16, padding: "12px 14px", border: `1.5px dashed ${C.line}`, borderRadius: 10, background: C.cream }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>🖨️ Imprimir producción completa</div>
+                <div style={{ fontSize: 12, color: "#8a7a6e", margin: "4px 0 10px" }}>
+                  Sale esta hoja con el total de biga + {planRows.length} {planRows.length === 1 ? "hoja de receta" : "hojas de receta"} (una por lote, con la mojadora descontada y cuadritos para marcar), en tamaño carta.
+                </div>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.ink, cursor: "pointer", marginBottom: 10 }}>
+                  <input type="checkbox" checked={planInstr} onChange={e => setPlanInstr(e.target.checked)} style={{ width: 16, height: 16, accentColor: C.gold }} />
+                  Incluir instrucciones en cada receta
+                </label>
+                <button style={btnGold} onClick={printRecipe}>🖨️ Imprimir biga + todas las recetas</button>
+              </div>
+
+              {planRows.map((l, k) => renderSheet(l, k + 1, planRows.length))}
             </div>
           ) : (<>
           {edit && (
