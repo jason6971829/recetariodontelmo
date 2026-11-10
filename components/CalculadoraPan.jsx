@@ -378,6 +378,8 @@ const btnGold = { ...btn, background: C.gold, borderColor: C.gold, color: "#fff"
 // Impresion: solo se imprime la calculadora, tal cual se ve (sin botones), en paginas completas.
 // Las instrucciones salen solo si estan desplegadas ("Ver instrucciones").
 const CHECK_COLS = 6;
+// Produccion completa (biga + una hoja por tanda): una sola columna de check, porque cada hoja ya es una tanda
+const SHEET_CHECKS = 1;
 const PRINT_CSS = `
 .calcpan-printonly { display: none; }
 .calcpan-sheet { display: none; }
@@ -541,7 +543,7 @@ export function CalculadoraPan({ onClose }) {
               <th style={{ ...th, textAlign: "left" }}>Ingrediente (mojadora)</th>
               <th style={{ ...th, textAlign: "right", width: 50 }}>%</th>
               <th style={{ ...th, textAlign: "right", width: 90 }}>Gramos</th>
-              {Array.from({ length: CHECK_COLS }, (_, k) => <th key={k} style={{ ...th, textAlign: "center", width: 26, padding: "6px 2px" }}>{k + 1}</th>)}
+              {Array.from({ length: SHEET_CHECKS }, (_, k) => <th key={k} style={{ ...th, textAlign: "center", width: 26, padding: "6px 2px" }}>✓</th>)}
             </tr>
           </thead>
           <tbody>
@@ -549,7 +551,7 @@ export function CalculadoraPan({ onClose }) {
               <td style={{ ...td, fontWeight: 700, color: C.navy }}>🌙 Biga madura (de la tina)</td>
               <td style={{ ...td, textAlign: "right", color: "#8a7a6e" }}>—</td>
               <td style={{ ...td, textAlign: "right", fontWeight: 800, color: C.navy }}>{fmt(b.total)}</td>
-              {Array.from({ length: CHECK_COLS }, (_, k) => <td key={k} style={{ ...td, textAlign: "center", padding: "6px 2px" }}>{box}</td>)}
+              {Array.from({ length: SHEET_CHECKS }, (_, k) => <td key={k} style={{ ...td, textAlign: "center", padding: "6px 2px" }}>{box}</td>)}
             </tr>
             {rec.ings.map((x, i) => (
               <tr key={i}>
@@ -559,7 +561,7 @@ export function CalculadoraPan({ onClose }) {
                 </td>
                 <td style={{ ...td, textAlign: "right", color: "#8a7a6e" }}>{fmt(num(x.pct), num(x.pct) % 1 ? 1 : 0)}</td>
                 <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmt(b.grams[i])}</td>
-                {Array.from({ length: CHECK_COLS }, (_, k) => <td key={k} style={{ ...td, textAlign: "center", padding: "6px 2px" }}>{box}</td>)}
+                {Array.from({ length: SHEET_CHECKS }, (_, k) => <td key={k} style={{ ...td, textAlign: "center", padding: "6px 2px" }}>{box}</td>)}
               </tr>
             ))}
           </tbody>
@@ -568,7 +570,7 @@ export function CalculadoraPan({ onClose }) {
               <td style={{ padding: "8px 4px", fontWeight: 700, color: C.navy, borderTop: `2px solid ${C.ink}` }}>Masa total</td>
               <td style={{ padding: "8px 4px", textAlign: "right", fontWeight: 700, color: "#8a7a6e", borderTop: `2px solid ${C.ink}` }}>{fmt(LR.SUM, 1)}%</td>
               <td style={{ padding: "8px 4px", textAlign: "right", fontWeight: 800, borderTop: `2px solid ${C.ink}` }}>{fmt(Math.round(LR.total))}</td>
-              <td colSpan={CHECK_COLS} style={{ borderTop: `2px solid ${C.ink}` }} />
+              <td colSpan={SHEET_CHECKS} style={{ borderTop: `2px solid ${C.ink}` }} />
             </tr>
           </tfoot>
         </table>
@@ -724,8 +726,8 @@ export function CalculadoraPan({ onClose }) {
                   <tr>
                     <th style={{ textAlign: "left", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#9a8a7e", padding: "6px 4px", borderBottom: `1px solid ${C.line}` }}>Ingrediente</th>
                     <th style={{ textAlign: "right", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#9a8a7e", padding: "6px 4px", borderBottom: `1px solid ${C.line}` }}>Gramos</th>
-                    {Array.from({ length: CHECK_COLS }, (_, k) => (
-                      <th key={`bc-h-${k}`} className="calcpan-printonly" style={{ textAlign: "center", fontSize: 11, color: "#9a8a7e", padding: "6px 2px", borderBottom: `1px solid ${C.line}`, width: 28 }}>{k + 1}</th>
+                    {Array.from({ length: SHEET_CHECKS }, (_, k) => (
+                      <th key={`bc-h-${k}`} className="calcpan-printonly" style={{ textAlign: "center", fontSize: 11, color: "#9a8a7e", padding: "6px 2px", borderBottom: `1px solid ${C.line}`, width: 28 }}>✓</th>
                     ))}
                   </tr>
                 </thead>
@@ -734,7 +736,7 @@ export function CalculadoraPan({ onClose }) {
                     <tr key={n}>
                       <td style={{ padding: "8px 4px", borderBottom: "1px solid #f0ebe5", fontWeight: 600, color: C.ink }}>{n}</td>
                       <td style={{ padding: "8px 4px", borderBottom: "1px solid #f0ebe5", textAlign: "right", fontWeight: 800, fontSize: 18, color: C.navy, whiteSpace: "nowrap" }}>{fmt(g)} g</td>
-                      {Array.from({ length: CHECK_COLS }, (_, k) => (
+                      {Array.from({ length: SHEET_CHECKS }, (_, k) => (
                         <td key={`bc-${k}`} className="calcpan-printonly" style={{ padding: "6px 2px", borderBottom: "1px solid #f0ebe5", textAlign: "center" }}>
                           <span style={{ display: "inline-block", width: 16, height: 16, border: `1.5px solid ${C.ink}`, borderRadius: 3 }} />
                         </td>
