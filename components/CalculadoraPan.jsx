@@ -433,7 +433,9 @@ export function CalculadoraPan({ onClose }) {
   const [view, setView] = useState("calc"); // "calc" | "plan" (biga consolidada)
   const [plan, setPlan] = useState(() => (typeof window !== "undefined" ? loadPlan() : null));
 
-  const selRaw = recipes.find(r => r.id === selId) || recipes[0];
+  // Las formulas madre que usan otros panes (ej. Formula CIMPA) no se muestran: se editan desde cualquiera de sus panes
+  const visible = recipes.filter(r => !recipes.some(x => x.baseId === r.id));
+  const selRaw = visible.find(r => r.id === selId) || visible[0] || recipes[0];
   const sel = resolveRecipe(selRaw, recipes);
   const baseRec = selRaw?.baseId ? recipes.find(r => r.id === selRaw.baseId) : null;
 
@@ -448,7 +450,7 @@ export function CalculadoraPan({ onClose }) {
     setDriverFlour(0);
     setEdit(false);
     setShowInstr(false);
-  }, [selId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selRaw?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const R = useMemo(() => sel ? compute(sel, drive, driverUnits, driverFlour) : null, [sel, drive, driverUnits, driverFlour]);
 
@@ -462,6 +464,8 @@ export function CalculadoraPan({ onClose }) {
 
   // Consolidado: cada lote = receta + unidades; la biga se calcula sobre la harina sumada
   const planRows = (plan && plan.length ? plan : [{ id: "l1", recipeId: sel.id, units: R.units, pan: sel.pan || "" }])
+    // un lote guardado con una formula madre oculta pasa al primer pan que la usa
+    .map(l => visible.some(r => r.id === l.recipeId) ? l : { ...l, recipeId: recipes.find(x => x.baseId === l.recipeId)?.id ?? l.recipeId })
     .map(l => ({ ...l, rec: resolveRecipe(recipes.find(r => r.id === l.recipeId), recipes) }))
     .filter(l => l.rec)
     .map(l => {
@@ -547,8 +551,8 @@ export function CalculadoraPan({ onClose }) {
             <button className="calcpan-noprint" style={btn} onClick={printRecipe}>🖨️ Imprimir</button>
             <button className="calcpan-noprint" style={btnGold} onClick={() => setView("calc")}>← Volver a la fórmula</button>
           </>) : (<>
-            <select value={selId} onChange={e => { setSelId(e.target.value); setConfirmDel(false); }} style={{ ...inp, textAlign: "left", width: "auto", flex: 1, minWidth: 140, fontWeight: 700 }}>
-              {recipes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+            <select value={selRaw.id} onChange={e => { setSelId(e.target.value); setConfirmDel(false); }} style={{ ...inp, textAlign: "left", width: "auto", flex: 1, minWidth: 140, fontWeight: 700 }}>
+              {visible.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
             <button className="calcpan-noprint" style={btn} onClick={printRecipe}>🖨️ Imprimir</button>
             <button className="calcpan-noprint" style={btn} onClick={newRecipe}>+ Nueva</button>
@@ -591,7 +595,7 @@ export function CalculadoraPan({ onClose }) {
                       <tr key={l.id}>
                         <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", minWidth: 130 }}>
                           <select value={l.recipeId} onChange={e => patchLote(l.id, { recipeId: e.target.value })} style={{ ...inp, textAlign: "left", padding: "6px 8px", fontSize: 13 }}>
-                            {recipes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                            {visible.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                           </select>
                         </td>
                         <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", minWidth: 110 }}>
@@ -661,7 +665,7 @@ export function CalculadoraPan({ onClose }) {
               </label>
               {baseRec && (
                 <p style={{ fontSize: 12, color: C.navy, background: "#F4F7FB", border: `1px solid ${C.line}`, borderRadius: 8, padding: "8px 10px", margin: "0 0 12px", lineHeight: 1.5 }}>
-                  Este pan usa la fórmula de <b>{baseRec.name}</b>: si cambiás porcentajes, ingredientes o instrucciones, cambian en todos los panes que la usan. Las unidades, el peso y la merma son solo de este pan.
+                  Fórmula compartida con <b>{recipes.filter(x => x.baseId === baseRec.id && x.id !== selRaw.id).map(x => x.name).join(", ") || "otros panes"}</b>: si cambiás porcentajes, ingredientes o instrucciones, cambian en todos. Las unidades, el peso y la merma son solo de este pan.
                 </p>
               )}
             </div>
@@ -678,7 +682,7 @@ export function CalculadoraPan({ onClose }) {
               style={{ ...inp, textAlign: "left", width: "auto", flex: "0 1 60%", minWidth: 0, padding: "6px 10px", fontSize: 14, letterSpacing: 0, textTransform: "none", fontFamily: "'Poppins',sans-serif", marginBottom: 6 }}
             />
           </div>
-          <div key={selId} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+          <div key={selRaw.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
             <label style={lbl}>Unidades
               <NumInput inputMode="numeric" min="0" step="1" style={drive === "units" ? inpDrive : inp} value={R.units} onChange={v => setUnits(v)} />
             </label>
