@@ -73,7 +73,7 @@ REGLAS OBLIGATORIAS (bodega, horno y control de moho)
     ["Harina Crema del Norte", 100], ["Gluten Vital (CIMPA)", 1.5],
     ["Fécula de Papa (CIMPA)", 1], ["Dimodan HP SG (CIMPA)", 0.5],
     ["Propionato de Calcio", 0.5], ["Leche en Polvo", 5],
-    ["Azúcar Blanco", 6], ["Levadura Fresca", 2],
+    ["Azúcar Blanco", 6], ["Levadura Fresca", 2.8],
     ["Glicerina USP (CIMPA)", 0.6], ["Glucosa Líquida (CIMPA)", 2],
     ["Líquido Total (Hielo + Agua)", 58.5],
     ["Margarina Industrial (Astra)", 10], ["Sal Refinada", 2],
@@ -213,6 +213,16 @@ function loadRecipes() {
           instr: CIMPA.instr,
         });
         try { localStorage.setItem("calcpan_cimpa_rev4", "1"); } catch { /* ignore */ }
+      }
+      // CIMPA rev5: Levadura Fresca 2% -> 2,8% (una sola vez, no toca lo demas)
+      let cimpaRev5 = null;
+      try { cimpaRev5 = localStorage.getItem("calcpan_cimpa_rev5"); } catch { /* ignore */ }
+      if (!cimpaRev5) {
+        out = out.map(x => x.id !== "formula-cimpa" ? x : {
+          ...x,
+          ings: (x.ings || []).map(i => String(i.name).startsWith("Levadura") ? { ...i, pct: 2.8 } : i),
+        });
+        try { localStorage.setItem("calcpan_cimpa_rev5", "1"); } catch { /* ignore */ }
       }
       return out;
     }
