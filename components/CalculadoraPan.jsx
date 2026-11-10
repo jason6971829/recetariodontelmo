@@ -296,6 +296,50 @@ function compute(rec, drive, driverUnits, driverFlour) {
   return { SUM, raw, w, r, flour, units, total, grams, left };
 }
 
+// ── Biga (prefermento del dia anterior) ──
+// Harina biga = 30% de la harina de la receta · agua = 50% de la harina biga · levadura = 1% de la harina biga.
+// En la mojadora se descuenta lo que ya trae la biga (harina, liquido y levadura); el resto queda igual.
+const BIGA = { flour: 0.30, water: 0.50, yeast: 0.01 };
+const findIng = (rec, ...prefixes) => rec.ings.findIndex(x => prefixes.some(p => normName(x.name).startsWith(p)));
+function bigaFromFlour(flour) {
+  const harina = Math.round(flour * BIGA.flour);
+  const agua = Math.round(harina * BIGA.water);
+  const levadura = Math.round(harina * BIGA.yeast);
+  return { harina, agua, levadura, total: harina + agua + levadura };
+}
+function recipeFlour(rec, R) {
+  const iH = findIng(rec, "harina");
+  return iH >= 0 ? R.grams[iH] : Math.round(R.flour);
+}
+function computeBiga(rec, R) {
+  const b = bigaFromFlour(recipeFlour(rec, R));
+  const idx = { iH: findIng(rec, "harina"), iL: findIng(rec, "liquido total", "agua"), iY: findIng(rec, "levadura") };
+  const grams = R.grams.slice();
+  const warn = [];
+  const take = (i, g, label) => {
+    if (i < 0) { warn.push(`La fórmula no tiene ${label}: no se pudo descontar.`); return; }
+    grams[i] -= g;
+    if (grams[i] < 0) { warn.push(`La biga lleva más ${label} de lo que tiene la fórmula.`); grams[i] = 0; }
+  };
+  take(idx.iH, b.harina, "harina");
+  take(idx.iL, b.agua, "líquido");
+  take(idx.iY, b.levadura, "levadura");
+  return { ...b, grams, idx, warn };
+}
+const reducedRow = (biga, i) => !!biga && (i === biga.idx.iH || i === biga.idx.iL || i === biga.idx.iY);
+const bigaInstrHead = (b) =>
+  `CON BIGA DEL DÍA ANTERIOR: incorporar ${fmt(b.total)} g de biga madura entera al inicio, junto con los secos. ` +
+  `La harina, el líquido y la levadura de esta receta ya vienen descontados (la biga trae ${fmt(b.harina)} g de harina, ${fmt(b.agua)} g de agua y ${fmt(b.levadura)} g de levadura).\n\n`;
+
+// Plan del dia (consolidado multi-lote de biga), guardado aparte de las formulas
+const PLAN_KEY = "calcpan_plan_v1";
+function loadPlan() {
+  try { const p = JSON.parse(localStorage.getItem(PLAN_KEY) || "null"); return Array.isArray(p) ? p : null; } catch { return null; }
+}
+function savePlan(p) {
+  try { localStorage.setItem(PLAN_KEY, JSON.stringify(p)); } catch { /* ignore */ }
+}
+
 // ── estilos Don Telmo ─────────────────────────────────────────────
 const C = { navy: "var(--app-primary, #1B3A5C)", navyD: "var(--app-primary-dark, #122845)", gold: "#D4721A", line: "#E0D8CE", cream: "#FDFAF6", ink: "#3a2f29" };
 const inp = { padding: "8px 10px", border: `1.5px solid ${C.line}`, borderRadius: "8px", fontSize: "14px", outline: "none", width: "100%", textAlign: "right", fontWeight: 700, color: C.ink, background: "#fff", fontFamily: "'Poppins', sans-serif", boxSizing: "border-box" };
@@ -354,10 +398,13 @@ export function CalculadoraPan({ onClose }) {
   const [showInstr, setShowInstr] = useState(false);
   const [toast, setToast] = useState("");
   const [confirmDel, setConfirmDel] = useState(false);
+  const [view, setView] = useState("calc"); // "calc" | "plan" (biga consolidada)
+  const [plan, setPlan] = useState(() => (typeof window !== "undefined" ? loadPlan() : null));
 
   const sel = recipes.find(r => r.id === selId) || recipes[0];
 
   useEffect(() => { saveRecipes(recipes); }, [recipes]);
+  useEffect(() => { if (plan) savePlan(plan); }, [plan]);
 
   // Al cambiar de receta: arrancar en modo unidades con las unidades guardadas
   useEffect(() => {
@@ -372,6 +419,28 @@ export function CalculadoraPan({ onClose }) {
   const R = useMemo(() => sel ? compute(sel, drive, driverUnits, driverFlour) : null, [sel, drive, driverUnits, driverFlour]);
 
   if (!sel || !R) return null;
+
+  // Biga de esta receta (si esta activada): G son los gramos a pesar en la mojadora
+  const biga = sel.biga ? computeBiga(sel, R) : null;
+  const G = biga ? biga.grams : R.grams;
+  const RI = biga ? { ...R, grams: G } : R;
+  const instrText = (sel.instr && sel.instr.trim()) ? (biga ? bigaInstrHead(biga) : "") + renderInstr(sel.instr, sel, RI) : "";
+
+  // Consolidado: cada lote = receta + unidades; la biga se calcula sobre la harina sumada
+  const planRows = (plan && plan.length ? plan : [{ id: "l1", recipeId: sel.id, units: R.units, pan: sel.pan || "" }])
+    .map(l => ({ ...l, rec: recipes.find(r => r.id === l.recipeId) }))
+    .filter(l => l.rec)
+    .map(l => {
+      const LR = compute(l.rec, "units", l.units, 0);
+      const flour = recipeFlour(l.rec, LR);
+      return { ...l, LR, flour, part: bigaFromFlour(flour) };
+    });
+  const planFlour = planRows.reduce((a, l) => a + l.flour, 0);
+  const planBiga = bigaFromFlour(planFlour);
+  const setPlanRows = (fn) => setPlan(() => fn(planRows.map(({ id, recipeId, units, pan }) => ({ id, recipeId, units, pan }))));
+  const patchLote = (id, patch) => setPlanRows(rows => rows.map(l => l.id === id ? { ...l, ...patch } : l));
+  const addLote = () => setPlanRows(rows => [...rows, { id: uid(), recipeId: sel.id, units: sel.units || 100, pan: "" }]);
+  const delLote = (id) => setPlanRows(rows => rows.filter(l => l.id !== id));
 
   // ── mutadores de receta ─────────────────────────────────────────
   const patchRecipe = (patch) => setRecipes(rs => rs.map(r => r.id === selId ? { ...r, ...patch } : r));
@@ -403,8 +472,9 @@ export function CalculadoraPan({ onClose }) {
 
   const copyRecipe = async () => {
     const txt = `${sel.name}${sel.pan && sel.pan.trim() ? " — " + sel.pan.trim() : ""}\n${fmt(R.units)} unidades × ${fmt(R.w, R.r > 0 ? 0 : 1)} g\nMasa total: ${fmt(Math.round(R.total))} g\n\n` +
-      sel.ings.map((x, i) => `${x.name}: ${fmt(R.grams[i])} g (${fmt(num(x.pct), num(x.pct) % 1 ? 1 : 0)}%)`).join("\n") +
-      (sel.instr && sel.instr.trim() ? `\n\n— Instrucciones —\n${renderInstr(sel.instr, sel, R)}` : "");
+      (biga ? `— Biga (preparar el día anterior) —\nHarina: ${fmt(biga.harina)} g\nAgua: ${fmt(biga.agua)} g\nLevadura fresca: ${fmt(biga.levadura)} g\nBiga madura: ${fmt(biga.total)} g\n\n— Mojadora —\nBiga madura: ${fmt(biga.total)} g\n` : "") +
+      sel.ings.map((x, i) => `${x.name}: ${fmt(G[i])} g${reducedRow(biga, i) ? " (descontada la biga)" : ` (${fmt(num(x.pct), num(x.pct) % 1 ? 1 : 0)}%)`}`).join("\n") +
+      (instrText ? `\n\n— Instrucciones —\n${instrText}` : "");
     try { await navigator.clipboard.writeText(txt); setToast("Receta copiada"); }
     catch { setToast("No se pudo copiar"); }
     setTimeout(() => setToast(""), 2500);
@@ -433,14 +503,21 @@ export function CalculadoraPan({ onClose }) {
 
         {/* Selector de receta */}
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", padding: "12px 20px", background: C.cream, borderBottom: `1.5px solid ${C.line}`, flexShrink: 0 }}>
-          <select value={selId} onChange={e => { setSelId(e.target.value); setConfirmDel(false); }} style={{ ...inp, textAlign: "left", width: "auto", flex: 1, minWidth: 140, fontWeight: 700 }}>
-            {recipes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-          </select>
-          <button className="calcpan-noprint" style={btn} onClick={printRecipe}>🖨️ Imprimir</button>
-          <button className="calcpan-noprint" style={btn} onClick={newRecipe}>+ Nueva</button>
-          <button className="calcpan-noprint" style={btn} onClick={dupRecipe}>Duplicar</button>
-          <button className="calcpan-noprint" style={{ ...btn, color: "#c0392b", borderColor: "#e8c5bf" }} onClick={() => setConfirmDel(true)}>Borrar</button>
-          <button className="calcpan-noprint" style={edit ? btnGold : btn} onClick={() => setEdit(e => !e)}>{edit ? "Listo ✓" : "✏️ Editar fórmula"}</button>
+          {view === "plan" ? (<>
+            <div style={{ flex: 1, minWidth: 140, fontWeight: 800, color: C.navy, fontSize: 15 }}>🌙 Biga consolidada del día anterior</div>
+            <button className="calcpan-noprint" style={btn} onClick={printRecipe}>🖨️ Imprimir</button>
+            <button className="calcpan-noprint" style={btnGold} onClick={() => setView("calc")}>← Volver a la fórmula</button>
+          </>) : (<>
+            <select value={selId} onChange={e => { setSelId(e.target.value); setConfirmDel(false); }} style={{ ...inp, textAlign: "left", width: "auto", flex: 1, minWidth: 140, fontWeight: 700 }}>
+              {recipes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+            <button className="calcpan-noprint" style={btn} onClick={printRecipe}>🖨️ Imprimir</button>
+            <button className="calcpan-noprint" style={btn} onClick={newRecipe}>+ Nueva</button>
+            <button className="calcpan-noprint" style={btn} onClick={dupRecipe}>Duplicar</button>
+            <button className="calcpan-noprint" style={{ ...btn, color: "#c0392b", borderColor: "#e8c5bf" }} onClick={() => setConfirmDel(true)}>Borrar</button>
+            <button className="calcpan-noprint" style={edit ? btnGold : btn} onClick={() => setEdit(e => !e)}>{edit ? "Listo ✓" : "✏️ Editar fórmula"}</button>
+            <button className="calcpan-noprint" style={btn} onClick={() => { setConfirmDel(false); setView("plan"); }}>🌙 Biga consolidada</button>
+          </>)}
         </div>
         {confirmDel && (
           <div className="calcpan-noprint" role="alertdialog" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "12px 20px", background: "#FDECEA", borderBottom: "1.5px solid #e8c5bf", flexShrink: 0 }}>
@@ -454,6 +531,90 @@ export function CalculadoraPan({ onClose }) {
 
         {/* Body */}
         <div className="calcpan-body" style={{ overflowY: "auto", flex: 1, padding: "16px 20px 24px", background: "#fff" }}>
+          {view === "plan" ? (
+            <div>
+              <div style={sect}>Lotes del día siguiente</div>
+              <p style={{ fontSize: 12, color: "#8a7a6e", margin: "0 0 10px" }}>
+                Agregá cada pedido (fórmula + unidades). Se suma la harina de todos los lotes y sale un solo pesaje de biga para amasar en una tina el día anterior.
+              </p>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontVariantNumeric: "tabular-nums" }}>
+                  <thead>
+                    <tr>
+                      {["Fórmula", "Pan", "Unidades", "Harina", "Biga madura"].map((h, k) => (
+                        <th key={h} style={{ textAlign: k < 2 ? "left" : "right", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#9a8a7e", padding: "6px 4px", borderBottom: `1px solid ${C.line}` }}>{h}</th>
+                      ))}
+                      <th className="calcpan-noprint" style={{ width: 30, borderBottom: `1px solid ${C.line}` }} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {planRows.map(l => (
+                      <tr key={l.id}>
+                        <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", minWidth: 130 }}>
+                          <select value={l.recipeId} onChange={e => patchLote(l.id, { recipeId: e.target.value })} style={{ ...inp, textAlign: "left", padding: "6px 8px", fontSize: 13 }}>
+                            {recipes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                          </select>
+                        </td>
+                        <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", minWidth: 110 }}>
+                          <input placeholder="ej. Pan perro" value={l.pan || ""} onChange={e => patchLote(l.id, { pan: e.target.value })} style={{ ...inp, textAlign: "left", padding: "6px 8px", fontSize: 13 }} />
+                        </td>
+                        <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", width: 90 }}>
+                          <NumInput inputMode="numeric" min="0" step="1" style={{ ...inp, padding: "6px 8px", fontSize: 13 }} value={l.units} onChange={v => patchLote(l.id, { units: Math.round(num(v)) })} />
+                        </td>
+                        <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", textAlign: "right", fontWeight: 600, color: C.ink, whiteSpace: "nowrap" }}>{fmt(l.flour)} g</td>
+                        <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", textAlign: "right", fontWeight: 700, color: C.gold, whiteSpace: "nowrap" }}>{fmt(l.part.total)} g</td>
+                        <td className="calcpan-noprint" style={{ padding: "6px 0", borderBottom: "1px solid #f0ebe5", textAlign: "center" }}>
+                          {planRows.length > 1 && <button onClick={() => delLote(l.id)} title="Quitar lote" style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 16 }}>×</button>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colSpan={3} style={{ padding: "8px 4px", fontWeight: 700, color: C.navy, borderTop: `2px solid ${C.ink}` }}>Harina total de los lotes</td>
+                      <td style={{ padding: "8px 4px", textAlign: "right", fontWeight: 800, color: C.navy, borderTop: `2px solid ${C.ink}`, whiteSpace: "nowrap" }}>{fmt(planFlour)} g</td>
+                      <td style={{ borderTop: `2px solid ${C.ink}` }} />
+                      <td className="calcpan-noprint" style={{ borderTop: `2px solid ${C.ink}` }} />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <button className="calcpan-noprint" style={{ ...btn, marginTop: 10 }} onClick={addLote}>+ Agregar lote</button>
+
+              <div style={{ ...sect, marginTop: 22 }}>Pesaje único de biga · preparar hoy en la tarde</div>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontVariantNumeric: "tabular-nums" }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#9a8a7e", padding: "6px 4px", borderBottom: `1px solid ${C.line}` }}>Ingrediente</th>
+                    <th style={{ textAlign: "right", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#9a8a7e", padding: "6px 4px", borderBottom: `1px solid ${C.line}` }}>Gramos</th>
+                    {Array.from({ length: CHECK_COLS }, (_, k) => (
+                      <th key={`bc-h-${k}`} className="calcpan-printonly" style={{ textAlign: "center", fontSize: 11, color: "#9a8a7e", padding: "6px 2px", borderBottom: `1px solid ${C.line}`, width: 28 }}>{k + 1}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[["Harina (30% de la harina total)", planBiga.harina], ["Agua (50% de la harina de biga)", planBiga.agua], ["Levadura fresca (1% de la harina de biga)", planBiga.levadura]].map(([n, g]) => (
+                    <tr key={n}>
+                      <td style={{ padding: "8px 4px", borderBottom: "1px solid #f0ebe5", fontWeight: 600, color: C.ink }}>{n}</td>
+                      <td style={{ padding: "8px 4px", borderBottom: "1px solid #f0ebe5", textAlign: "right", fontWeight: 800, fontSize: 18, color: C.navy, whiteSpace: "nowrap" }}>{fmt(g)} g</td>
+                      {Array.from({ length: CHECK_COLS }, (_, k) => (
+                        <td key={`bc-${k}`} className="calcpan-printonly" style={{ padding: "6px 2px", borderBottom: "1px solid #f0ebe5", textAlign: "center" }}>
+                          <span style={{ display: "inline-block", width: 16, height: 16, border: `1.5px solid ${C.ink}`, borderRadius: 3 }} />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, border: `2px solid ${C.gold}`, background: "#FFF7EF", borderRadius: 10, padding: "10px 14px", marginTop: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: C.navy }}>Biga madura total (una tina)</div>
+                <strong style={{ fontSize: 30, fontWeight: 800, color: C.gold, lineHeight: 1 }}>{fmt(planBiga.total)} g</strong>
+              </div>
+              <p style={{ fontSize: 12, color: "#8a7a6e", margin: "10px 0 0", lineHeight: 1.5 }}>
+                Al día siguiente, cada lote toma de la tina la cantidad de la columna <b>Biga madura</b>. En la calculadora, abrí cada fórmula con <b>Con biga del día anterior</b> activado para ver la mojadora ya descontada.
+              </p>
+            </div>
+          ) : (<>
           {edit && (
             <div style={{ gridColumn: "1/-1" }}>
               <label style={{ ...lbl, marginBottom: 12 }}>Nombre de la receta
@@ -501,6 +662,27 @@ export function CalculadoraPan({ onClose }) {
             </strong>
           </div>
 
+          {/* Biga del dia anterior */}
+          <label className={biga ? undefined : "calcpan-noprint"} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700, color: C.navy, cursor: "pointer", marginBottom: biga ? 10 : 18 }}>
+            <input type="checkbox" checked={!!sel.biga} onChange={e => patchRecipe({ biga: e.target.checked })} style={{ width: 18, height: 18, accentColor: C.gold }} />
+            🌙 Con biga del día anterior
+          </label>
+          {biga && (
+            <div style={{ border: `1.5px solid ${C.navy}`, borderRadius: 10, padding: "10px 12px", marginBottom: 18, background: "#F4F7FB" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: C.navy, marginBottom: 8 }}>Biga · preparar hoy en la tarde</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8 }}>
+                {kpi("Harina (30%)", fmt(biga.harina) + " g")}
+                {kpi("Agua (50%)", fmt(biga.agua) + " g")}
+                {kpi("Levadura (1%)", fmt(biga.levadura) + " g")}
+                {kpi("Biga madura", fmt(biga.total) + " g")}
+              </div>
+              <div style={{ fontSize: 12, color: "#5a6b80", marginTop: 8, lineHeight: 1.5 }}>
+                Mañana en la mojadora: se agrega la biga madura entera al inicio y la tabla de abajo ya trae descontadas la harina, el líquido y la levadura.
+              </div>
+              {biga.warn.map(w => <div key={w} style={{ fontSize: 12, color: "#c0392b", fontWeight: 600, marginTop: 4 }}>⚠️ {w}</div>)}
+            </div>
+          )}
+
           <div style={sect}>Fórmula</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 14 }}>
             {kpi("Unidades", fmt(R.units))}
@@ -522,12 +704,28 @@ export function CalculadoraPan({ onClose }) {
                 </tr>
               </thead>
               <tbody>
+                {biga && (
+                  <tr style={{ background: "#F4F7FB" }}>
+                    <td style={{ padding: "6px 4px", borderBottom: `1px solid #f0ebe5`, fontWeight: 700, color: C.navy }}>🌙 Biga madura (del día anterior)</td>
+                    <td style={{ padding: "6px 4px", borderBottom: `1px solid #f0ebe5`, textAlign: "right", color: "#8a7a6e" }}>—</td>
+                    <td style={{ padding: "6px 4px", borderBottom: `1px solid #f0ebe5` }}>
+                      <div style={{ ...inp, padding: "7px 8px", background: "#F4F7FB", borderColor: C.navy, color: C.navy }}>{biga.total}</div>
+                    </td>
+                    {edit && <td style={{ borderBottom: `1px solid #f0ebe5` }} />}
+                    {Array.from({ length: CHECK_COLS }, (_, k) => (
+                      <td key={`chk-b-${k}`} className="calcpan-printonly" style={{ padding: "6px 2px", borderBottom: `1px solid #f0ebe5`, textAlign: "center" }}>
+                        <span style={{ display: "inline-block", width: 16, height: 16, border: `1.5px solid ${C.ink}`, borderRadius: 3 }} />
+                      </td>
+                    ))}
+                  </tr>
+                )}
                 {sel.ings.map((x, i) => (
                   <tr key={i}>
                     <td style={{ padding: "6px 4px", borderBottom: `1px solid #f0ebe5`, fontWeight: 600, color: C.ink }}>
                       {edit
                         ? <input style={{ ...inp, textAlign: "left", padding: "6px 8px" }} value={x.name} onChange={e => patchIng(i, { name: e.target.value })} />
                         : x.name}
+                      {reducedRow(biga, i) && <div style={{ fontSize: 11, fontWeight: 600, color: C.navy }}>restante (ya descontada la biga)</div>}
                     </td>
                     <td style={{ padding: "6px 4px", borderBottom: `1px solid #f0ebe5`, textAlign: "right", fontFamily: "'Poppins',sans-serif", color: "#8a7a6e" }}>
                       {edit
@@ -535,7 +733,9 @@ export function CalculadoraPan({ onClose }) {
                         : fmt(num(x.pct), num(x.pct) % 1 ? 1 : 0)}
                     </td>
                     <td style={{ padding: "6px 4px", borderBottom: `1px solid #f0ebe5` }}>
-                      <NumInput inputMode="numeric" min="0" step="1" style={{ ...inp, padding: "7px 8px" }} value={R.grams[i]} onChange={v => setGram(i, v)} />
+                      {reducedRow(biga, i)
+                        ? <div style={{ ...inp, padding: "7px 8px", background: "#F4F7FB", borderColor: C.navy, color: C.navy }}>{G[i]}</div>
+                        : <NumInput inputMode="numeric" min="0" step="1" style={{ ...inp, padding: "7px 8px" }} value={R.grams[i]} onChange={v => setGram(i, v)} />}
                     </td>
                     {edit && (
                       <td style={{ padding: "6px 0", borderBottom: `1px solid #f0ebe5`, textAlign: "center" }}>
@@ -598,7 +798,7 @@ export function CalculadoraPan({ onClose }) {
                   </button>
                   {showInstr && (
                     <div style={{ marginTop: 10, whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.55, color: C.ink, background: C.cream, border: `1px solid ${C.line}`, borderRadius: 10, padding: "12px 14px" }}>
-                      {renderInstr(sel.instr, sel, R)}
+                      {instrText}
                     </div>
                   )}
                 </>
@@ -610,6 +810,7 @@ export function CalculadoraPan({ onClose }) {
             <button style={btnGold} onClick={copyRecipe}>Copiar receta</button>
             {toast && <span style={{ fontSize: 13, color: C.navy, fontWeight: 600 }}>{toast}</span>}
           </div>
+          </>)}
         </div>
       </div>
     </div>,
