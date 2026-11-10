@@ -429,12 +429,10 @@ export function CalculadoraPan({ onClose }) {
   const [drive, setDrive] = useState("units");
   const [driverUnits, setDriverUnits] = useState(320);
   const [driverFlour, setDriverFlour] = useState(0);
-  const [showInstr, setShowInstr] = useState(false);
   const [toast, setToast] = useState("");
   const [confirmDel, setConfirmDel] = useState(false);
   const [view, setView] = useState("calc"); // "calc" | "plan" (biga consolidada)
   const [plan, setPlan] = useState(() => (typeof window !== "undefined" ? loadPlan() : null));
-  const [planInstr, setPlanInstr] = useState(false); // incluir instrucciones en las hojas impresas
 
   // Las formulas madre que usan otros panes (ej. Formula CIMPA) no se muestran: se editan desde cualquiera de sus panes
   const visible = recipes.filter(r => !recipes.some(x => x.baseId === r.id));
@@ -452,7 +450,6 @@ export function CalculadoraPan({ onClose }) {
     setDriverUnits(sel.units || 320);
     setDriverFlour(0);
     setEdit(false);
-    setShowInstr(false);
   }, [selRaw?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const R = useMemo(() => sel ? compute(sel, drive, driverUnits, driverFlour) : null, [sel, drive, driverUnits, driverFlour]);
@@ -463,10 +460,12 @@ export function CalculadoraPan({ onClose }) {
   const biga = sel.biga ? computeBiga(sel, R) : null;
   const G = biga ? biga.grams : R.grams;
   const RI = biga ? { ...R, grams: G } : R;
+  const showInstr = !!sel.instrOpen; // queda guardado por pan: si esta abierto, tambien sale en la impresion completa
+  const setShowInstr = () => patchRecipe({ instrOpen: !sel.instrOpen });
   const instrText = (sel.instr && sel.instr.trim()) ? (biga ? bigaInstrHead(biga) : "") + renderInstr(sel.instr, sel, RI) : "";
 
   // Consolidado: cada lote = receta + unidades; la biga se calcula sobre la harina sumada
-  const planRows = (plan && plan.length ? plan : [{ id: "l1", recipeId: sel.id, units: R.units, pan: sel.pan || "" }])
+  const planRows = (plan && plan.length ? plan : visible.map(r => ({ id: "l-" + r.id, recipeId: r.id, units: r.units || 100, pan: "", active: true })))
     // un lote guardado con una formula madre oculta pasa al primer pan que la usa
     .map(l => visible.some(r => r.id === l.recipeId) ? l : { ...l, recipeId: recipes.find(x => x.baseId === l.recipeId)?.id ?? l.recipeId })
     .map(l => ({ ...l, rec: resolveRecipe(recipes.find(r => r.id === l.recipeId), recipes) }))
@@ -474,13 +473,18 @@ export function CalculadoraPan({ onClose }) {
     .map(l => {
       const LR = compute(l.rec, "units", l.units, 0);
       const flour = recipeFlour(l.rec, LR);
-      return { ...l, LR, flour, part: bigaFromFlour(flour) };
+      const tandas = Math.max(1, Math.round(num(l.tandas) || 1));
+      return { ...l, tandas, LR, flour, part: bigaFromFlour(flour) };
     });
-  const planFlour = planRows.reduce((a, l) => a + l.flour, 0);
+  // Solo cuentan (biga y hojas impresas) los lotes marcados en "Hacer"; los demas guardan sus unidades
+  const activeRows = planRows.filter(l => l.active !== false);
+  const planFlour = activeRows.reduce((a, l) => a + l.flour * l.tandas, 0);
+  const planTandas = activeRows.reduce((a, l) => a + l.tandas, 0);
   const planBiga = bigaFromFlour(planFlour);
-  const setPlanRows = (fn) => setPlan(() => fn(planRows.map(({ id, recipeId, units, pan }) => ({ id, recipeId, units, pan }))));
+  const setPlanRows = (fn) => setPlan(() => fn(planRows.map(({ id, recipeId, units, pan, active, tandas }) => ({ id, recipeId, units, pan, active: active !== false, tandas }))));
+  const toggleLoteInstr = (l) => setRecipes(rs => rs.map(r => r.id === l.recipeId ? { ...r, instrOpen: !l.rec.instrOpen } : r));
   const patchLote = (id, patch) => setPlanRows(rows => rows.map(l => l.id === id ? { ...l, ...patch } : l));
-  const addLote = () => setPlanRows(rows => [...rows, { id: uid(), recipeId: sel.id, units: sel.units || 100, pan: "" }]);
+  const addLote = () => setPlanRows(rows => [...rows, { id: uid(), recipeId: sel.id, units: sel.units || 100, pan: "", active: true }]);
   const delLote = (id) => setPlanRows(rows => rows.filter(l => l.id !== id));
 
   // ── mutadores de receta ─────────────────────────────────────────
@@ -508,19 +512,19 @@ export function CalculadoraPan({ onClose }) {
   const th = { fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#9a8a7e", padding: "6px 4px", borderBottom: `1px solid ${C.line}` };
   const td = { padding: "6px 4px", borderBottom: "1px solid #f0ebe5" };
   const box = <span style={{ display: "inline-block", width: 16, height: 16, border: `1.5px solid ${C.ink}`, borderRadius: 3 }} />;
-  const renderSheet = (l, n, total) => {
+  const renderSheet = (l, label, key) => {
     const rec = l.rec, LR = l.LR, b = computeBiga(rec, LR);
     const wTxt = fmt(LR.w, LR.r > 0 ? 0 : 1);
-    const instr = planInstr && rec.instr && rec.instr.trim()
+    const instr = rec.instrOpen && rec.instr && rec.instr.trim()
       ? bigaInstrHead(b) + renderInstr(rec.instr, rec, { ...LR, grams: b.grams }) : "";
     return (
-      <div key={`sheet-${l.id}`} className="calcpan-sheet" style={{ fontFamily: "'Poppins',sans-serif", color: C.ink }}>
+      <div key={key} className="calcpan-sheet" style={{ fontFamily: "'Poppins',sans-serif", color: C.ink }}>
         <div style={{ background: `linear-gradient(135deg, ${C.navy}, ${C.navyD})`, color: "#fff", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 10 }}>
           <div>
             <div style={{ color: C.gold, fontSize: 10, fontWeight: 700, letterSpacing: 3, fontFamily: "Georgia,serif" }}>DON TELMO® · 1958 · COMPANY</div>
             <div style={{ fontFamily: "Georgia,serif", fontSize: 22, fontWeight: 700, marginTop: 2 }}>{(l.pan && l.pan.trim()) || rec.name}</div>
           </div>
-          <div style={{ fontSize: 12, opacity: 0.8 }}>Receta {n} de {total}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.9, textAlign: "right" }}>{label}</div>
         </div>
         <div style={{ fontSize: 12, color: "#8a7a6e", margin: "10px 0" }}>
           {fmt(num(rec.wfinal))} g de peso final + {fmt(num(rec.merma), 1)}% merma → <b style={{ color: C.gold }}>{wTxt} g a bolear</b>
@@ -655,34 +659,45 @@ export function CalculadoraPan({ onClose }) {
             <div>
               <div style={sect}>Lotes del día siguiente</div>
               <p style={{ fontSize: 12, color: "#8a7a6e", margin: "0 0 10px" }}>
-                Agregá cada pedido (fórmula + unidades). Se suma la harina de todos los lotes y sale un solo pesaje de biga para amasar en una tina el día anterior.
+                Marcá en <b>Hacer</b> las recetas que vas a producir y poné las unidades. Solo las marcadas suman a la biga y se imprimen; las demás guardan sus unidades para otro día. <b>Tandas</b> = cuántas veces se hace esa receta en la mojadora (ej. 3 de Pan Burger). <b>📋</b> = imprimir también sus instrucciones.
               </p>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontVariantNumeric: "tabular-nums" }}>
                   <thead>
                     <tr>
-                      {["Fórmula", "Pan", "Unidades", "Harina", "Biga madura"].map((h, k) => (
-                        <th key={h} style={{ textAlign: k < 2 ? "left" : "right", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#9a8a7e", padding: "6px 4px", borderBottom: `1px solid ${C.line}` }}>{h}</th>
+                      <th className="calcpan-noprint" style={{ textAlign: "center", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#9a8a7e", padding: "6px 4px", borderBottom: `1px solid ${C.line}`, width: 44 }}>Hacer</th>
+                      {["Receta", "Unidades", "Tandas", "Harina", "Biga madura"].map((h, k) => (
+                        <th key={h} style={{ textAlign: k < 1 ? "left" : "right", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#9a8a7e", padding: "6px 4px", borderBottom: `1px solid ${C.line}` }}>{h}</th>
                       ))}
+                      <th className="calcpan-noprint" title="Imprimir instrucciones" style={{ textAlign: "center", fontSize: 11, color: "#9a8a7e", padding: "6px 2px", borderBottom: `1px solid ${C.line}`, width: 34 }}>📋</th>
                       <th className="calcpan-noprint" style={{ width: 30, borderBottom: `1px solid ${C.line}` }} />
                     </tr>
                   </thead>
                   <tbody>
                     {planRows.map(l => (
-                      <tr key={l.id}>
+                      <tr key={l.id} className={l.active === false ? "calcpan-noprint" : undefined} style={{ opacity: l.active === false ? 0.45 : 1 }}>
+                        <td className="calcpan-noprint" style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", textAlign: "center" }}>
+                          <input type="checkbox" aria-label="Hacer esta receta" checked={l.active !== false} onChange={e => patchLote(l.id, { active: e.target.checked })} style={{ width: 20, height: 20, accentColor: C.gold, cursor: "pointer" }} />
+                        </td>
                         <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", minWidth: 130 }}>
                           <select value={l.recipeId} onChange={e => patchLote(l.id, { recipeId: e.target.value })} style={{ ...inp, textAlign: "left", padding: "6px 8px", fontSize: 13 }}>
                             {visible.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                           </select>
                         </td>
-                        <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", minWidth: 110 }}>
-                          <input placeholder="ej. Pan perro" value={l.pan || ""} onChange={e => patchLote(l.id, { pan: e.target.value })} style={{ ...inp, textAlign: "left", padding: "6px 8px", fontSize: 13 }} />
-                        </td>
                         <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", width: 90 }}>
                           <NumInput inputMode="numeric" min="0" step="1" style={{ ...inp, padding: "6px 8px", fontSize: 13 }} value={l.units} onChange={v => patchLote(l.id, { units: Math.round(num(v)) })} />
                         </td>
-                        <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", textAlign: "right", fontWeight: 600, color: C.ink, whiteSpace: "nowrap" }}>{fmt(l.flour)} g</td>
-                        <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", textAlign: "right", fontWeight: 700, color: C.gold, whiteSpace: "nowrap" }}>{fmt(l.part.total)} g</td>
+                        <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", width: 70 }} title="Cuántas veces se hace esta receta en la mojadora">
+                          <NumInput inputMode="numeric" min="1" step="1" style={{ ...inp, padding: "6px 8px", fontSize: 13 }} value={l.tandas} onChange={v => patchLote(l.id, { tandas: v === "" ? "" : Math.max(1, Math.round(num(v))) })} />
+                        </td>
+                        <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", textAlign: "right", fontWeight: 600, color: C.ink, whiteSpace: "nowrap" }}>{fmt(l.flour * l.tandas)} g</td>
+                        <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", textAlign: "right", fontWeight: 700, color: C.gold, whiteSpace: "nowrap" }}>{l.active === false ? "—" : (
+                          <>{fmt(l.part.total * l.tandas)} g{l.tandas > 1 && <div style={{ fontSize: 10, fontWeight: 600, color: "#8a7a6e" }}>{fmt(l.part.total)} g × {l.tandas}</div>}</>
+                        )}</td>
+                        <td className="calcpan-noprint" style={{ padding: "6px 2px", borderBottom: "1px solid #f0ebe5", textAlign: "center" }}>
+                          <button onClick={() => toggleLoteInstr(l)} title={l.rec.instrOpen ? "Las instrucciones se imprimen" : "Las instrucciones no se imprimen"}
+                            style={{ border: `1.5px solid ${l.rec.instrOpen ? C.gold : C.line}`, background: l.rec.instrOpen ? "#FBEFE3" : "#fff", borderRadius: 6, cursor: "pointer", padding: "3px 5px", fontSize: 13, opacity: l.rec.instrOpen ? 1 : 0.5 }}>📋</button>
+                        </td>
                         <td className="calcpan-noprint" style={{ padding: "6px 0", borderBottom: "1px solid #f0ebe5", textAlign: "center" }}>
                           {planRows.length > 1 && <button onClick={() => delLote(l.id)} title="Quitar lote" style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 16 }}>×</button>}
                         </td>
@@ -691,9 +706,11 @@ export function CalculadoraPan({ onClose }) {
                   </tbody>
                   <tfoot>
                     <tr>
-                      <td colSpan={3} style={{ padding: "8px 4px", fontWeight: 700, color: C.navy, borderTop: `2px solid ${C.ink}` }}>Harina total de los lotes</td>
+                      <td className="calcpan-noprint" style={{ borderTop: `2px solid ${C.ink}` }} />
+                      <td colSpan={3} style={{ padding: "8px 4px", fontWeight: 700, color: C.navy, borderTop: `2px solid ${C.ink}` }}>Harina total ({activeRows.length} {activeRows.length === 1 ? "receta" : "recetas"}, {planTandas} {planTandas === 1 ? "tanda" : "tandas"})</td>
                       <td style={{ padding: "8px 4px", textAlign: "right", fontWeight: 800, color: C.navy, borderTop: `2px solid ${C.ink}`, whiteSpace: "nowrap" }}>{fmt(planFlour)} g</td>
                       <td style={{ borderTop: `2px solid ${C.ink}` }} />
+                      <td className="calcpan-noprint" style={{ borderTop: `2px solid ${C.ink}` }} />
                       <td className="calcpan-noprint" style={{ borderTop: `2px solid ${C.ink}` }} />
                     </tr>
                   </tfoot>
@@ -737,16 +754,14 @@ export function CalculadoraPan({ onClose }) {
               <div className="calcpan-noprint" style={{ marginTop: 16, padding: "12px 14px", border: `1.5px dashed ${C.line}`, borderRadius: 10, background: C.cream }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>🖨️ Imprimir producción completa</div>
                 <div style={{ fontSize: 12, color: "#8a7a6e", margin: "4px 0 10px" }}>
-                  Sale esta hoja con el total de biga + {planRows.length} {planRows.length === 1 ? "hoja de receta" : "hojas de receta"} (una por lote, con la mojadora descontada y cuadritos para marcar), en tamaño carta.
+                  Sale esta hoja con el total de biga + {planTandas} {planTandas === 1 ? "hoja de mojadora" : "hojas de mojadora"} (una por tanda, solo de las recetas marcadas en Hacer, con la biga descontada y cuadritos para marcar), en tamaño carta.
+                  {" "}Instrucciones: {activeRows.filter(l => l.rec.instrOpen).map(l => (l.pan && l.pan.trim()) || l.rec.name).join(", ") || "ninguna (tocá 📋 en la receta que las necesite)"}.
                 </div>
-                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.ink, cursor: "pointer", marginBottom: 10 }}>
-                  <input type="checkbox" checked={planInstr} onChange={e => setPlanInstr(e.target.checked)} style={{ width: 16, height: 16, accentColor: C.gold }} />
-                  Incluir instrucciones en cada receta
-                </label>
-                <button style={btnGold} onClick={printRecipe}>🖨️ Imprimir biga + todas las recetas</button>
+                <button style={{ ...btnGold, opacity: activeRows.length ? 1 : 0.5 }} disabled={!activeRows.length} onClick={printRecipe}>🖨️ Imprimir biga + {planTandas} {planTandas === 1 ? "hoja" : "hojas"}</button>
               </div>
 
-              {planRows.map((l, k) => renderSheet(l, k + 1, planRows.length))}
+              {activeRows.flatMap((l, k) => Array.from({ length: l.tandas }, (_, t) =>
+                renderSheet(l, `Receta ${k + 1} de ${activeRows.length}${l.tandas > 1 ? ` · Tanda ${t + 1} de ${l.tandas}` : ""}`, `sheet-${l.id}-${t}`)))}
             </div>
           ) : (<>
           {edit && (
@@ -932,7 +947,7 @@ export function CalculadoraPan({ onClose }) {
                 </p>
               </>) : (
                 <>
-                  <button className="calcpan-noprint" style={btn} onClick={() => setShowInstr(s => !s)}>
+                  <button className="calcpan-noprint" style={btn} onClick={setShowInstr}>
                     {showInstr ? "▲ Ocultar instrucciones" : "📋 Ver instrucciones"}
                   </button>
                   {showInstr && (
