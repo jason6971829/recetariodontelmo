@@ -263,6 +263,8 @@ function saveRecipes(list) {
 // {unidades} {peso} (a bolear) {final} (horneado) {hidratacion} {g:Ingrediente} {kg:Ingrediente}
 // {hielo} {agua} (mitades del Liquido Total) {division} (bloques para divisora de 30)
 const DIVISORA = 30;
+// Capacidad de la mojadora: una receta de Pan Burger (300 u x 85 g). Si una tanda pasa de esto, se avisa.
+const MOJADORA_MAX = 25500;
 const normName = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 function renderInstr(text, rec, R) {
   if (!text || !R) return text || "";
@@ -717,6 +719,11 @@ export function CalculadoraPan({ onClose }) {
                   </tfoot>
                 </table>
               </div>
+              {activeRows.filter(l => l.LR.total > MOJADORA_MAX).map(l => (
+                <div key={`max-${l.id}`} className="calcpan-noprint" style={{ fontSize: 12, fontWeight: 600, color: "#8e2b20", background: "#FDECEA", border: "1.5px solid #e8c5bf", borderRadius: 8, padding: "7px 10px", marginTop: 8, lineHeight: 1.45 }}>
+                  ⚠️ {l.rec.name}: cada tanda pesa {fmt(Math.round(l.LR.total))} g y la mojadora aguanta {fmt(MOJADORA_MAX)} g. Bajá a {fmt(Math.floor(MOJADORA_MAX / l.LR.w))} unidades o menos por tanda y subí las tandas.
+                </div>
+              ))}
               <button className="calcpan-noprint" style={{ ...btn, marginTop: 10 }} onClick={addLote}>+ Agregar lote</button>
 
               <div style={{ ...sect, marginTop: 22 }}>Pesaje único de biga · preparar hoy en la tarde</div>
@@ -806,6 +813,14 @@ export function CalculadoraPan({ onClose }) {
           <div style={{ fontFamily: "'Poppins',sans-serif", fontSize: 12, color: "#8a7a6e", background: "#FBEFE3", borderRadius: 8, padding: "8px 10px", marginBottom: 10 }}>
             {fmt(num(sel.wfinal))} g + {fmt(num(sel.merma), 1)}% merma = {fmt(R.raw, 1)} g → <b style={{ color: C.gold }}>{fmt(R.w, R.r > 0 ? 0 : 1)} g a bolear</b>
           </div>
+          {R.total > MOJADORA_MAX && (() => {
+            const t = Math.ceil(R.total / MOJADORA_MAX);
+            return (
+              <div className="calcpan-noprint" style={{ fontSize: 13, fontWeight: 600, color: "#8e2b20", background: "#FDECEA", border: "1.5px solid #e8c5bf", borderRadius: 8, padding: "8px 10px", marginBottom: 10, lineHeight: 1.45 }}>
+                ⚠️ {fmt(Math.round(R.total))} g no entran en la mojadora (máx. {fmt(MOJADORA_MAX)} g). Hacelo en {t} tandas de unas {fmt(Math.ceil(R.units / t))} unidades.
+              </div>
+            );
+          })()}
           {/* Peso del bloque que entra a la boleadora (un testo por hueco) */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, border: `2px solid ${C.gold}`, background: "#FFF7EF", borderRadius: 10, padding: "10px 14px", marginBottom: 18 }}>
             <div>
