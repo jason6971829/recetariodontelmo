@@ -63,6 +63,8 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
   const ings = useMemo(() => (recipe.ingredients || []).map(normalizeIngredient), [recipe.ingredients]);
   const parsed = useMemo(() => ings.map(n => parseQty(n.text)), [ings]);
   const canCalc = parsed.some(Boolean);
+  // La báscula es para producción: solo en Recetas Bodega (la Calculadora de Masas tiene la suya)
+  const canPesar = canCalc && String(recipe.category || "").trim().toUpperCase() === "RECETAS BODEGA";
   const [calcOn, setCalcOn] = useState(false);
   const [baseIdx, setBaseIdx] = useState(() => defaultBaseIndex(parsed));
   const [have, setHave] = useState("");
@@ -189,7 +191,7 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
                       🧮 {calcOn ? "Cerrar" : "Calcular"}
                     </button>
                   )}
-                  {canCalc && (
+                  {canPesar && (
                     <button onClick={() => setPesar(v => !v)} title="Pesar con la báscula"
                       style={{ background: pesar ? "#1e8e4e" : "#fff", color: pesar ? "#fff" : "#1e8e4e", border:"1.5px solid #1e8e4e", borderRadius:"8px", padding:"5px 10px", cursor:"pointer", fontSize:"12px", fontWeight:"700" }}>
                       ⚖️ {pesar ? "Dejar de pesar" : "Pesar"}
@@ -220,7 +222,7 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
                       Receta ×{fmtNum(factor, 3)}{rinde ? ` · rinde ${fmtScaled(rinde, factor).main}` : ""}
                     </span>
                   </div>
-                  {!pesar && (
+                  {canPesar && !pesar && (
                     <button onClick={() => setPesar(true)} style={{ width:"100%", marginTop:"10px", background:"#1e8e4e", border:"none", borderRadius:"8px", color:"#fff", padding:"10px", cursor:"pointer", fontSize:"14px", fontWeight:"800" }}>
                       ⚖️ Pesar con la báscula
                     </button>
@@ -228,7 +230,7 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
                 </div>
               )}
 
-              {pesar && ings.length > 0 ? (
+              {canPesar && pesar && ings.length > 0 ? (
                 <BasculaEnLista title={recipe.name} rows={pesoRows} />
               ) : ings.length > 0
                 ? ings.map((n, i) => {

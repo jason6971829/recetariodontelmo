@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
-import { PesajeBascula } from "./PesajeBascula";
+import { BasculaEnLista } from "./BasculaEnLista";
 
 // Calculadora de porcentaje panadero — herramienta independiente.
 // Harina = 100%. Reglas:
@@ -658,7 +658,7 @@ export function CalculadoraPan({ onClose }) {
             <select value={selRaw.id} onChange={e => { setSelId(e.target.value); setConfirmDel(false); }} style={{ ...inp, textAlign: "left", width: "auto", flex: 1, minWidth: 140, fontWeight: 700 }}>
               {visible.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
-            <button className="calcpan-noprint" style={btnGold} onClick={() => { setConfirmDel(false); setEdit(false); setPesar(true); }}>⚖️ Pesar</button>
+            <button className="calcpan-noprint" style={btnGold} onClick={() => { setConfirmDel(false); setEdit(false); setPesar(v => !v); }}>{pesar ? "⚖️ Dejar de pesar" : "⚖️ Pesar"}</button>
             <button className="calcpan-noprint" style={btn} onClick={printRecipe}>🖨️ Imprimir</button>
             <button className="calcpan-noprint" style={btn} onClick={newRecipe}>+ Nueva</button>
             <button className="calcpan-noprint" style={btn} onClick={dupRecipe}>Duplicar</button>
@@ -881,6 +881,12 @@ export function CalculadoraPan({ onClose }) {
             {kpi("Masa total", fmt(Math.round(R.total)) + " g")}
           </div>
 
+          {pesar ? (
+            <div className="calcpan-noprint">
+              <BasculaEnLista title={`${(selRaw.pan && selRaw.pan.trim()) || sel.name} · ${fmt(R.units)} u`}
+                rows={pesajeItems().map(it => ({ code: "", name: it.name + (it.note ? ` (${it.note})` : ""), main: `${fmt(it.grams)} g`, sub: "", grams: it.grams, manual: "" }))} />
+            </div>
+          ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontVariantNumeric: "tabular-nums" }}>
               <thead>
@@ -956,6 +962,7 @@ export function CalculadoraPan({ onClose }) {
               </tfoot>
             </table>
           </div>
+          )}
 
           {edit && <button style={{ ...btn, marginTop: 10 }} onClick={addIng}>+ Agregar ingrediente</button>}
 
@@ -1004,14 +1011,6 @@ export function CalculadoraPan({ onClose }) {
           </>)}
         </div>
       </div>
-      {pesar && (
-        <PesajeBascula
-          title={(selRaw.pan && selRaw.pan.trim()) || sel.name}
-          subtitle={`${fmt(R.units)} u × ${fmt(R.w, R.r > 0 ? 0 : 1)} g · ${fmt(Math.round(R.total))} g de masa${biga ? " · con biga" : ""}`}
-          items={pesajeItems()}
-          onClose={() => setPesar(false)}
-        />
-      )}
     </div>,
     document.body
   );
