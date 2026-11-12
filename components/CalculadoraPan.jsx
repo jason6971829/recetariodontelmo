@@ -429,10 +429,13 @@ function NumInput({ value, onChange, ...props }) {
   );
 }
 
-export function CalculadoraPan({ onClose }) {
+// isAdmin: solo el admin puede editar, crear, duplicar o borrar fórmulas.
+// Los demás usan la calculadora (unidades, lote, biga, pesar, imprimir) pero no tocan los porcentajes.
+export function CalculadoraPan({ onClose, isAdmin = false }) {
   const [recipes, setRecipes] = useState(() => (typeof window !== "undefined" ? loadRecipes() : SEED));
   const [selId, setSelId] = useState(() => recipes[0]?.id ?? SEED[0].id);
-  const [edit, setEdit] = useState(false);
+  const [editRaw, setEdit] = useState(false);
+  const edit = editRaw && isAdmin; // solo el admin edita la fórmula
   const [drive, setDrive] = useState("units");
   const [driverUnits, setDriverUnits] = useState(320);
   const [driverFlour, setDriverFlour] = useState(0);
@@ -661,7 +664,7 @@ export function CalculadoraPan({ onClose }) {
             <button style={{ ...btnGold, height: 40, borderRadius: 12 }} onClick={printRecipe}>Imprimir</button>
           </div>
         )}
-        {confirmDel && (
+        {confirmDel && isAdmin && (
           <div className="calcpan-noprint" role="alertdialog" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: `12px ${mobile ? 18 : 28}px`, background: "#FDECEA", borderBottom: "1.5px solid #e8c5bf", flexShrink: 0 }}>
             <span style={{ flex: 1, minWidth: 180, fontSize: 13, fontWeight: 600, color: "#8e2b20" }}>
               ⚠️ ¿Seguro que querés borrar «{sel?.name}»? No se puede deshacer.
@@ -799,12 +802,14 @@ export function CalculadoraPan({ onClose }) {
             </button>
           </div>
           <div className="calcpan-noprint dt-noscroll" style={{ display: "flex", gap: 6, overflowX: "auto", margin: `0 -${mobile ? 18 : 28}px 16px`, padding: `0 ${mobile ? 18 : 28}px 2px` }}>
-            <button style={edit ? { ...btn, background: C.navy, borderColor: C.navy, color: "#fff" } : btn} onClick={() => setEdit(e => !e)}>{edit ? "Listo ✓" : "Editar fórmula"}</button>
+            {isAdmin && <button style={edit ? { ...btn, background: C.navy, borderColor: C.navy, color: "#fff" } : btn} onClick={() => setEdit(e => !e)}>{edit ? "Listo ✓" : "Editar fórmula"}</button>}
             <button style={btn} onClick={() => { setConfirmDel(false); setPesar(false); setView("plan"); }}>Biga consolidada</button>
             <button style={btn} onClick={printRecipe}>Imprimir</button>
-            <button style={btn} onClick={newRecipe}>+ Nueva</button>
-            <button style={btn} onClick={dupRecipe}>Duplicar</button>
-            <button style={{ ...btn, color: C.red }} onClick={() => setConfirmDel(true)}>Borrar</button>
+            {isAdmin && <>
+              <button style={btn} onClick={newRecipe}>+ Nueva</button>
+              <button style={btn} onClick={dupRecipe}>Duplicar</button>
+              <button style={{ ...btn, color: C.red }} onClick={() => setConfirmDel(true)}>Borrar</button>
+            </>}
           </div>
           {edit && (
             <div style={{ gridColumn: "1/-1" }}>

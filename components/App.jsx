@@ -1124,7 +1124,7 @@ export default function App() {
           <SuppliesPanel onClose={()=>setShowSupplies(false)} />
         )}
         {showCalcPan && (
-          <CalculadoraPan onClose={()=>setShowCalcPan(false)} />
+          <CalculadoraPan isAdmin={isAdmin} onClose={()=>setShowCalcPan(false)} />
         )}
         {showCalc3D && (
           <Calculadora3D onClose={()=>setShowCalc3D(false)} />
