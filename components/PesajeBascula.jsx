@@ -124,25 +124,18 @@ function beep(ok = true) {
   try { navigator.vibrate?.(ok ? 120 : [80, 60, 80]); } catch { /* */ }
 }
 
-export function PesajeBascula({ title, subtitle, items, onClose }) {
+// ── Conexión con la báscula (compartida por el pesaje guiado y el pesaje en la lista de la receta) ──
+export function useBascula() {
   const [conn, setConn] = useState("off"); // off | connecting | on | sim | error
   const [err, setErr] = useState("");
   const [reading, setReading] = useState(null); // { g, motion, zero, at }
   const [moving, setMoving] = useState(false);
-  const [base, setBase] = useState(0);
-  const [idx, setIdx] = useState(0);
-  const [res, setRes] = useState(() => items.map(() => null)); // { actual, how }
-  const [forceScale, setForceScale] = useState({}); // ingredientes chicos que se quieren pesar igual en la báscula
   const [simG, setSimG] = useState(0);
   const [now, setNow] = useState(Date.now());
   const tr = useRef(null);
   const buf = useRef("");
   const poll = useRef(null);
-  const wasOk = useRef(false);
   const tryRef = useRef(0); // cada intento de conexion; uno viejo no pisa el estado de uno nuevo
-
-  const done = idx >= items.length;
-  const item = items[idx];
 
   const onFrame = useCallback((f) => {
     if (f.motion) { setMoving(true); return; }
@@ -203,16 +196,57 @@ export function PesajeBascula({ title, subtitle, items, onClose }) {
     }
   }, [disconnect, start]);
 
-  // reconectar solo si ya se dio permiso antes
-  useEffect(() => { connect("auto", true); return () => { disconnect(); }; }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(t); }, []);
+  const startSim = useCallback(() => { tryRef.current++; disconnect(); setConn("sim"); setErr(""); }, [disconnect]);
+  const stop = useCallback(async () => { tryRef.current++; await disconnect(); setConn("off"); setReading(null); }, [disconnect]);
 
+  // reconectar solo si ya se dio permiso antes
+  useEffect(() => { connect("auto", true); return () => { tryRef.current++; disconnect(); }; }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(t); }, []);
   // modo prueba sin pesa
   useEffect(() => { if (conn === "sim") setReading({ g: simG, motion: false, zero: simG === 0, at: Date.now() }); }, [simG, conn]);
 
   const live = conn === "on" || conn === "sim";
   const stale = conn === "on" && (!reading || now - reading.at > 2500) && !moving;
   const scaleG = reading ? reading.g : 0;
+  const stable = !!(live && reading && !moving && !stale);
+  return { conn, err, live, stale, moving, stable, scaleG, reading, connect, disconnect, startSim, stop, simG, setSimG };
+}
+
+export function BasculaStatus({ b, compact = false }) {
+  const smallBtn = { border: `1.5px solid ${C.line}`, background: "#fff", color: C.ink, borderRadius: 10, padding: "7px 10px", fontSize: 13, fontWeight: 700, cursor: "pointer", font: "inherit" };
+  const chip = b.conn === "on" ? (b.stale ? { t: "⚠️ Sin señal de la pesa", c: C.bad } : b.moving ? { t: "⏳ Pesa moviéndose…", c: "#b7791f" } : { t: "🟢 Pesa conectada", c: C.ok })
+    : b.conn === "sim" ? { t: "🧪 Modo prueba (sin pesa)", c: "#6b46c1" }
+    : b.conn === "connecting" ? { t: "Conectando…", c: "#8a7a6e" } : { t: "⚪ Pesa sin conectar", c: "#8a7a6e" };
+  return (
+    <>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: compact ? "6px 0" : "8px 14px", background: compact ? "transparent" : C.cream, borderBottom: compact ? "none" : `1px solid ${C.line}` }}>
+        <span style={{ fontWeight: 700, fontSize: 13, color: chip.c, flex: 1, minWidth: 120 }}>{chip.t}</span>
+        {b.conn !== "on" && b.conn !== "connecting" && (
+          <button style={{ ...smallBtn, background: C.gold, borderColor: C.gold, color: "#fff" }} onClick={() => b.connect("auto")}>🔌 Conectar pesa</button>
+        )}
+        {b.conn === "on" && <button style={smallBtn} onClick={b.stop}>Desconectar</button>}
+        {b.conn !== "sim" && b.conn !== "on" && <button style={smallBtn} onClick={b.startSim}>🧪 Probar sin pesa</button>}
+      </div>
+      {b.err && <div style={{ padding: "8px 14px", background: "#FDECEA", color: "#8e2b20", fontSize: 13, fontWeight: 600, borderRadius: compact ? 8 : 0 }}>{b.err}
+        {b.conn === "error" && (
+          <span> · <button style={{ ...smallBtn, padding: "3px 8px", fontSize: 12 }} onClick={() => b.connect(isAndroid() ? "serial" : "usb")}>Probar otro modo de conexión</button></span>
+        )}
+      </div>}
+    </>
+  );
+}
+
+export function PesajeBascula({ title, subtitle, items, onClose }) {
+  const b = useBascula();
+  const { conn, live, stale, moving, stable, scaleG, connect, disconnect, simG, setSimG } = b;
+  const [base, setBase] = useState(0);
+  const [idx, setIdx] = useState(0);
+  const [res, setRes] = useState(() => items.map(() => null)); // { actual, how }
+  const [forceScale, setForceScale] = useState({}); // ingredientes chicos que se quieren pesar igual en la báscula
+  const wasOk = useRef(false);
+
+  const done = idx >= items.length;
+  const item = items[idx];
   const cur = scaleG - base;
   // manual: lo que no se pesa (litros, unidades): solo se mide/cuenta y se marca
   const manual = !!(item && item.manual);
@@ -220,7 +254,6 @@ export function PesajeBascula({ title, subtitle, items, onClose }) {
   const target = item && !manual ? item.grams : 0;
   const tol = tolFor(target);
   const diff = cur - target;
-  const stable = live && reading && !moving && !stale;
   const inRange = stable && Math.abs(diff) <= tol;
 
   useEffect(() => {
@@ -255,13 +288,6 @@ export function PesajeBascula({ title, subtitle, items, onClose }) {
   const smallBtn = { border: `1.5px solid ${C.line}`, background: "#fff", color: C.ink, borderRadius: 10, padding: "9px 10px", fontSize: 13, fontWeight: 700, cursor: "pointer", font: "inherit" };
   const dim = (off) => (off ? { opacity: 0.4, cursor: "not-allowed" } : null);
 
-  const statusChip = (() => {
-    if (conn === "on") return stale ? { t: "⚠️ Sin señal de la pesa", c: C.bad } : moving ? { t: "⏳ Pesa moviéndose…", c: "#b7791f" } : { t: "🟢 Pesa conectada", c: C.ok };
-    if (conn === "sim") return { t: "🧪 Modo prueba (sin pesa)", c: "#6b46c1" };
-    if (conn === "connecting") return { t: "Conectando…", c: "#8a7a6e" };
-    return { t: "⚪ Pesa sin conectar", c: "#8a7a6e" };
-  })();
-
   let color = "#9a8a7e", msg = "";
   if (item && !small && !manual && live) {
     if (!stable) { msg = moving ? "Esperá que la pesa se quede quieta…" : ""; }
@@ -282,20 +308,7 @@ export function PesajeBascula({ title, subtitle, items, onClose }) {
         <button onClick={async () => { await disconnect(); onClose(); }} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, color: "#fff", width: 40, height: 40, fontSize: 22, cursor: "pointer" }} title="Cerrar">×</button>
       </div>
 
-      {/* estado de la pesa */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "8px 14px", background: C.cream, borderBottom: `1px solid ${C.line}` }}>
-        <span style={{ fontWeight: 700, fontSize: 13, color: statusChip.c, flex: 1 }}>{statusChip.t}</span>
-        {conn !== "on" && conn !== "connecting" && (
-          <button style={{ ...smallBtn, background: C.gold, borderColor: C.gold, color: "#fff" }} onClick={() => connect("auto")}>🔌 Conectar pesa</button>
-        )}
-        {conn === "on" && <button style={smallBtn} onClick={async () => { tryRef.current++; await disconnect(); setConn("off"); setReading(null); }}>Desconectar</button>}
-        {conn !== "sim" && conn !== "on" && <button style={smallBtn} onClick={() => { tryRef.current++; disconnect(); setConn("sim"); setErr(""); }}>🧪 Probar sin pesa</button>}
-      </div>
-      {err && <div style={{ padding: "8px 14px", background: "#FDECEA", color: "#8e2b20", fontSize: 13, fontWeight: 600 }}>{err}
-        {conn === "error" && (
-          <span> · <button style={{ ...smallBtn, padding: "3px 8px", fontSize: 12 }} onClick={() => connect(isAndroid() ? "serial" : "usb")}>Probar otro modo de conexión</button></span>
-        )}
-      </div>}
+      <BasculaStatus b={b} />
 
       {/* progreso */}
       <div style={{ display: "flex", gap: 3, padding: "8px 14px 0" }}>

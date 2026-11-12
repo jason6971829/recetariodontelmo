@@ -8,7 +8,7 @@ import { generateRecipePDF } from "@/lib/recipePDF";
 import { printRecipeThermal } from "@/lib/thermalPrint";
 import { normalizeIngredient, ingredientToReadable } from "@/lib/ingredients";
 import { parseQty, parseNumber, fmtScaled, fmtNum, defaultBaseIndex, GRAMS_PER } from "@/lib/scaleRecipe";
-import { PesajeBascula } from "@/components/PesajeBascula";
+import { BasculaEnLista } from "@/components/BasculaEnLista";
 
 // ── Estilos estáticos a nivel de módulo (se crean una sola vez) ──
 const S = {
@@ -72,12 +72,12 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
   const factor = calcOn && base && base.qty > 0 && isFinite(haveNum) && haveNum > 0 ? haveNum / base.qty : 1;
   const setFactor = (f) => base && setHave(fmtNum(base.qty * f, 3));
   const rinde = parseQty(recipe.portions);
-  const pesajeItems = () => ings.map((n, i) => {
+  // Filas para pesar en la misma lista: meta en gramos de lo que va en peso; lo demás se mide o se cuenta
+  const pesoRows = ings.map((n, i) => {
     const p = parsed[i];
-    const name = p?.name || n.text;
-    const note = n.code ? `Código ${n.code}` : "";
-    if (p && GRAMS_PER[p.unit]) return { name, grams: Math.round(p.qty * factor * GRAMS_PER[p.unit]), note };
-    return { name, manual: p ? fmtScaled(p, factor).main : n.text, note };
+    const sc = p ? fmtScaled(p, factor) : null;
+    const grams = p && GRAMS_PER[p.unit] ? Math.round(p.qty * factor * GRAMS_PER[p.unit]) : null;
+    return { code: n.code, name: p?.name || n.text, main: sc ? sc.main : "", sub: sc ? sc.sub : "", grams, manual: grams == null ? (sc ? sc.main : n.text) : "" };
   });
 
   async function handleDownloadPDF() {
@@ -189,6 +189,12 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
                       🧮 {calcOn ? "Cerrar" : "Calcular"}
                     </button>
                   )}
+                  {canCalc && (
+                    <button onClick={() => setPesar(v => !v)} title="Pesar con la báscula"
+                      style={{ background: pesar ? "#1e8e4e" : "#fff", color: pesar ? "#fff" : "#1e8e4e", border:"1.5px solid #1e8e4e", borderRadius:"8px", padding:"5px 10px", cursor:"pointer", fontSize:"12px", fontWeight:"700" }}>
+                      ⚖️ {pesar ? "Dejar de pesar" : "Pesar"}
+                    </button>
+                  )}
                   <TextToSpeech text={recipe.ingredients.map(ingredientToReadable).join(". ")} label="ingredientes" userId={currentUser?.id} />
                 </div>
               </div>
@@ -214,13 +220,17 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
                       Receta ×{fmtNum(factor, 3)}{rinde ? ` · rinde ${fmtScaled(rinde, factor).main}` : ""}
                     </span>
                   </div>
-                  <button onClick={() => setPesar(true)} style={{ width:"100%", marginTop:"10px", background:"#D4721A", border:"none", borderRadius:"8px", color:"#fff", padding:"10px", cursor:"pointer", fontSize:"14px", fontWeight:"800" }}>
-                    ⚖️ Pesar con la báscula
-                  </button>
+                  {!pesar && (
+                    <button onClick={() => setPesar(true)} style={{ width:"100%", marginTop:"10px", background:"#1e8e4e", border:"none", borderRadius:"8px", color:"#fff", padding:"10px", cursor:"pointer", fontSize:"14px", fontWeight:"800" }}>
+                      ⚖️ Pesar con la báscula
+                    </button>
+                  )}
                 </div>
               )}
 
-              {ings.length > 0
+              {pesar && ings.length > 0 ? (
+                <BasculaEnLista title={recipe.name} rows={pesoRows} />
+              ) : ings.length > 0
                 ? ings.map((n, i) => {
                     const p = parsed[i];
                     const isBase = calcOn && i === baseIdx;
@@ -243,7 +253,7 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
                   })
                 : <div style={S.noText}>{t.detail.noIngredients}</div>
               }
-              {calcOn && <div style={{ fontSize:"11px", color:"#8a7a6e", marginTop:"6px" }}>Tocá un ingrediente para usarlo como principal. Lo calculado no cambia la receta guardada.</div>}
+              {calcOn && !pesar && <div style={{ fontSize:"11px", color:"#8a7a6e", marginTop:"6px" }}>Tocá un ingrediente para usarlo como principal. Lo calculado no cambia la receta guardada.</div>}
             </div>
 
             {/* Derecha: preparación + secciones */}
@@ -295,14 +305,6 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
           <div style={S.footer}>━━━ DON TELMO® 1958 ━━━</div>
         </div>
       </div>
-      {pesar && (
-        <PesajeBascula
-          title={recipe.name}
-          subtitle={base ? `${fmtScaled(base, factor).main} de ${base.name || "principal"} · receta ×${fmtNum(factor, 3)}` : ""}
-          items={pesajeItems()}
-          onClose={() => setPesar(false)}
-        />
-      )}
     </div>
   );
 });
