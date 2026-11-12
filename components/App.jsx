@@ -162,6 +162,14 @@ export default function App() {
   // En móvil: cerrar sidebar por defecto
   useEffect(() => { setSidebarOpen(!isMobile); }, [isMobile]);
 
+  // Sin internet: descargar de antemano la Calculadora de Masas (y el pesaje con báscula)
+  // para que el service worker la guarde y funcione después sin datos ni wifi.
+  useEffect(() => {
+    if (typeof window === "undefined" || !navigator.onLine) return;
+    const t = setTimeout(() => { import("@/components/CalculadoraPan").catch(() => {}); }, 4000);
+    return () => clearTimeout(t);
+  }, []);
+
   // Auto-slide del banner: avanza cada 8s en loop mientras esté visible
   useEffect(() => {
     if (!showBanner || !bannerActive || bannerImages.length <= 1) {

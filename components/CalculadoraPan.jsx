@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
+import { PesajeBascula } from "./PesajeBascula";
 
 // Calculadora de porcentaje panadero — herramienta independiente.
 // Harina = 100%. Reglas:
@@ -436,6 +437,7 @@ export function CalculadoraPan({ onClose }) {
   const [confirmDel, setConfirmDel] = useState(false);
   const [view, setView] = useState("calc"); // "calc" | "plan" (biga consolidada)
   const [plan, setPlan] = useState(() => (typeof window !== "undefined" ? loadPlan() : null));
+  const [pesar, setPesar] = useState(false); // pesaje guiado con la bascula
 
   // Las formulas madre que usan otros panes (ej. Formula CIMPA) no se muestran: se editan desde cualquiera de sus panes
   const visible = recipes.filter(r => !recipes.some(x => x.baseId === r.id));
@@ -465,6 +467,24 @@ export function CalculadoraPan({ onClose }) {
   const RI = biga ? { ...R, grams: G } : R;
   const showInstr = !!sel.instrOpen; // queda guardado por pan: si esta abierto, tambien sale en la impresion completa
   const setShowInstr = () => patchRecipe({ instrOpen: !sel.instrOpen });
+  // Lista para el pesaje guiado: biga primero, el liquido se parte en agua (con glicerina y glucosa) y hielo
+  const pesajeItems = () => {
+    const items = [];
+    if (biga) items.push({ name: "Biga madura (de la tina)", grams: biga.total });
+    sel.ings.forEach((x, i) => {
+      const g = G[i];
+      if (!g) return;
+      const n = normName(x.name);
+      if (n.startsWith("liquido total")) {
+        const hielo = Math.floor(g / 2);
+        items.push({ name: "Agua helada", grams: g - hielo, note: "Echala sobre la glicerina y la glucosa (mismo recipiente)" });
+        items.push({ name: "Hielo picado", grams: hielo, note: "En otro recipiente: ponelo vacío y tocá «Cero aquí»" });
+      } else {
+        items.push({ name: x.name, grams: g, note: reducedRow(biga, i) ? "Restante: ya descontada la biga" : "" });
+      }
+    });
+    return items;
+  };
   const instrText = (sel.instr && sel.instr.trim()) ? (biga ? bigaInstrHead(biga) : "") + renderInstr(sel.instr, sel, RI) : "";
 
   // Consolidado: cada lote = receta + unidades; la biga se calcula sobre la harina sumada
@@ -638,6 +658,7 @@ export function CalculadoraPan({ onClose }) {
             <select value={selRaw.id} onChange={e => { setSelId(e.target.value); setConfirmDel(false); }} style={{ ...inp, textAlign: "left", width: "auto", flex: 1, minWidth: 140, fontWeight: 700 }}>
               {visible.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
+            <button className="calcpan-noprint" style={btnGold} onClick={() => { setConfirmDel(false); setEdit(false); setPesar(true); }}>⚖️ Pesar</button>
             <button className="calcpan-noprint" style={btn} onClick={printRecipe}>🖨️ Imprimir</button>
             <button className="calcpan-noprint" style={btn} onClick={newRecipe}>+ Nueva</button>
             <button className="calcpan-noprint" style={btn} onClick={dupRecipe}>Duplicar</button>
@@ -983,6 +1004,14 @@ export function CalculadoraPan({ onClose }) {
           </>)}
         </div>
       </div>
+      {pesar && (
+        <PesajeBascula
+          title={(selRaw.pan && selRaw.pan.trim()) || sel.name}
+          subtitle={`${fmt(R.units)} u × ${fmt(R.w, R.r > 0 ? 0 : 1)} g · ${fmt(Math.round(R.total))} g de masa${biga ? " · con biga" : ""}`}
+          items={pesajeItems()}
+          onClose={() => setPesar(false)}
+        />
+      )}
     </div>,
     document.body
   );
