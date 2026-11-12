@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { DOC_CATEGORIES } from "@/lib/constants";
 import { getDocuments, saveDocument, deleteDocument, uploadDocFile } from "@/lib/storage";
+import { useViewport } from "@/hooks/useViewport";
 
 const FILE_ICONS = {
   "application/pdf": "📄",
@@ -44,6 +45,7 @@ export function DocumentsPanel({ isAdmin, onClose, currentUser }) {
   const [newCatForm, setNewCatForm] = useState({ label: "", icon: "📁" });
   const [previewDoc, setPreviewDoc] = useState(null);
   const fileRef = useRef(null);
+  const { mobile } = useViewport();
 
   // Todas las categorias: predefinidas + personalizadas
   const allDocCategories = [...DOC_CATEGORIES, ...customCategories];
@@ -183,45 +185,40 @@ export function DocumentsPanel({ isAdmin, onClose, currentUser }) {
     if (fileRef.current) fileRef.current.value = "";
   };
 
-  const inp = { padding: "9px 12px", border: "1.5px solid #E0D8CE", borderRadius: "8px", fontSize: "13px", outline: "none", width: "100%", boxSizing: "border-box" };
+  const inp = { height: 48, padding: "0 14px", border: "1.5px solid #E7E1D7", borderRadius: 14, fontSize: 16, color: "#0E2240", fontWeight: 600, outline: "none", width: "100%", boxSizing: "border-box", fontFamily: "var(--dt-sans)", background: "#fff" };
+  const pad = mobile ? 18 : 28;
+  const tab = (on) => ({ flex: "none", height: 36, padding: "0 14px", borderRadius: 999, border: 0, cursor: "pointer", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", background: on ? "#0E2240" : "#F3EFE8", color: on ? "#fff" : "#4A463F", fontFamily: "var(--dt-sans)" });
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(10,15,25,0.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
-      <div style={{ background: "#fff", borderRadius: "16px", width: "100%", maxWidth: "780px", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 30px 80px rgba(0,0,0,0.5)" }}>
+    <div className="dt-scope" onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(9,24,49,.55)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", animation: "dtFade .25s both", display: "flex", alignItems: mobile ? "flex-end" : "center", justifyContent: "center", padding: mobile ? 0 : 24, fontFamily: "var(--dt-sans)", color: "#14213D" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: mobile ? "24px 24px 0 0" : 24, width: "100%", maxWidth: 820, maxHeight: mobile ? "94vh" : "min(92vh, 1000px)", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 40px 80px -20px rgba(0,0,0,.5)", animation: mobile ? "dtSheet .4s cubic-bezier(.2,.8,.2,1) both" : "dtPop .35s cubic-bezier(.2,.8,.2,1) both" }}>
 
         {/* Header */}
-        <div style={{ background: "linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", padding: "18px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
-          <div>
-            <div style={{ color: "#D4721A", fontSize: "10px", fontWeight: "700", letterSpacing: "3px", fontFamily: "Georgia,serif" }}>DOCUMENTOS</div>
-            <div style={{ color: "#fff", fontFamily: "Georgia,serif", fontSize: "17px", fontWeight: "700", marginTop: "3px" }}>📚 Manuales y Documentos</div>
+        <div style={{ background: "linear-gradient(160deg,#16325A,#0E2240)", color: "#fff", padding: mobile ? "14px 18px" : "20px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexShrink: 0 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+            <span style={{ color: "#F0A35E", fontSize: 10, fontWeight: 700, letterSpacing: ".22em" }}>DOCUMENTOS</span>
+            <span style={{ fontFamily: "var(--dt-serif)", fontSize: mobile ? 20 : 24, fontWeight: 600 }}>Manuales y documentos</span>
           </div>
-          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "8px", color: "#fff", width: "34px", height: "34px", cursor: "pointer", fontSize: "18px" }}>×</button>
+          <button onClick={onClose} aria-label="Cerrar" style={{ width: 42, height: 42, borderRadius: 12, border: 0, background: "rgba(255,255,255,.1)", color: "#fff", cursor: "pointer", flex: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
         </div>
 
         {/* Category Tabs */}
-        <div style={{ padding: "12px 20px", borderBottom: "1px solid #eee", display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
+        <div className="dt-noscroll" style={{ padding: `14px ${pad}px`, borderBottom: "1px solid #F0ECE5", display: "flex", gap: 6, overflowX: "auto", alignItems: "center", flexShrink: 0 }}>
           <button
             onClick={() => setSelectedCat("all")}
-            style={{
-              padding: "6px 14px", borderRadius: "20px", border: "none", cursor: "pointer", fontSize: "12px", fontWeight: "600",
-              background: selectedCat === "all" ? "var(--app-primary)" : "#F0EBE5",
-              color: selectedCat === "all" ? "#fff" : "#666",
-            }}
+            style={tab(selectedCat === "all")}
           >
             Todos ({docs.filter(d => d.active !== false).length})
           </button>
           {allDocCategories.map(cat => {
             const isCustom = customCategories.some(c => c.id === cat.id);
             return (
-              <span key={cat.id} style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+              <span key={cat.id} style={{ position: "relative", display: "inline-flex", alignItems: "center", flex: "none" }}>
                 <button
                   onClick={() => setSelectedCat(cat.id)}
-                  style={{
-                    padding: "6px 14px", borderRadius: "20px", border: "none", cursor: "pointer", fontSize: "12px", fontWeight: "600",
-                    background: selectedCat === cat.id ? "var(--app-primary)" : "#F0EBE5",
-                    color: selectedCat === cat.id ? "#fff" : "#666",
-                    paddingRight: isCustom && isAdmin ? "28px" : "14px",
-                  }}
+                  style={{ ...tab(selectedCat === cat.id), paddingRight: isCustom && isAdmin ? 28 : 14 }}
                 >
                   {cat.icon} {cat.label} {catCounts[cat.id] ? `(${catCounts[cat.id]})` : ""}
                 </button>
@@ -238,10 +235,7 @@ export function DocumentsPanel({ isAdmin, onClose, currentUser }) {
           {isAdmin && !showNewCat && (
             <button
               onClick={() => setShowNewCat(true)}
-              style={{
-                padding: "6px 12px", borderRadius: "20px", border: "1.5px dashed #D4721A", cursor: "pointer",
-                fontSize: "12px", fontWeight: "600", background: "transparent", color: "#D4721A",
-              }}
+              style={{ flex: "none", height: 36, padding: "0 14px", borderRadius: 999, border: "1.5px dashed #D9731A", cursor: "pointer", fontSize: 13, fontWeight: 700, background: "transparent", color: "#D9731A", whiteSpace: "nowrap" }}
             >
               + Categoría
             </button>
@@ -271,16 +265,13 @@ export function DocumentsPanel({ isAdmin, onClose, currentUser }) {
 
         {/* Upload button (admin only) */}
         {isAdmin && !showUpload && (
-          <div style={{ padding: "12px 20px 0" }}>
+          <div style={{ padding: `14px ${pad}px 0`, flexShrink: 0 }}>
             <button
               onClick={() => { resetForm(); setShowUpload(true); }}
-              style={{
-                background: "linear-gradient(135deg,#D4721A,#c0630f)", border: "none", borderRadius: "10px",
-                color: "#fff", padding: "10px 20px", cursor: "pointer", fontSize: "13px", fontWeight: "700",
-                display: "flex", alignItems: "center", gap: "8px", boxShadow: "0 3px 12px rgba(212,114,26,0.3)"
-              }}
+              style={{ height: 46, padding: "0 20px", borderRadius: 14, border: 0, background: "#D9731A", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
             >
-              📤 Subir Documento
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" /></svg>
+              Subir documento
             </button>
           </div>
         )}
@@ -362,14 +353,16 @@ export function DocumentsPanel({ isAdmin, onClose, currentUser }) {
         )}
 
         {/* Documents list */}
-        <div style={{ overflowY: "auto", flex: 1, padding: "16px 20px" }}>
+        <div style={{ overflowY: "auto", flex: 1, padding: `16px ${pad}px calc(${pad}px + env(safe-area-inset-bottom))` }}>
           {loading ? (
-            <div style={{ textAlign: "center", padding: "40px", color: "#888" }}>⏳ Cargando documentos...</div>
+            <div style={{ textAlign: "center", padding: 40, color: "#8A847A", fontSize: 14, fontWeight: 600 }}>Cargando documentos…</div>
           ) : filtered.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "40px", color: "#888" }}>
-              <div style={{ fontSize: "40px" }}>📂</div>
-              <div style={{ marginTop: "10px", fontSize: "14px" }}>No hay documentos{selectedCat !== "all" ? " en esta categoría" : ""}</div>
-              {isAdmin && <div style={{ marginTop: "6px", fontSize: "12px", color: "#aaa" }}>Usa el botón "Subir Documento" para agregar uno</div>}
+            <div style={{ textAlign: "center", padding: "40px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, animation: "dtFade .4s both" }}>
+              <div style={{ width: 72, height: 72, borderRadius: 20, background: "#FBEBDD", color: "#D9731A", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
+              </div>
+              <div style={{ fontFamily: "var(--dt-serif)", fontSize: 22, fontWeight: 600, color: "#0E2240" }}>Aún no hay documentos{selectedCat !== "all" ? " en esta categoría" : ""}</div>
+              <div style={{ fontSize: 14, color: "#8A847A", maxWidth: 320 }}>Sube manuales de marca, servicio, higiene o protocolo para tenerlos a mano en cocina.</div>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -378,31 +371,23 @@ export function DocumentsPanel({ isAdmin, onClose, currentUser }) {
                 return (
                   <div
                     key={doc.id}
-                    style={{
-                      background: "#F7F3EE", borderRadius: "12px", padding: "14px 16px",
-                      display: "flex", alignItems: "center", gap: "14px",
-                      transition: "all 0.15s",
-                    }}
+                    style={{ background: "#FAF8F4", borderRadius: 16, padding: "12px 14px", display: "flex", alignItems: "center", gap: 14, flexWrap: mobile ? "wrap" : "nowrap", transition: "all .15s" }}
                   >
                     {/* File icon */}
-                    <div style={{
-                      width: "46px", height: "46px", borderRadius: "10px",
-                      background: "var(--app-primary)", display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: "22px", flexShrink: 0,
-                    }}>
+                    <div style={{ width: 46, height: 46, borderRadius: 12, background: "#0E2240", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>
                       {getFileIcon(doc.file_type)}
                     </div>
 
                     {/* Info */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: "700", fontSize: "14px", color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div style={{ fontWeight: 800, fontSize: 14.5, color: "#0E2240", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {doc.title}
                       </div>
                       {doc.description && (
                         <div style={{ fontSize: "12px", color: "#888", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.description}</div>
                       )}
                       <div style={{ display: "flex", gap: "10px", marginTop: "4px", fontSize: "11px", color: "#aaa" }}>
-                        <span style={{ background: "rgba(212,114,26,0.12)", color: "#D4721A", padding: "1px 8px", borderRadius: "10px", fontWeight: "600" }}>
+                        <span style={{ background: "#FBEBDD", color: "#B85E10", padding: "1px 8px", borderRadius: 999, fontWeight: 700 }}>
                           {cat?.icon} {cat?.label || doc.category}
                         </span>
                         {doc.file_size > 0 && <span>{formatSize(doc.file_size)}</span>}
@@ -411,29 +396,21 @@ export function DocumentsPanel({ isAdmin, onClose, currentUser }) {
                     </div>
 
                     {/* Actions */}
-                    <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+                    <div style={{ display: "flex", gap: 6, flexShrink: 0, marginLeft: mobile ? 60 : 0 }}>
                       <button
                         onClick={() => setPreviewDoc(doc)}
-                        style={{
-                          background: "#2563eb", border: "none", borderRadius: "8px",
-                          color: "#fff", padding: "7px 12px", cursor: "pointer", fontSize: "12px",
-                          fontWeight: "600", display: "flex", alignItems: "center", gap: "4px",
-                        }}
+                        style={{ height: 36, padding: "0 12px", border: "1.5px solid #E7E1D7", borderRadius: 10, background: "#fff", color: "#0E2240", cursor: "pointer", fontSize: 12.5, fontWeight: 700, display: "flex", alignItems: "center" }}
                       >
-                        👁️ Ver
+                        Ver
                       </button>
                       <a
                         href={doc.file_url}
                         target="_blank"
                         rel="noopener noreferrer"
                         download={doc.file_name}
-                        style={{
-                          background: "var(--app-primary)", border: "none", borderRadius: "8px",
-                          color: "#fff", padding: "7px 12px", cursor: "pointer", fontSize: "12px",
-                          fontWeight: "600", textDecoration: "none", display: "flex", alignItems: "center", gap: "4px",
-                        }}
+                        style={{ height: 36, padding: "0 12px", border: 0, borderRadius: 10, background: "#0E2240", color: "#fff", cursor: "pointer", fontSize: 12.5, fontWeight: 700, textDecoration: "none", display: "flex", alignItems: "center" }}
                       >
-                        ⬇️ Descargar
+                        Descargar
                       </a>
                       {isAdmin && (
                         <>

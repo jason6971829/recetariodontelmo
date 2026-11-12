@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { useIsMobile } from "@/hooks/useIsMobile";
+import { useViewport } from "@/hooks/useViewport";
 import { VoiceTextarea } from "@/components/VoiceTextarea";
 import { CATEGORIES } from "@/lib/constants";
 import { uploadImage } from "@/lib/storage";
@@ -10,8 +10,9 @@ import { InsumoSelector } from "@/components/InsumoSelector";
 import { ProductoSelector } from "@/components/ProductoSelector";
 
 // Constantes de estilo a nivel de módulo — no se recrean en cada render
-const inp = { width:"100%", padding:"10px 12px", border:"1.5px solid #E0D8CE", borderRadius:"8px", fontSize:"13px", outline:"none", boxSizing:"border-box", fontFamily:"inherit", background:"#fff" };
-const lbl = { fontSize:"11px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", display:"block", marginBottom:"5px" };
+// Rediseño Don Telmo: campos h50, radio 14, Manrope; etiquetas en mayúscula con tracking
+const inp = { width:"100%", height:50, padding:"0 14px", border:"1.5px solid #E7E1D7", borderRadius:14, fontSize:16, fontWeight:600, color:"#0E2240", outline:"none", boxSizing:"border-box", fontFamily:"var(--dt-sans)", background:"#fff" };
+const lbl = { fontSize:11, fontWeight:800, color:"#0E2240", letterSpacing:".16em", textTransform:"uppercase", display:"block", marginBottom:7, fontFamily:"var(--dt-sans)" };
 
 const AUTOSAVE_MS = 800;
 
@@ -41,7 +42,7 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
   const saveTimerRef = useRef(null);
   const isFirstRenderRef = useRef(true);
   const inFlightRef = useRef(false);
-  const isMobile = useIsMobile();
+  const { mobile: isMobile } = useViewport();
   const { t } = useLang();
 
   const set = (k, v) => setForm(f => ({...f, [k]:v}));
@@ -93,10 +94,10 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
     if (saveState === "error") return "Error al guardar (reintenta editando algo)";
     return "Listo";
   })();
-  const saveColor = saveState === "error" ? "#c0392b"
-    : saveState === "saving" ? "#D4721A"
-    : saveState === "saved"  ? "#22c55e"
-    : "#aaa";
+  const saveColor = saveState === "error" ? "#FFB1AB"
+    : saveState === "saving" ? "#F0A35E"
+    : saveState === "saved"  ? "#6FD3A8"
+    : "rgba(255,255,255,.6)";
   // Recibe string del InsumoSelector: "20 GRAMOS - Cebolla Morada | 227"
   const addIngFromSelector = (ingString) => {
     if (!ingString || !ingString.trim()) return;
@@ -130,18 +131,18 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
   };
 
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(10,15,25,0.88)", backdropFilter:"blur(8px)", display:"flex", alignItems: isMobile?"flex-end":"center", justifyContent:"center", padding: isMobile?"0":"16px" }}>
-      <div style={{ background:"#fff", borderRadius: isMobile?"20px 20px 0 0":"16px", width:"100%", maxWidth:"700px", maxHeight: isMobile?"calc(var(--app-height, 100vh) * 0.95)":"92vh", overflow:"hidden", display:"flex", flexDirection:"column", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
-        <div style={{ background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", padding:"18px 24px", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
-          <div>
-            <div style={{ color:"#D4721A", fontSize:"10px", fontWeight:"700", letterSpacing:"3px", fontFamily:"Georgia,serif" }}>DON TELMO® RECETARIO</div>
-            <div style={{ color:"#fff", fontFamily:"Georgia,serif", fontSize:"17px", fontWeight:"700", marginTop:"3px" }}>{initial || currentId ? t.form.editTitle : t.form.newTitle}</div>
+    <div className="dt-scope" style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(9,24,49,.55)", backdropFilter:"blur(6px)", WebkitBackdropFilter:"blur(6px)", animation:"dtFade .25s both", display:"flex", alignItems: isMobile?"flex-end":"center", justifyContent:"center", padding: isMobile?0:24, fontFamily:"var(--dt-sans)", color:"#14213D" }}>
+      <div style={{ background:"#fff", borderRadius: isMobile?"24px 24px 0 0":24, width:"100%", maxWidth:780, maxHeight: isMobile?"94vh":"min(92vh, 1000px)", overflow:"hidden", display:"flex", flexDirection:"column", boxShadow:"0 40px 80px -20px rgba(0,0,0,.5)", animation: isMobile ? "dtSheet .4s cubic-bezier(.2,.8,.2,1) both" : "dtPop .35s cubic-bezier(.2,.8,.2,1) both" }}>
+        <div style={{ background:"linear-gradient(160deg,#16325A,#0E2240)", color:"#fff", padding: isMobile ? "14px 18px" : "20px 28px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, flexShrink:0 }}>
+          <div style={{ display:"flex", flexDirection:"column", gap:3, minWidth:0 }}>
+            <span style={{ color:"#F0A35E", fontSize:10, fontWeight:700, letterSpacing:".22em" }}>DON TELMO® RECETARIO</span>
+            <span style={{ fontFamily:"var(--dt-serif)", fontSize: isMobile ? 20 : 24, fontWeight:600 }}>{initial || currentId ? t.form.editTitle : t.form.newTitle}</span>
           </div>
-          <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
             <div style={{
-              display:"inline-flex", alignItems:"center", gap:"6px",
-              background:"rgba(255,255,255,0.12)", borderRadius:"20px",
-              padding:"4px 12px", fontSize:"11px", fontWeight:"600", color:saveColor,
+              display:"inline-flex", alignItems:"center", gap:7, whiteSpace:"nowrap",
+              background:"rgba(255,255,255,.1)", borderRadius:999,
+              height:30, padding:"0 12px", fontSize:12, fontWeight:700, color:saveColor,
             }}>
               <span style={{
                 display:"inline-block", width:"7px", height:"7px", borderRadius:"50%",
@@ -150,13 +151,15 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
               }} />
               {saveLabel}
             </div>
-            <button onClick={onCancel} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"18px" }}>×</button>
+            <button onClick={onCancel} aria-label="Cerrar" style={{ width:42, height:42, borderRadius:12, border:0, background:"rgba(255,255,255,.1)", color:"#fff", cursor:"pointer", flex:"none", display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+            </button>
           </div>
         </div>
         <style>{`@keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.3 } }`}</style>
 
-        <div style={{ overflowY:"auto", flex:1, padding:"20px" }}>
-          <div style={{ display:"grid", gridTemplateColumns: isMobile?"1fr":"1fr 1fr", gap:"14px", marginBottom:"14px" }}>
+        <div style={{ overflowY:"auto", flex:1, padding: isMobile ? 18 : 28, display:"flex", flexDirection:"column", gap:18 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap:14 }}>
             <div style={{ gridColumn:"1/-1" }}>
               <label style={lbl}>{t.form.nameLabel}</label>
               <ProductoSelector
@@ -168,7 +171,7 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
               />
               {form.barcode && (
                 <div style={{ marginTop:6, display:"flex", alignItems:"center", gap:8, fontSize:12 }}>
-                  <span style={{ background:"#7C3AED", color:"#fff", borderRadius:5, padding:"2px 9px", fontWeight:700, fontFamily:"monospace" }}>
+                  <span style={{ background:"#FBEBDD", color:"#B85E10", borderRadius:7, padding:"3px 9px", fontWeight:700, fontFamily:"ui-monospace,Menlo,monospace" }}>
                     barcode {form.barcode}
                   </span>
                   <span style={{ color:"#888" }}>vinculado al producto de gabycontrol</span>
@@ -216,19 +219,19 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
             </div>
           </div>
 
-          <div style={{ marginBottom:"14px" }}>
+          <div>
             <label style={lbl}>{t.form.ingredientsLabel}</label>
-            <div style={{ marginBottom: "10px" }}>
+            <div style={{ marginBottom: 10, background:"#FFFAF5", border:"1.5px solid #F1D9C2", borderRadius:16, padding:10 }}>
               <InsumoSelector onAdd={addIngFromSelector} />
             </div>
             {form.ingredients.map((ing,i)=>{
               const n = normalizeIngredient(ing);
               return (
-                <div key={i} style={{ display:"flex", gap:"6px", alignItems:"center", marginBottom:"4px" }}>
+                <div key={i} style={{ display:"flex", gap:6, alignItems:"center", marginBottom:4 }}>
                   {editingIdx === i ? (
                     <>
                       <input
-                        style={{...inp, width:"80px", padding:"7px 8px", fontSize:"13px", textAlign:"center", fontWeight:"700", color:"#D4721A", letterSpacing:"1px"}}
+                        style={{...inp, width:92, height:44, padding:"0 8px", textAlign:"center", fontWeight:800, color:"#B85E10", fontFamily:"ui-monospace,Menlo,monospace"}}
                         value={editingCode}
                         onChange={e=>setEditingCode(e.target.value.replace(/[^0-9]/g,""))}
                         onKeyDown={e=>{ if(e.key==="Enter") saveEdit(); if(e.key==="Escape") setEditingIdx(null); }}
@@ -237,7 +240,7 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
                       />
                       <input
                         autoFocus
-                        style={{...inp, flex:1, padding:"7px 12px", fontSize:"13px"}}
+                        style={{...inp, flex:1, height:44}}
                         value={editingVal}
                         onChange={e=>setEditingVal(e.target.value)}
                         onBlur={saveEdit}
@@ -245,25 +248,27 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
                       />
                     </>
                   ) : (
-                    <div onClick={()=>startEdit(i,ing)} style={{ flex:1, background:"#F7F3EE", borderRadius:"6px", padding:"7px 12px", fontSize:"13px", cursor:"text", display:"flex", alignItems:"center", gap:"8px" }}>
+                    <div onClick={()=>startEdit(i,ing)} style={{ flex:1, minWidth:0, background: i % 2 ? "#fff" : "#FAF8F4", border:"1px solid #F0ECE5", borderRadius:12, minHeight:44, padding:"6px 12px", fontSize:14, color:"#3C3A36", cursor:"text", display:"flex", alignItems:"center", gap:10 }}>
                       {n.code ? (
-                        <span style={{ background:"#D4721A", color:"#fff", borderRadius:"4px", padding:"2px 8px", fontSize:"11px", fontWeight:"700", letterSpacing:"0.5px", flexShrink:0 }}>{n.code}</span>
+                        <span style={{ background:"#FBEBDD", color:"#B85E10", borderRadius:6, padding:"3px 7px", fontSize:10.5, fontWeight:700, fontFamily:"ui-monospace,Menlo,monospace", flexShrink:0 }}>{n.code}</span>
                       ) : (
-                        <span style={{ background:"#fff3e0", color:"#c0392b", border:"1px dashed #D4721A", borderRadius:"4px", padding:"2px 8px", fontSize:"11px", fontWeight:"700", letterSpacing:"0.5px", flexShrink:0 }}>sin ID</span>
+                        <span style={{ background:"#fff", color:"#C8423B", border:"1px dashed #D9731A", borderRadius:6, padding:"2px 7px", fontSize:10.5, fontWeight:700, flexShrink:0 }}>sin ID</span>
                       )}
-                      <span>{n.text}</span>
+                      <span style={{ minWidth:0 }}>{n.text}</span>
                     </div>
                   )}
-                  <button onClick={()=>removeIng(i)} style={{ background:"none", border:"none", color:"#c0392b", cursor:"pointer", fontSize:"18px", padding:"4px 6px" }}>×</button>
+                  <button onClick={()=>removeIng(i)} aria-label="Quitar ingrediente" style={{ width:36, height:36, borderRadius:10, border:"1.5px solid #E7E1D7", background:"#fff", color:"#C8423B", cursor:"pointer", flex:"none", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+                  </button>
                 </div>
               );
             })}
           </div>
 
-          <div style={{ marginBottom:"14px" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"5px" }}>
+          <div>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:7 }}>
               <label style={{...lbl, marginBottom:0}}>{t.form.preparationLabel}</label>
-              <span style={{ fontSize:"10px", color:"#aaa" }}>{t.form.dictate}</span>
+              <span style={{ fontSize:11, color:"#A39D92", fontWeight:600 }}>{t.form.dictate}</span>
             </div>
             <VoiceTextarea
               value={form.preparation}
@@ -273,10 +278,10 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
             />
           </div>
 
-          <div style={{ marginBottom:"14px" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"5px" }}>
+          <div>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:7 }}>
               <label style={{...lbl, marginBottom:0}}>{t.form.descriptionLabel}</label>
-              <span style={{ fontSize:"10px", color:"#aaa" }}>{t.form.dictate}</span>
+              <span style={{ fontSize:11, color:"#A39D92", fontWeight:600 }}>{t.form.dictate}</span>
             </div>
             <VoiceTextarea
               value={form.description}
@@ -286,10 +291,10 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
             />
           </div>
 
-          <div style={{ marginBottom:"14px" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"5px" }}>
+          <div>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:7 }}>
               <label style={{...lbl, marginBottom:0}}>{t.form.recommendationsLabel}</label>
-              <span style={{ fontSize:"10px", color:"#aaa" }}>{t.form.dictate}</span>
+              <span style={{ fontSize:11, color:"#A39D92", fontWeight:600 }}>{t.form.dictate}</span>
             </div>
             <VoiceTextarea
               value={form.recommendations}
@@ -299,10 +304,10 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
             />
           </div>
 
-          <div style={{ marginBottom:"14px" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"5px" }}>
-              <label style={{...lbl, marginBottom:0, color:"#D4721A"}}>{t.form.salesLabel}</label>
-              <span style={{ fontSize:"10px", color:"#aaa" }}>{t.form.dictate}</span>
+          <div>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:7 }}>
+              <label style={{...lbl, marginBottom:0, color:"#D9731A"}}>{t.form.salesLabel}</label>
+              <span style={{ fontSize:11, color:"#A39D92", fontWeight:600 }}>{t.form.dictate}</span>
             </div>
             <VoiceTextarea
               value={form.salesPitch}
@@ -312,34 +317,34 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
             />
           </div>
 
-          <div style={{ display:"grid", gridTemplateColumns: isMobile?"1fr":"1fr 1fr", gap:"14px" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(min(100%, 260px), 1fr))", gap:14 }}>
             <div>
               <label style={lbl}>{t.form.imageLabel}</label>
-              <div style={{ background:"#F7F3EE", borderRadius:"10px", border:"2px dashed #C0B8A8", minHeight:"110px", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", overflow:"hidden" }} onClick={()=>fileRef.current.click()}>
+              <div style={{ background:"#F6F3EE", borderRadius:16, border:"1.5px dashed #DCD4C7", aspectRatio:"16/9", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", overflow:"hidden" }} onClick={()=>fileRef.current.click()}>
                 {(imagePreview || form.image)
-                  ? <img src={imagePreview || form.image} alt="" style={{ width:"100%", height:"110px", objectFit:"cover" }} />
-                  : <div style={{ textAlign:"center", color:"#C0B8A8", padding:"16px" }}>
-                      <div style={{ fontSize:"28px" }}>📷</div>
-                      <div style={{ fontSize:"12px", marginTop:"4px" }}>{t.form.uploadImage}</div>
+                  ? <img src={imagePreview || form.image} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                  : <div style={{ textAlign:"center", color:"#A39D92", padding:16, display:"flex", flexDirection:"column", alignItems:"center", gap:8, fontSize:13 }}>
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
+                      {t.form.uploadImage}
                     </div>
                 }
               </div>
               <input ref={fileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleImage} />
-              {(imagePreview || form.image) && <button onClick={()=>{set("image",null);setImagePreview(null);pendingFileRef.current=null;}} style={{ marginTop:"5px", fontSize:"12px", color:"#c0392b", background:"none", border:"none", cursor:"pointer" }}>{t.form.removeImage}</button>}
+              {(imagePreview || form.image) && <button onClick={()=>{set("image",null);setImagePreview(null);pendingFileRef.current=null;}} style={{ marginTop:6, fontSize:12.5, fontWeight:700, color:"#C8423B", background:"none", border:"none", cursor:"pointer" }}>{t.form.removeImage}</button>}
             </div>
             <div>
               <label style={lbl}>{t.form.videoLabel}</label>
               <input style={inp} value={form.video} onChange={e=>set("video",e.target.value)} placeholder={t.form.videoPlaceholder} />
-              <div style={{ fontSize:"11px", color:"#aaa", marginTop:"6px", lineHeight:"1.5" }}>{t.form.videoHint}</div>
+              <div style={{ fontSize:12, color:"#A39D92", marginTop:6, lineHeight:1.5 }}>{t.form.videoHint}</div>
             </div>
           </div>
         </div>
 
-        <div style={{ padding:"14px 20px", borderTop:"1px solid #F0ECE6", display:"flex", gap:"10px", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
-          <span style={{ fontSize:"11px", color:"#aaa", fontStyle:"italic" }}>
-            Los cambios se guardan automaticamente
+        <div style={{ padding: isMobile ? "12px 18px calc(12px + env(safe-area-inset-bottom))" : "14px 28px", borderTop:"1px solid #F0ECE5", display:"flex", gap:10, justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
+          <span style={{ fontSize:12.5, color:"#8A847A" }}>
+            Los cambios se guardan automáticamente
           </span>
-          <button onClick={onCancel} style={{ background:"var(--app-primary)", border:"none", borderRadius:"8px", padding:"10px 22px", cursor:"pointer", fontWeight:"700", color:"#fff", fontSize:"14px" }}>Cerrar</button>
+          <button onClick={onCancel} style={{ height:44, background:"#0E2240", border:0, borderRadius:12, padding:"0 22px", cursor:"pointer", fontWeight:800, color:"#fff", fontSize:14 }}>Listo</button>
         </div>
       </div>
     </div>

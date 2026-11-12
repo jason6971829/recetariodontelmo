@@ -1,7 +1,6 @@
 "use client";
 import { memo, useState, useMemo } from "react";
 import Image from "next/image";
-import { useIsMobile } from "@/hooks/useIsMobile";
 import { TextToSpeech } from "@/components/TextToSpeech";
 import { useLang } from "@/lib/LangContext";
 import { generateRecipePDF } from "@/lib/recipePDF";
@@ -9,41 +8,22 @@ import { printRecipeThermal } from "@/lib/thermalPrint";
 import { normalizeIngredient, ingredientToReadable } from "@/lib/ingredients";
 import { parseQty, parseNumber, fmtScaled, fmtNum, defaultBaseIndex, GRAMS_PER } from "@/lib/scaleRecipe";
 import { BasculaEnLista } from "@/components/BasculaEnLista";
+import { useViewport } from "@/hooks/useViewport";
 
-// ── Estilos estáticos a nivel de módulo (se crean una sola vez) ──
-const S = {
-  header:         { background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", padding:"18px 22px 14px", flexShrink:0, position:"relative", zIndex:10 },
-  headerRow:      { display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:"12px" },
-  headerFlex:     { flex:1, minWidth:0 },
-  brandLabel:     { color:"#D4721A", fontSize:"10px", fontWeight:"700", letterSpacing:"3px", marginBottom:"4px", fontFamily:"Georgia,serif" },
-  categoryLabel:  { color:"var(--app-primary-light)", fontSize:"11px", marginTop:"4px", letterSpacing:"2px" },
-  actionButtons:  { display:"flex", gap:"8px", alignItems:"center", flexShrink:0 },
-  btnPublish:     { border:"none", borderRadius:"8px", color:"#fff", padding:"7px 14px", cursor:"pointer", fontSize:"13px", fontWeight:"600" },
-  btnEdit:        { background:"#D4721A", border:"none", borderRadius:"8px", color:"#fff", padding:"7px 14px", cursor:"pointer", fontSize:"13px", fontWeight:"600" },
-  btnDelete:      { background:"rgba(220,50,50,0.8)", border:"none", borderRadius:"8px", color:"#fff", padding:"7px 12px", cursor:"pointer", fontSize:"13px" },
-  btnClose:       { background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"18px", lineHeight:"1" },
-  timesRow:       { display:"flex", gap:"10px", marginTop:"12px", flexWrap:"wrap" },
-  timeChip:       { background:"rgba(255,255,255,0.09)", borderRadius:"8px", padding:"6px 12px" },
-  timeChipLabel:  { color:"var(--app-primary-light)", fontSize:"10px", fontWeight:"600", letterSpacing:"1px" },
-  timeChipValue:  { color:"#fff", fontWeight:"600", fontSize:"13px", marginTop:"2px" },
-  bodyScroll:     { overflowY:"auto", flex:1, position:"relative", zIndex:10 },
-  colLeft:        { padding:"20px" },
-  colRight:       { padding:"20px" },
-  imgContainer:   { background:"#F7F3EE", borderRadius:"12px", border:"2px dashed #C0B8A8", minHeight:"160px", display:"flex", alignItems:"center", justifyContent:"center", marginBottom:"18px", overflow:"hidden" },
-  noImg:          { textAlign:"center", color:"#C0B8A8", padding:"20px" },
-  noImgIcon:      { fontSize:"36px" },
-  sectionRow:     { display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"10px" },
-  sectionTitle:   { fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"var(--app-primary)", letterSpacing:"1px" },
-  sectionTitleOr: { fontFamily:"Georgia,serif", fontWeight:"700", fontSize:"13px", color:"#D4721A", letterSpacing:"1px" },
-  prepBox:        { background:"#F7F3EE", borderRadius:"10px", padding:"14px", fontSize:"13px", color:"#333", lineHeight:"1.9", marginBottom:"18px", minHeight:"100px", whiteSpace:"pre-wrap" },
-  descBox:        { background:"#F0F4F8", border:"1px solid #C8D6E5", borderRadius:"10px", padding:"14px", fontSize:"13px", color:"#2c3e50", lineHeight:"1.7", marginBottom:"18px", whiteSpace:"pre-wrap" },
-  recoBox:        { background:"#FFF8F2", border:"1px solid #E8C9A0", borderRadius:"10px", padding:"14px", fontSize:"13px", color:"#5a3e2b", lineHeight:"1.7", marginBottom:"18px" },
-  salesBox:       { background:"linear-gradient(135deg,#FFF8F0,#FFF3E6)", border:"2px solid #D4721A", borderRadius:"10px", padding:"14px", fontSize:"13px", color:"#5a3e2b", lineHeight:"1.7", marginBottom:"18px", whiteSpace:"pre-wrap" },
-  videoWrap:      { borderRadius:"10px", overflow:"hidden", aspectRatio:"16/9" },
-  videoIframe:    { width:"100%", height:"100%", border:"none" },
-  footer:         { borderTop:"1px solid #F0ECE6", padding:"12px 22px", textAlign:"center", color:"#D4721A", fontSize:"11px", fontFamily:"Georgia,serif", fontWeight:"700", letterSpacing:"3px" },
-  noText:         { color:"#aaa", fontSize:"13px", fontStyle:"italic" },
-  card:           { background:"#fff", width:"100%", maxWidth:"820px", overflow:"hidden", display:"flex", flexDirection:"column", boxShadow:"0 30px 80px rgba(0,0,0,0.5)", position:"relative" },
+// ── Rediseño Don Telmo: detalle de receta (modal; bottom sheet en celular) ──
+const C = { navy: "#0E2240", navy7: "#16325A", orange: "#D9731A", orange4: "#E8832B", orange3: "#F0A35E", orange7: "#B85E10", orange1: "#FBEBDD", cream: "#F6F3EE", row: "#FAF8F4", line: "#E7E1D7", ink: "#14213D", ink2: "#3C3A36", muted: "#8A847A", muted2: "#A39D92", green: "#1F9D6B", red: "#C8423B" };
+const SERIF = "var(--dt-serif, Newsreader, Georgia, serif)";
+const SANS = "var(--dt-sans, Manrope, system-ui, sans-serif)";
+
+const Ico = {
+  close: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>,
+  edit: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>,
+  print: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" rx="1" /></svg>,
+  pdf: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M12 18v-6M9 15l3 3 3-3" /></svg>,
+  trash: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></svg>,
+  camera: <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>,
+  calc: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><rect x="4" y="2" width="16" height="20" rx="2" /><path d="M8 6h8M8 12h.01M12 12h.01M16 12h.01M8 17h.01M12 17h.01M16 17h.01" /></svg>,
+  scale: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v17M7 20h10M5 7h14M5 7l-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z" /></svg>,
 };
 
 function getYtId(url) {
@@ -54,7 +34,7 @@ function getYtId(url) {
 
 export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit, onDelete, onTogglePublish, currentUser, brandLabel, brandName, companyTagline }) {
   const isAdmin = currentUser.role === "admin";
-  const isMobile = useIsMobile();
+  const { mobile } = useViewport();
   const { t } = useLang();
   const ytId = getYtId(recipe.video);
   const [downloading, setDownloading] = useState(false);
@@ -87,224 +67,184 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
     try { await generateRecipePDF(recipe); } finally { setDownloading(false); }
   }
 
+  const inner = mobile ? 18 : 28;
+  const iconBtn = (extra = {}) => ({ width: 40, height: 40, borderRadius: 11, border: 0, background: "rgba(255,255,255,.1)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flex: "none", ...extra });
+  const sectionTitle = { fontFamily: SERIF, fontSize: 22, fontWeight: 600, color: C.navy };
+  const textBox = (bg, border, color) => ({ borderRadius: 16, background: bg, border: border ? `1px solid ${border}` : 0, padding: 18, color, fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap" });
+
   return (
-    <div
-      style={{ position:"fixed", inset:0, zIndex:200, background:"rgba(10,15,25,0.88)",
-        backdropFilter:"blur(8px)", display:"flex", alignItems:"center",
-        justifyContent:"center", padding: isMobile ? "0" : "12px" }}
-      onClick={onClose}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          ...S.card,
-          borderRadius:  isMobile ? "20px 20px 0 0" : "18px",
-          height:        isMobile ? "calc(var(--app-height, 100vh) * 0.95)" : "auto",
-          maxHeight:     isMobile ? "calc(var(--app-height, 100vh) * 0.95)" : "92vh",
-          marginTop:     isMobile ? "auto" : "0",
-        }}
-      >
+    <div onClick={onClose} className="dt-scope"
+      style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(9,24,49,.55)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", animation: "dtFade .25s both", display: "flex", alignItems: mobile ? "flex-end" : "center", justifyContent: "center", padding: mobile ? 0 : 24, fontFamily: SANS }}>
+      <div onClick={e => e.stopPropagation()}
+        style={{ width: "100%", maxWidth: 960, maxHeight: mobile ? "94vh" : "min(92vh, 1000px)", background: "#fff", borderRadius: mobile ? "24px 24px 0 0" : 24, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 40px 80px -20px rgba(0,0,0,.5)", animation: mobile ? "dtSheet .4s cubic-bezier(.2,.8,.2,1) both" : "dtPop .35s cubic-bezier(.2,.8,.2,1) both", color: C.ink }}>
+
         {/* Header */}
-        <div style={S.header}>
-          <div style={S.headerRow}>
-            <div style={S.headerFlex}>
-              <div style={S.brandLabel}>DON TELMO® — 1958 — COMPANY</div>
-              <div style={{ color:"#fff", fontFamily:"Georgia,serif", fontSize: isMobile?"18px":"22px", fontWeight:"700", lineHeight:"1.2", wordBreak:"break-word" }}>
-                {recipe.name}
-              </div>
-              <div style={S.categoryLabel}>{recipe.category.toUpperCase()}</div>
+        <div style={{ background: `linear-gradient(160deg, ${C.navy7}, ${C.navy})`, color: "#fff", padding: `22px ${inner}px 20px`, display: "flex", flexDirection: "column", gap: 16, flex: "none" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+              <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: ".24em", color: C.orange3 }}>DON TELMO® · {String(recipe.category || "").toUpperCase()}</span>
+              <span style={{ fontFamily: SERIF, fontSize: mobile ? 26 : 34, fontWeight: 600, lineHeight: 1.05, wordBreak: "break-word" }}>{recipe.name}</span>
               {recipe.barcode && (
-                <div style={{ marginTop:6, display:"inline-flex", alignItems:"center", gap:6, background:"rgba(167,139,250,0.25)", border:"1px solid rgba(167,139,250,0.5)", borderRadius:6, padding:"3px 9px" }}>
-                  <span style={{ color:"#C4B5FD", fontSize:"9px", fontWeight:"700", letterSpacing:"1px" }}>BARCODE</span>
-                  <span style={{ color:"#fff", fontSize:"12px", fontWeight:"700", fontFamily:"monospace" }}>{recipe.barcode}</span>
-                </div>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, alignSelf: "flex-start", background: "rgba(255,255,255,.08)", borderRadius: 8, padding: "3px 9px" }}>
+                  <span style={{ color: C.orange3, fontSize: 9, fontWeight: 800, letterSpacing: ".12em" }}>BARCODE</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, fontFamily: "ui-monospace,Menlo,monospace" }}>{recipe.barcode}</span>
+                </span>
               )}
             </div>
-            <div style={{ ...S.actionButtons, flexWrap: isMobile ? "wrap" : "nowrap", justifyContent:"flex-end" }}>
-              {/* En mobile solo iconos para ahorrar espacio */}
-              {isAdmin && <>
-                {!isMobile && (
-                  <button onClick={onTogglePublish} style={{ ...S.btnPublish, background: recipe.published ? "#27ae60" : "#7f8c8d" }}>
-                    {recipe.published ? "✅ " + t.published : "📝 " + t.draft}
-                  </button>
-                )}
-                {isMobile && (
-                  <button onClick={onTogglePublish} style={{ background: recipe.published ? "#27ae60" : "#7f8c8d", border:"none", borderRadius:"8px", color:"#fff", padding:"7px 10px", cursor:"pointer", fontSize:"14px" }}>
-                    {recipe.published ? "✅" : "📝"}
-                  </button>
-                )}
-                <button onClick={onEdit} style={{ ...S.btnEdit, padding: isMobile ? "7px 10px" : "7px 14px" }}>
-                  {isMobile ? "✏️" : t.detail.edit}
-                </button>
-                <button onClick={onDelete} style={S.btnDelete}>🗑️</button>
-              </>}
-              <button
-                onClick={() => printRecipeThermal(recipe, { label: brandLabel, name: brandName, tagline: companyTagline })}
-                title="Imprimir en impresora térmica 80mm"
-                style={{ background:"#1B3A5C", border:"none", borderRadius:"8px", color:"#fff", padding:"7px 12px", cursor:"pointer", fontSize:"14px", flexShrink:0 }}
-              >
-                🖨️
-              </button>
-              <button
-                onClick={handleDownloadPDF}
-                disabled={downloading}
-                title="Descargar PDF"
-                style={{ background: downloading ? "#555" : "#D4721A", border:"none", borderRadius:"8px", color:"#fff", padding:"7px 12px", cursor: downloading ? "wait" : "pointer", fontSize:"14px", opacity: downloading ? 0.7 : 1, flexShrink:0 }}
-              >
-                {downloading ? "⏳" : "📄"}
-              </button>
-              <button onClick={onClose} style={S.btnClose}>×</button>
-            </div>
+            <button onClick={onClose} aria-label="Cerrar" style={iconBtn({ width: 44, height: 44, borderRadius: 12 })}>{Ico.close}</button>
           </div>
-          <div style={S.timesRow}>
-            {[[`⏱ ${t.detail.prep}`, recipe.prepTime||"—"],[`🔥 ${t.detail.cook}`, recipe.cookTime||"—"],[`🍽 ${t.detail.portions}`, recipe.portions||"—"]].map(([l,v])=>(
-              <div key={l} style={S.timeChip}>
-                <div style={S.timeChipLabel}>{l}</div>
-                <div style={S.timeChipValue}>{v}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {[[t.detail.prep, recipe.prepTime || "—"], [t.detail.cook, recipe.cookTime || "—"], [t.detail.portions, recipe.portions || "—"]].map(([l, v]) => (
+              <div key={l} style={{ display: "flex", flexDirection: "column", gap: 2, padding: "8px 14px", borderRadius: 12, background: "rgba(255,255,255,.08)" }}>
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,.6)" }}>{l}</span>
+                <span style={{ fontSize: 14, fontWeight: 700 }}>{v}</span>
               </div>
             ))}
           </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {isAdmin && (
+              <>
+                <button onClick={onTogglePublish} style={{ height: 40, padding: "0 14px", borderRadius: 11, border: 0, background: recipe.published ? C.green : "rgba(255,255,255,.14)", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, transition: "all .2s" }}>
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#fff" }} />{recipe.published ? t.published : t.draft}
+                </button>
+                <button onClick={onEdit} style={{ height: 40, padding: "0 14px", borderRadius: 11, border: 0, background: C.orange, color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>{Ico.edit}Editar</button>
+              </>
+            )}
+            <button aria-label="Imprimir" title="Imprimir en impresora térmica 80mm" onClick={() => printRecipeThermal(recipe, { label: brandLabel, name: brandName, tagline: companyTagline })} style={iconBtn()}>{Ico.print}</button>
+            <button aria-label="PDF" title="Descargar PDF" onClick={handleDownloadPDF} disabled={downloading} style={iconBtn({ opacity: downloading ? 0.5 : 1, cursor: downloading ? "wait" : "pointer" })}>{Ico.pdf}</button>
+            {isAdmin && <button aria-label="Eliminar" title="Eliminar" onClick={onDelete} style={iconBtn({ background: "rgba(200,66,59,.22)", color: "#FFB1AB" })}>{Ico.trash}</button>}
+          </div>
         </div>
 
-        {/* Body */}
-        <div style={S.bodyScroll}>
-          <div style={{ display:"grid", gridTemplateColumns: isMobile ? "minmax(0,1fr)" : "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap:0 }}>
-
-            {/* Izquierda: imagen + ingredientes */}
-            <div style={{ ...S.colLeft, borderRight: isMobile ? "none" : "1px solid #F0ECE6", borderBottom: isMobile ? "1px solid #F0ECE6" : "none" }}>
-              <div style={S.imgContainer}>
-                {recipe.image
-                  ? <Image width={800} height={500} src={recipe.image} alt={recipe.name} style={{ width:"100%", height:"auto", objectFit:"cover", borderRadius:"10px" }} />
-                  : <div style={S.noImg}>
-                      <div style={S.noImgIcon}>📷</div>
-                      <div style={{ fontSize:"12px", marginTop:"6px" }}>{t.detail.noImage}</div>
-                    </div>
-                }
+        {/* Cuerpo */}
+        <div style={{ overflowY: "auto", padding: `${inner}px ${inner}px calc(${inner}px + env(safe-area-inset-bottom))`, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: 28, alignItems: "start" }}>
+          {/* Izquierda: imagen + ingredientes */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
+            {recipe.image ? (
+              <Image width={800} height={500} src={recipe.image} alt={recipe.name} style={{ width: "100%", height: "auto", aspectRatio: "16/10", objectFit: "cover", borderRadius: 18 }} />
+            ) : (
+              <div style={{ aspectRatio: "16/10", borderRadius: 18, background: C.cream, border: "1.5px dashed #DCD4C7", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, color: C.muted2, fontSize: 13 }}>
+                {Ico.camera}{t.detail.noImage}
               </div>
+            )}
 
-              <div style={S.sectionRow}>
-                <div style={S.sectionTitle}>{t.detail.ingredients}</div>
-                <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-                  {canCalc && (
-                    <button onClick={() => { setCalcOn(c => !c); setHave(""); }} title="Calcular en proporción"
-                      style={{ background: calcOn ? "#D4721A" : "#fff", color: calcOn ? "#fff" : "#D4721A", border:"1.5px solid #D4721A", borderRadius:"8px", padding:"5px 10px", cursor:"pointer", fontSize:"12px", fontWeight:"700" }}>
-                      🧮 {calcOn ? "Cerrar" : "Calcular"}
-                    </button>
-                  )}
-                  {canPesar && (
-                    <button onClick={() => setPesar(v => !v)} title="Pesar con la báscula"
-                      style={{ background: pesar ? "#1e8e4e" : "#fff", color: pesar ? "#fff" : "#1e8e4e", border:"1.5px solid #1e8e4e", borderRadius:"8px", padding:"5px 10px", cursor:"pointer", fontSize:"12px", fontWeight:"700" }}>
-                      ⚖️ {pesar ? "Dejar de pesar" : "Pesar"}
-                    </button>
-                  )}
-                  <TextToSpeech text={recipe.ingredients.map(ingredientToReadable).join(". ")} label="ingredientes" userId={currentUser?.id} />
-                </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+              <span style={sectionTitle}>Ingredientes</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {canCalc && (
+                  <button onClick={() => { setCalcOn(c => !c); setHave(""); }} title="Calcular en proporción"
+                    style={{ height: 36, padding: "0 12px", borderRadius: 10, border: `1.5px solid ${C.orange}`, background: calcOn ? C.orange : "#fff", color: calcOn ? "#fff" : C.orange, fontWeight: 800, fontSize: 12.5, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all .2s" }}>
+                    {Ico.calc}Calcular
+                  </button>
+                )}
+                {canPesar && (
+                  <button onClick={() => setPesar(v => !v)} title="Pesar con la báscula"
+                    style={{ height: 36, padding: "0 12px", borderRadius: 10, border: `1.5px solid ${C.green}`, background: pesar ? C.green : "#fff", color: pesar ? "#fff" : C.green, fontWeight: 800, fontSize: 12.5, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", transition: "all .2s" }}>
+                    {Ico.scale}{pesar ? "Dejar de pesar" : "Pesar"}
+                  </button>
+                )}
+                <TextToSpeech text={recipe.ingredients.map(ingredientToReadable).join(". ")} label="ingredientes" userId={currentUser?.id} />
               </div>
+            </div>
 
-              {calcOn && base && (
-                <div style={{ background:"#FFF8F2", border:"1.5px solid #E8C9A0", borderRadius:"10px", padding:"12px", marginBottom:"10px" }}>
-                  <div style={{ fontSize:"12px", color:"#8a6a4e", fontWeight:"700", marginBottom:"6px" }}>INGREDIENTE PRINCIPAL</div>
+            {calcOn && base && (
+              <div style={{ borderRadius: 16, background: "#FFFAF5", border: "1.5px solid #F1D9C2", padding: 14, display: "flex", flexDirection: "column", gap: 10, animation: "dtUp .3s both" }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: ".16em", color: C.orange7 }}>INGREDIENTE PRINCIPAL</span>
                   <select value={baseIdx} onChange={e => { setBaseIdx(Number(e.target.value)); setHave(""); }}
-                    style={{ width:"100%", padding:"8px", borderRadius:"8px", border:"1.5px solid #E0D8CE", fontSize:"13px", fontWeight:"700", color:"#3a2f29", background:"#fff", marginBottom:"8px" }}>
+                    style={{ height: 44, borderRadius: 11, border: `1.5px solid ${C.line}`, background: "#fff", padding: "0 12px", fontSize: 16, fontWeight: 700, color: C.navy, minWidth: 0 }}>
                     {parsed.map((p, i) => p && <option key={i} value={i}>{p.name || ings[i].text} ({fmtNum(p.qty)} {p.unitRaw})</option>)}
                   </select>
-                  <label style={{ display:"flex", alignItems:"center", gap:"8px", fontSize:"13px", fontWeight:"700", color:"#3a2f29" }}>
-                    ¿Cuánto tenés?
-                    <input inputMode="decimal" value={have} placeholder={fmtNum(base.qty)} onChange={e => setHave(e.target.value.replace(/[^0-9.,]/g, ""))} onFocus={e => e.target.select()}
-                      style={{ flex:1, minWidth:0, padding:"9px 10px", borderRadius:"8px", border:"2px solid #D4721A", fontSize:"18px", fontWeight:"800", textAlign:"right", color:"#3a2f29" }} />
-                    <span>{base.unitRaw}</span>
-                  </label>
-                  <div style={{ display:"flex", gap:"6px", marginTop:"8px", flexWrap:"wrap", alignItems:"center" }}>
-                    {[0.25, 0.5, 1, 2, 3].map(f => (
-                      <button key={f} onClick={() => setFactor(f)} style={{ border:"1.5px solid #E0D8CE", background: Math.abs(factor - f) < 1e-9 ? "#1B3A5C" : "#fff", color: Math.abs(factor - f) < 1e-9 ? "#fff" : "#3a2f29", borderRadius:"8px", padding:"4px 10px", fontSize:"12px", fontWeight:"700", cursor:"pointer" }}>×{fmtNum(f, 2)}</button>
-                    ))}
-                    <span style={{ marginLeft:"auto", fontSize:"12px", fontWeight:"700", color:"#8a6a4e" }}>
-                      Receta ×{fmtNum(factor, 3)}{rinde ? ` · rinde ${fmtScaled(rinde, factor).main}` : ""}
-                    </span>
-                  </div>
-                  {canPesar && !pesar && (
-                    <button onClick={() => setPesar(true)} style={{ width:"100%", marginTop:"10px", background:"#1e8e4e", border:"none", borderRadius:"8px", color:"#fff", padding:"10px", cursor:"pointer", fontSize:"14px", fontWeight:"800" }}>
-                      ⚖️ Pesar con la báscula
-                    </button>
-                  )}
+                </label>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: C.navy, whiteSpace: "nowrap" }}>¿Cuánto tienes?</span>
+                  <input inputMode="decimal" value={have} placeholder={fmtNum(base.qty)} onChange={e => setHave(e.target.value.replace(/[^0-9.,]/g, ""))} onFocus={e => e.target.select()}
+                    style={{ flex: 1, minWidth: 0, height: 48, borderRadius: 12, border: `2px solid ${C.orange}`, background: "#fff", padding: "0 14px", fontSize: 20, fontWeight: 800, color: C.navy, textAlign: "right" }} />
+                  <span style={{ fontSize: 13, fontWeight: 800, color: C.navy }}>{base.unitRaw}</span>
                 </div>
-              )}
+                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                  {[0.25, 0.5, 1, 2, 3].map(f => {
+                    const on = Math.abs(factor - f) < 1e-9;
+                    return <button key={f} onClick={() => setFactor(f)} style={{ height: 32, padding: "0 10px", borderRadius: 9, border: `1.5px solid ${on ? C.navy : C.line}`, background: on ? C.navy : "#fff", color: on ? "#fff" : C.navy, fontSize: 12, fontWeight: 800, cursor: "pointer", transition: "all .2s" }}>×{fmtNum(f, 2)}</button>;
+                  })}
+                  <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: C.orange7 }}>
+                    Receta ×{fmtNum(factor, 2)}{rinde ? ` · rinde ${fmtScaled(rinde, factor).main}` : ""}
+                  </span>
+                </div>
+              </div>
+            )}
 
-              {canPesar && pesar && ings.length > 0 ? (
-                <BasculaEnLista title={recipe.name} rows={pesoRows} />
-              ) : ings.length > 0
-                ? ings.map((n, i) => {
-                    const p = parsed[i];
-                    const isBase = calcOn && i === baseIdx;
-                    const sc = calcOn && p ? fmtScaled(p, factor) : null;
-                    return (
-                      <div key={i} onClick={calcOn && p ? () => { setBaseIdx(i); setHave(""); } : undefined}
-                        style={{ background: isBase ? "#FBEFE3" : i%2===0 ? "#F7F3EE" : "#fff", border: isBase ? "1.5px solid #D4721A" : "1.5px solid transparent", padding:"7px 10px", borderRadius:"6px", marginBottom:"3px", fontSize:"13px", color:"#333", lineHeight:"1.4", display:"flex", alignItems:"center", gap:"8px", cursor: calcOn && p ? "pointer" : "default" }}>
-                        {n.code && (
-                          <span style={{ background:"#D4721A", color:"#fff", borderRadius:"4px", padding:"2px 7px", fontSize:"10px", fontWeight:"700", letterSpacing:"0.5px", flexShrink:0, fontFamily:"monospace" }}>{n.code}</span>
-                        )}
+            {canPesar && pesar && ings.length > 0 ? (
+              <BasculaEnLista title={recipe.name} rows={pesoRows} />
+            ) : ings.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {ings.map((n, i) => {
+                  const p = parsed[i];
+                  const isBase = calcOn && i === baseIdx;
+                  const sc = p ? fmtScaled(p, factor) : null;
+                  return (
+                    <div key={i} onClick={calcOn && p ? () => { setBaseIdx(i); setHave(""); } : undefined}
+                      style={{ display: "flex", alignItems: "center", gap: 10, minHeight: mobile ? 40 : 46, padding: "6px 10px", borderRadius: 12, background: isBase ? "#FFF6EE" : i % 2 ? "#fff" : C.row, border: `1.5px solid ${isBase ? C.orange : "transparent"}`, cursor: calcOn && p ? "pointer" : "default", animation: "dtUp .4s both", animationDelay: `${Math.min(i, 14) * 30}ms`, transition: "all .2s" }}>
+                      {n.code && <span style={{ fontFamily: "ui-monospace,Menlo,monospace", fontSize: 10.5, fontWeight: 700, color: C.orange7, background: C.orange1, padding: "3px 7px", borderRadius: 6, flex: "none" }}>{n.code}</span>}
+                      <span style={{ flex: 1, minWidth: 0, fontSize: mobile ? 13 : 14, color: C.ink2, lineHeight: 1.3 }}>
                         {sc ? (
-                          <span style={{ flex:1, minWidth:0 }}>
-                            <b style={{ color: isBase ? "#D4721A" : "#1B3A5C" }}>{sc.main}</b>
-                            {sc.sub && <span style={{ color:"#8a7a6e", fontSize:"11px" }}> · {sc.sub}</span>}
-                            {" - "}{p.name}{isBase && <span style={{ color:"#D4721A", fontSize:"11px", fontWeight:"700" }}> ★ principal</span>}
-                          </span>
-                        ) : <span>{n.text}</span>}
-                      </div>
-                    );
-                  })
-                : <div style={S.noText}>{t.detail.noIngredients}</div>
-              }
-              {calcOn && !pesar && <div style={{ fontSize:"11px", color:"#8a7a6e", marginTop:"6px" }}>Tocá un ingrediente para usarlo como principal. Lo calculado no cambia la receta guardada.</div>}
-            </div>
-
-            {/* Derecha: preparación + secciones */}
-            <div style={S.colRight}>
-              <div style={S.sectionRow}>
-                <div style={S.sectionTitle}>{t.detail.preparation}</div>
-                <TextToSpeech text={recipe.preparation} label="preparación" userId={currentUser?.id} />
-              </div>
-              <div style={S.prepBox}>
-                {recipe.preparation || <span style={S.noText}>{t.detail.noPreparation}</span>}
-              </div>
-
-              {recipe.description && <>
-                <div style={S.sectionRow}>
-                  <div style={S.sectionTitle}>{t.detail.description}</div>
-                  <TextToSpeech text={recipe.description} label="descripción" userId={currentUser?.id} />
-                </div>
-                <div style={S.descBox}>{recipe.description}</div>
-              </>}
-
-              {recipe.recommendations && <>
-                <div style={S.sectionRow}>
-                  <div style={S.sectionTitle}>{t.detail.recommendations}</div>
-                  <TextToSpeech text={recipe.recommendations} label="recomendaciones" userId={currentUser?.id} />
-                </div>
-                <div style={S.recoBox}>{recipe.recommendations}</div>
-              </>}
-
-              {recipe.salesPitch && <>
-                <div style={S.sectionRow}>
-                  <div style={S.sectionTitleOr}>{t.detail.salesPitch}</div>
-                  <TextToSpeech text={recipe.salesPitch} label="aprende a vender" userId={currentUser?.id} />
-                </div>
-                <div style={S.salesBox}>{recipe.salesPitch}</div>
-              </>}
-
-              {recipe.video && <>
-                <div style={{ ...S.sectionTitle, marginBottom:"10px" }}>{t.detail.video}</div>
-                {ytId
-                  ? <div style={S.videoWrap}>
-                      <iframe src={`https://www.youtube.com/embed/${ytId}`} style={S.videoIframe} allowFullScreen title="Video" />
+                          <><strong style={{ color: C.navy, fontWeight: 800 }}>{sc.main}</strong>{calcOn && sc.sub && <span style={{ fontSize: 11.5, color: C.muted }}> · {sc.sub}</span>} · {p.name}</>
+                        ) : n.text}
+                      </span>
+                      {isBase && <span style={{ fontSize: 10.5, fontWeight: 800, color: C.orange, flex: "none" }}>★ principal</span>}
                     </div>
-                  : <a href={recipe.video} target="_blank" rel="noreferrer" style={{ color:"#D4721A", fontSize:"13px" }}>{t.detail.watchVideo}</a>
-                }
-              </>}
-            </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ color: C.muted2, fontSize: 13, fontStyle: "italic" }}>{t.detail.noIngredients}</div>
+            )}
+            {calcOn && !pesar && <span style={{ fontSize: 11.5, color: C.muted2 }}>Toca un ingrediente para usarlo como principal. Lo calculado no cambia la receta guardada.</span>}
           </div>
 
-          <div style={S.footer}>━━━ DON TELMO® 1958 ━━━</div>
+          {/* Derecha: preparación + secciones */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <span style={sectionTitle}>Preparación</span>
+              {recipe.preparation && <TextToSpeech text={recipe.preparation} label="preparación" userId={currentUser?.id} />}
+            </div>
+            <div style={{ ...textBox(C.row), minHeight: 140, color: recipe.preparation ? "#333" : C.muted2, fontStyle: recipe.preparation ? "normal" : "italic" }}>
+              {recipe.preparation || "Sin instrucciones aún. Toca Editar para agregarlas."}
+            </div>
+
+            {recipe.description && <>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 6 }}>
+                <span style={sectionTitle}>{t.detail.description.charAt(0) + t.detail.description.slice(1).toLowerCase()}</span>
+                <TextToSpeech text={recipe.description} label="descripción" userId={currentUser?.id} />
+              </div>
+              <div style={textBox("#F4F7FB", "#D5DEEA", "#2c3e50")}>{recipe.description}</div>
+            </>}
+
+            {recipe.recommendations && <>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 6 }}>
+                <span style={sectionTitle}>{t.detail.recommendations.charAt(0) + t.detail.recommendations.slice(1).toLowerCase()}</span>
+                <TextToSpeech text={recipe.recommendations} label="recomendaciones" userId={currentUser?.id} />
+              </div>
+              <div style={textBox("#FFFAF5", "#F1D9C2", "#5a3e2b")}>{recipe.recommendations}</div>
+            </>}
+
+            {recipe.salesPitch && <>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 6 }}>
+                <span style={{ ...sectionTitle, color: C.orange }}>Aprende a vender</span>
+                <TextToSpeech text={recipe.salesPitch} label="aprende a vender" userId={currentUser?.id} />
+              </div>
+              <div style={{ ...textBox("#FFF6EE", null, "#5a3e2b"), border: `2px solid ${C.orange}` }}>{recipe.salesPitch}</div>
+            </>}
+
+            {recipe.video && <>
+              <span style={{ ...sectionTitle, marginTop: 6 }}>Video</span>
+              {ytId
+                ? <div style={{ borderRadius: 16, overflow: "hidden", aspectRatio: "16/9" }}>
+                    <iframe src={`https://www.youtube.com/embed/${ytId}`} style={{ width: "100%", height: "100%", border: "none" }} allowFullScreen title="Video" />
+                  </div>
+                : <a href={recipe.video} target="_blank" rel="noreferrer" style={{ color: C.orange, fontSize: 13, fontWeight: 700 }}>{t.detail.watchVideo}</a>}
+            </>}
+          </div>
         </div>
       </div>
     </div>

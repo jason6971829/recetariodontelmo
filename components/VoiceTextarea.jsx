@@ -29,9 +29,9 @@ export function VoiceTextarea({ value, onChange, placeholder, minHeight = "110px
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         style={{
-          width: "100%", padding: "10px 44px 10px 12px",
-          border: listening ? "2px solid #e74c3c" : "1.5px solid #E0D8CE",
-          borderRadius: "8px", fontSize: "13px", outline: "none",
+          width: "100%", padding: "12px 58px 12px 14px",
+          border: listening ? "2px solid #C8423B" : "1.5px solid #E7E1D7",
+          borderRadius: 14, fontSize: 16, color: "#14213D", outline: "none",
           boxSizing: "border-box", fontFamily: "inherit",
           background: interim ? "#FFF5F0" : "#fff",
           minHeight, resize: "vertical", lineHeight: "1.6",
@@ -44,19 +44,21 @@ export function VoiceTextarea({ value, onChange, placeholder, minHeight = "110px
           onClick={handleMic}
           title={listening ? "Detener grabación" : "Dictar con voz"}
           style={{
-            position: "absolute", right: isMobile ? "10px" : "8px", top: isMobile ? "10px" : "8px",
-            width: isMobile ? "44px" : "30px", height: isMobile ? "44px" : "30px",
+            position: "absolute", right: 8, top: 8,
+            width: isMobile ? 44 : 40, height: isMobile ? 44 : 40,
             borderRadius: "50%",
             border: "none", cursor: "pointer",
-            background: listening ? "#e74c3c" : "var(--app-primary)",
-            color: "#fff", fontSize: isMobile ? "20px" : "14px",
+            background: listening ? "#C8423B" : "#0E2240",
+            color: "#fff", transition: "background .2s",
             display: "flex", alignItems: "center", justifyContent: "center",
             boxShadow: listening ? "0 0 0 4px rgba(231,76,60,0.25)" : "none",
             animation: listening ? "pulse 1.2s ease-in-out infinite" : "none",
             WebkitTapHighlightColor: "transparent",
           }}
         >
-          {listening ? "⏹" : "🎙️"}
+          {listening
+            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+            : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8" /></svg>}
         </button>
       )}
       {listening && (

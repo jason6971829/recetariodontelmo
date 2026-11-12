@@ -52,6 +52,13 @@ export default function RootLayout({ children }) {
           @keyframes dtDrop { from { opacity: 0; transform: translateY(-6px) scale(.98) } to { opacity: 1; transform: none } }
           @keyframes dtBreathe { 0%,100% { transform: translate(-50%,-50%) scale(1) } 50% { transform: translate(-50%,-50%) scale(1.03) } }
           @keyframes dtGlow { 0%,100% { opacity: .55 } 50% { opacity: .9 } }
+          .dt-card { transition: transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .35s cubic-bezier(.2,.8,.2,1); }
+          @media (hover: hover) { .dt-card:hover { transform: translateY(-4px); box-shadow: 0 24px 40px -18px rgba(14,34,64,.35), 0 0 0 1px rgba(217,115,26,.35) !important; }
+            .dt-row:hover { box-shadow: 0 0 0 1px rgba(217,115,26,.35) !important; }
+            .dt-hov-dark:hover { background: rgba(255,255,255,.08) !important; }
+            .dt-hov-light:hover { background: #FAF8F4 !important; }
+            .dt-logout:hover { background: #C8423B !important; border-color: #C8423B !important; }
+            .dt-login-btn:hover { background: #D9731A !important; transform: translateY(-1px); box-shadow: 0 14px 26px -12px rgba(217,115,26,.6); } }
           @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
         `}</style>
         <script dangerouslySetInnerHTML={{ __html: `

@@ -40,6 +40,9 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useLang, LangProvider } from "@/lib/LangContext";
 import { LANGUAGES } from "@/lib/i18n";
 import { THEMES } from "@/lib/themes";
+import { useViewport } from "@/hooks/useViewport";
+import { setZoom, ZOOM_OPTS } from "@/lib/viewZoom";
+import { Icon, Monogram, catColor, initialOf, titleCase } from "@/components/dt/ui";
 
 export default function App() {
   const isMobile = useIsMobile();
@@ -61,6 +64,14 @@ export default function App() {
   const [showForm, setShowForm] = useState(false);
   const [showUsers, setShowUsers] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  // Rediseño: menú deslizable / rail, buscador móvil, filtros y vista
+  const vp = useViewport();
+  const [navOpen, setNavOpen] = useState(false);
+  const [railHover, setRailHover] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [pubFilter, setPubFilter] = useState("Todas");
+  const [listView, setListView] = useState(null);
+  const [editCats, setEditCats] = useState(false);
   const [loginForm, setLoginForm] = useState({ username:"", password:"" });
   const [loginError, setLoginError] = useState("");
   const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
@@ -737,436 +748,345 @@ export default function App() {
   // ══ APP PRINCIPAL ════════════════════════════════════════════════
   const isAdmin = currentUser.role === "admin";
 
+  // ── Rediseño: medidas según el ancho efectivo (innerWidth / zoom) ──
+  const vpMobile = vp.mobile;
+  const drawerMode = vp.w < 1024 || vp.touch;          // celular, tablet o iPad: menú deslizable
+  const navExpanded = drawerMode ? navOpen : railHover; // computador: barra de 76 px que se expande al pasar el cursor
+  const padX = vpMobile ? 16 : vp.w < 1024 ? 24 : 36;
+  const showLabels = vp.w >= 760;
+  const viewMode = listView ?? (vpMobile ? "list" : "grid");
+  const shown = isAdmin && pubFilter !== "Todas"
+    ? filtered.filter(r => (pubFilter === "Publicadas" ? r.published : !r.published))
+    : filtered;
+  const totalMenu = recipes.filter(r => r.category !== BODEGA_CAT).length;
+  const catLabelOf = (id) => allCategories.find(c => c.id === id)?.label || id;
+  const pickCat = (id) => { selectCat(id); setNavOpen(false); };
+  const headTitle = isPendingView ? "Por completar" : isBodegaView ? "Recetas Bodega" : (selectedCat === "all" ? "Todas las recetas" : titleCase(catLabelOf(selectedCat)));
+  const hdrBtn = (active) => ({ width: 44, height: 44, borderRadius: 12, border: 0, background: active ? "rgba(255,255,255,.18)" : "rgba(255,255,255,.08)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flex: "none", transition: "background .2s" });
+  const navRow = (active) => ({ width: "100%", display: "flex", alignItems: "center", gap: 12, minHeight: 44, padding: "0 12px", borderRadius: 12, border: 0, background: active ? "rgba(217,115,26,.22)" : "transparent", color: "#fff", cursor: "pointer", textAlign: "left", fontFamily: "var(--dt-sans)", fontSize: 14, fontWeight: 600, transition: "background .15s" });
+  const labelStyle = { opacity: navExpanded || drawerMode ? 1 : 0, transition: "opacity .2s", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 };
+  const badge = (bg, fg = "#fff") => ({ background: bg, color: fg, borderRadius: 999, padding: "2px 8px", fontSize: 11, fontWeight: 800, opacity: navExpanded || drawerMode ? 1 : 0, transition: "opacity .2s", flex: "none" });
+  const settingsItem = { display: "flex", alignItems: "center", gap: 12, width: "100%", minHeight: 40, padding: "0 10px", border: 0, borderRadius: 10, background: "transparent", color: "#14213D", fontSize: 14, fontWeight: 600, cursor: "pointer", textAlign: "left", fontFamily: "var(--dt-sans)" };
+  const closeSettings = () => setShowSettingsMenu(false);
+  const settingsGroups = isAdmin ? [
+    { title: "CUENTA", items: [
+      [Icon.user, "Perfil", () => { setGuardInput(""); setGuardError(""); setGuardAttempts(0); setGuardLocked(false); setShowProfileGuard(true); }],
+      [Icon.users, "Gestión de usuarios", () => setShowUsers(true)],
+      [Icon.globe, "Idioma", () => setShowLangModal(true)],
+    ] },
+    { title: "EXCEL", items: [
+      [Icon.download, "Descargar plantilla", () => exportTemplate(recipes, brandName, dbCategories.map(c => c.name))],
+      [Icon.sheet, "Exportar recetario", () => exportToExcel(recipes, brandName)],
+      [Icon.upload, "Importar desde Excel", () => { setImportPreview(null); setImportDone(false); setShowImportModal(true); }],
+    ] },
+    { title: "RECETARIO", items: [
+      [Icon.chart, "Estado del recetario", () => setShowProgress(true)],
+      [Icon.activity, "Reporte de actividad", () => setShowReport(true)],
+    ] },
+    { title: "MARCA", items: [
+      [Icon.drop, "Marca de agua", () => setShowWatermarkUpload(true)],
+      [Icon.tag, "Nombre de marca", () => { setBrandDraft({ label: brandLabel, name: brandName, tagline: companyTagline, icon: brandIcon, labelColor: brandLabelColor, nameColor: brandNameColor, taglineColor: brandTaglineColor }); setShowBrandModal(true); }],
+      [Icon.megaphone, "Banner de anuncios", () => setShowBannerConfig(true)],
+    ] },
+  ] : [
+    { title: "CUENTA", items: [[Icon.globe, "Idioma", () => setShowLangModal(true)]] },
+  ];
+
   return (
-    <div style={{ height:"100vh", display:"flex", flexDirection:"column", fontFamily:"'Segoe UI',sans-serif", overflow:"hidden", background:"#F4F0EB" }}>
+    <div className="dt-scope" style={{ height: "var(--app-height, 100vh)", display: "flex", flexDirection: "column", fontFamily: "var(--dt-sans)", color: "#14213D", overflow: "hidden", background: "#F6F3EE", position: "relative" }}>
 {!selectedRecipe && !showForm && !showUsers && !showReport && !showProgress && !showWatermarkUpload && !showLangModal && !categoryModal && !confirmModal && !showBiometricPrompt && !showPizzaBuilder && !showDocuments && !showSupplies && !showCosting && !showCalc3D && <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} customLogo={watermarkLogo} opacity={watermarkOpacity} size={watermarkSize} />}
 
       {/* OFFLINE BANNER */}
       {!online && (
-        <div style={{ background:"#e74c3c", color:"#fff", textAlign:"center", padding:"8px 14px", fontSize:"13px", fontWeight:"600", zIndex:100, flexShrink:0 }}>
-          📡 Sin conexión — Los cambios se guardarán localmente y se sincronizarán al reconectar
+        <div style={{ background: "#C8423B", color: "#fff", textAlign: "center", padding: "8px 14px", fontSize: 13, fontWeight: 700, zIndex: 100, flexShrink: 0 }}>
+          Sin conexión — Los cambios se guardarán en el equipo y se sincronizarán al reconectar
         </div>
       )}
       {online && syncing && (
-        <div style={{ background:"#f39c12", color:"#fff", textAlign:"center", padding:"6px 14px", fontSize:"12px", fontWeight:"600", zIndex:100, flexShrink:0 }}>
-          ⏳ Sincronizando {pendingCount} cambios pendientes...
+        <div style={{ background: "#D9731A", color: "#fff", textAlign: "center", padding: "6px 14px", fontSize: 12, fontWeight: 700, zIndex: 100, flexShrink: 0 }}>
+          Sincronizando {pendingCount} cambios pendientes…
         </div>
       )}
 
       {/* HEADER */}
-      <header style={{ height:"58px", flexShrink:0, background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", display:"flex", alignItems:"center", gap:"12px", padding:"0 14px", boxShadow:"0 4px 20px rgba(0,0,0,0.3)", zIndex:50 }}>
-        <button onClick={()=>setSidebarOpen(o=>!o)} style={{ background:"rgba(255,255,255,0.1)", border:"none", borderRadius:"8px", color:"#fff", width:"36px", height:"36px", cursor:"pointer", fontSize:"16px", flexShrink:0 }}>☰</button>
+      <header style={{ flexShrink: 0, minHeight: vpMobile ? 58 : 64, background: "rgba(14,34,64,.94)", backdropFilter: "saturate(1.4) blur(14px)", WebkitBackdropFilter: "saturate(1.4) blur(14px)", display: "flex", alignItems: "center", flexWrap: "wrap", gap: vpMobile ? 6 : 10, padding: `${vpMobile ? 8 : 10}px ${padX}px`, zIndex: 50, color: "#fff" }}>
+        {drawerMode && (
+          <button aria-label="Menú" onClick={() => setNavOpen(true)} style={hdrBtn(false)}><Icon.menu /></button>
+        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: vpMobile ? "1 1 0" : "0 1 auto" }}>
+          <div style={{ width: 40, height: 40, borderRadius: 11, overflow: "hidden", flex: "none", background: "rgba(255,255,255,.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {brandIcon ? <img src={brandIcon} alt="logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontFamily: "var(--dt-serif)", fontWeight: 700 }}>DT</span>}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+            <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: ".24em", color: "#F0A35E", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{brandLabel}</span>
+            <span style={{ fontFamily: "var(--dt-serif)", fontSize: 17, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{brandName}{companyTagline && !vpMobile ? <span style={{ fontSize: 12, color: "rgba(255,255,255,.6)", fontWeight: 500 }}> {companyTagline}</span> : null}</span>
+          </div>
+        </div>
 
-        {!isMobile && (
-          <div style={{ flexShrink:0, display:"flex", alignItems:"center", gap:"10px" }}>
-            <div style={{ width:"32px", height:"32px", borderRadius:"8px", background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", flexShrink:0, border:"1px solid rgba(255,255,255,0.15)" }}>
-              {brandIcon
-                ? <img src={brandIcon} alt="logo" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
-                : <span style={{ fontSize:"14px" }}>🍽️</span>}
-            </div>
-            <div>
-              <div style={{ color:brandLabelColor, fontSize:"9px", fontWeight:"700", letterSpacing:"3px", fontFamily:"Georgia,serif" }}>{brandLabel}</div>
-              <div style={{ color:"#fff", fontSize:"15px", fontWeight:"700", fontFamily:"Georgia,serif", lineHeight:"1" }}>{brandName} {companyTagline && <span style={{ color:brandTaglineColor, fontSize:"11px" }}>{companyTagline}</span>}</div>
-            </div>
+        {/* Buscador: pill en tablet/computador; en celular se abre en una 2ª fila */}
+        {(!vpMobile || searchOpen || search) && (
+          <div style={{ position: "relative", flex: vpMobile ? "1 1 100%" : "1 1 260px", order: vpMobile ? 10 : 0, minWidth: 0, animation: vpMobile ? "dtDrop .22s both" : "none" }}>
+            <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "rgba(255,255,255,.55)", display: "flex" }}><Icon.search width={18} height={18} /></span>
+            <input
+              autoFocus={vpMobile && searchOpen && !search}
+              style={{ width: "100%", height: 44, padding: "0 16px 0 42px", border: 0, borderRadius: 999, background: "rgba(255,255,255,.07)", color: "#fff", fontSize: 16, outline: "none", boxSizing: "border-box" }}
+              placeholder={t.searchPlaceholder}
+              value={search}
+              onChange={e => {
+                setSearch(e.target.value);
+                setNavOpen(false);
+                clearTimeout(searchTimeoutRef.current);
+                if (e.target.value.length >= 3) {
+                  const val = e.target.value;
+                  searchTimeoutRef.current = setTimeout(() => { if (currentUser) logActivity(currentUser.id, "search", val); }, 1500);
+                }
+              }}
+            />
           </div>
         )}
 
-        {/* Buscador */}
-        <div style={{ flex:1, position:"relative" }}>
-          <span style={{ position:"absolute", left:"11px", top:"50%", transform:"translateY(-50%)", color:"rgba(255,255,255,0.5)", fontSize:"13px" }}>🔍</span>
-          <input
-            style={{ width:"100%", padding:"8px 12px 8px 34px", border:"none", borderRadius:"20px", background:"rgba(255,255,255,0.13)", color:"#fff", fontSize:"13px", outline:"none", boxSizing:"border-box" }}
-            placeholder={t.searchPlaceholder}
-            value={search}
-            onChange={e => {
-              setSearch(e.target.value);
-              if (isMobile) setSidebarOpen(false);
-              // Log search after user stops typing (debounced via timeout)
-              clearTimeout(searchTimeoutRef.current);
-              if (e.target.value.length >= 3) {
-                const val = e.target.value;
-                searchTimeoutRef.current = setTimeout(() => {
-                  if (currentUser) logActivity(currentUser.id, "search", val);
-                }, 1500);
-              }
-            }}
-          />
-        </div>
-
-        {/* Acciones */}
-        <div style={{ display:"flex", gap:"8px", alignItems:"center", flexShrink:0 }}>
-          {isAdmin && <>
-            <button onClick={handleCreate} style={{ background:"#D4721A", border:"none", borderRadius:"8px", color:"#fff", padding:"7px 12px", cursor:"pointer", fontWeight:"700", fontSize:"13px", whiteSpace:"nowrap" }}>{t.newRecipe}</button>
-            <div style={{ position:"relative" }} ref={settingsMenuRef}>
-              <button onClick={()=>setShowSettingsMenu(v=>!v)} title="Configuración" style={{ background:"rgba(255,255,255,0.12)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"16px" }}>⚙️</button>
-              {showSettingsMenu && (
-                <div style={{
-                  position:"absolute", top:"42px", right:0, background:"var(--app-primary)", borderRadius:"12px",
-                  boxShadow:"0 8px 32px rgba(0,0,0,0.4)", padding:"8px", zIndex:9999, minWidth:"220px",
-                  border:"1px solid rgba(255,255,255,0.15)", maxHeight:"80vh", overflowY:"auto",
-                }}>
-                  <button onClick={()=>{setGuardInput("");setGuardError("");setGuardAttempts(0);setGuardLocked(false);setShowProfileGuard(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
-                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
-                    {t.settings.profile}
-                  </button>
-                  <button onClick={() => { setShowSettingsMenu(false); exportTemplate(recipes, brandName, dbCategories.map(c=>c.name)); }}
-                    style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left", fontWeight:"700" }}
-                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.22)"} onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.12)"}>
-                    📥 Descargar plantilla Excel
-                  </button>
-                  <button onClick={() => { setShowSettingsMenu(false); exportToExcel(recipes, brandName); }}
-                    style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"rgba(255,255,255,0.08)", border:"none", color:"rgba(255,255,255,0.75)", padding:"10px 14px", cursor:"pointer", fontSize:"13px", borderRadius:"8px", textAlign:"left" }}
-                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.15)"} onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.08)"}>
-                    📊 Exportar recetario (Excel)
-                  </button>
-                  <button onClick={() => { setShowSettingsMenu(false); setImportPreview(null); setImportDone(false); setShowImportModal(true); }}
-                    style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"rgba(255,255,255,0.08)", border:"none", color:"rgba(255,255,255,0.75)", padding:"10px 14px", cursor:"pointer", fontSize:"13px", borderRadius:"8px", textAlign:"left" }}
-                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.15)"} onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.08)"}>
-                    📤 Importar desde Excel
-                  </button>
-                  <div style={{ height:"1px", background:"rgba(255,255,255,0.15)", margin:"4px 0" }} />
-                  <button onClick={()=>{setShowProgress(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
-                    onMouseEnter={e=>e.target.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.target.style.background="none"}>
-                    {t.settings.status}
-                  </button>
-                  <button onClick={()=>{setShowReport(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
-                    onMouseEnter={e=>e.target.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.target.style.background="none"}>
-                    {t.settings.report}
-                  </button>
-                  <button onClick={()=>{setShowUsers(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
-                    onMouseEnter={e=>e.target.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.target.style.background="none"}>
-                    {t.settings.users}
-                  </button>
-                  <div style={{ height:"1px", background:"rgba(255,255,255,0.15)", margin:"4px 0" }} />
-                  <button onClick={()=>{setShowWatermarkUpload(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
-                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
-                    {t.settings.watermark}
-                  </button>
-                  <button onClick={()=>{setBrandDraft({label:brandLabel,name:brandName,tagline:companyTagline,icon:brandIcon,labelColor:brandLabelColor,nameColor:brandNameColor,taglineColor:brandTaglineColor});setShowBrandModal(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
-                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
-                    🏷️ {t.settings?.brand || "Nombre Marca"}
-                  </button>
-                  <button onClick={()=>{setShowBannerConfig(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
-                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
-                    📢 Banner de anuncios
-                  </button>
-                  <button onClick={()=>{setShowLangModal(true);setShowSettingsMenu(false);}} style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", background:"none", border:"none", color:"#fff", padding:"10px 14px", cursor:"pointer", fontSize:"14px", borderRadius:"8px", textAlign:"left" }}
-                    onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
-                    {t.settings.language}
-                  </button>
+        <div style={{ display: "flex", gap: vpMobile ? 6 : 8, alignItems: "center", flex: "none", marginLeft: vpMobile ? 0 : "auto" }}>
+          {vpMobile && (
+            <button aria-label="Buscar" onClick={() => setSearchOpen(o => !o)} style={hdrBtn(searchOpen)}><Icon.search /></button>
+          )}
+          {isAdmin && (
+            <button onClick={handleCreate} aria-label={t.newRecipe}
+              style={{ height: 44, minWidth: 44, padding: showLabels ? "0 16px" : 0, borderRadius: 12, border: 0, background: "#D9731A", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, whiteSpace: "nowrap" }}>
+              <Icon.plus />{showLabels && "Nueva"}
+            </button>
+          )}
+          <div style={{ position: "relative" }} ref={settingsMenuRef}>
+            <button aria-label="Ajustes" onClick={() => setShowSettingsMenu(v => !v)} style={hdrBtn(showSettingsMenu)}><Icon.gear /></button>
+            {showSettingsMenu && (
+              <div style={{ position: vpMobile ? "fixed" : "absolute", top: vpMobile ? 64 : 52, right: vpMobile ? 12 : 0, width: "min(300px, calc(100vw - 24px))", maxHeight: "calc(var(--app-height, 100vh) - 90px)", overflowY: "auto", background: "#fff", borderRadius: 18, boxShadow: "0 30px 60px -20px rgba(14,34,64,.45), 0 0 0 1px rgba(14,34,64,.06)", padding: 10, zIndex: 9999, animation: "dtDrop .22s both", color: "#14213D" }}>
+                <div style={{ padding: "6px 8px 10px" }}>
+                  <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: ".2em", color: "#D9731A", marginBottom: 8 }}>TAMAÑO DE VISTA</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 4, background: "#F3EFE8", borderRadius: 12, padding: 4 }}>
+                    {ZOOM_OPTS.map(([label, z], k) => {
+                      const on = Math.abs(vp.zoom - z) < 0.04;
+                      return (
+                        <button key={label} onClick={() => setZoom(z)} style={{ height: 36, borderRadius: 9, border: 0, background: on ? "#fff" : "transparent", color: on ? "#0E2240" : "#8A847A", boxShadow: on ? "0 1px 3px rgba(14,34,64,.15)" : "none", fontWeight: 800, fontSize: [13, 15, 17][k], cursor: "pointer" }}>{label}</button>
+                      );
+                    })}
+                  </div>
                 </div>
-              )}
-            </div>
-          </>}
-          <button onClick={handleLogout} title="Cerrar sesión" style={{ display:"flex", alignItems:"center", gap:"8px", background:"#c0392b", border:"none", borderRadius:"8px", color:"#fff", padding:"8px 14px", cursor:"pointer", fontSize:"13px", fontWeight:"700", letterSpacing:"0.5px" }}>
-            🚪 {t.logout}
-          </button>
+                {settingsGroups.map(g => (
+                  <div key={g.title} style={{ borderTop: "1px solid #F0ECE5", padding: "8px 0 4px" }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: ".2em", color: "#A39D92", padding: "4px 10px 6px" }}>{g.title}</div>
+                    {g.items.map(([Ic, label, fn]) => (
+                      <button key={label} className="dt-hov-light" onClick={() => { closeSettings(); fn(); }} style={settingsItem}>
+                        <span style={{ color: "#D9731A", display: "flex" }}><Ic width={18} height={18} /></span>{label}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+                {vpMobile && (
+                  <div style={{ borderTop: "1px solid #F0ECE5", paddingTop: 6 }}>
+                    <button onClick={() => { closeSettings(); handleLogout(); }} style={{ ...settingsItem, color: "#C8423B", fontWeight: 700 }}>
+                      <span style={{ display: "flex" }}><Icon.logout width={18} height={18} /></span>{t.logout}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          {!vpMobile && (
+            <button onClick={handleLogout} className="dt-logout" title={t.logout}
+              style={{ height: 44, padding: showLabels ? "0 16px" : 0, minWidth: 44, borderRadius: 12, border: "1.5px solid rgba(255,255,255,.22)", background: "transparent", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <Icon.logout width={18} height={18} />{showLabels && "Salir"}
+            </button>
+          )}
         </div>
       </header>
 
-
       {/* BODY */}
-      <div style={{ flex:1, display:"flex", overflow:"hidden", position:"relative" }}>
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", position: "relative" }}>
 
-        {/* Overlay backdrop en móvil */}
-        {isMobile && sidebarOpen && (
-          <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.5)", zIndex:40 }} onClick={()=>setSidebarOpen(false)} />
+        {/* Fondo del menú deslizable */}
+        {drawerMode && navOpen && (
+          <div onClick={() => setNavOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(9,24,49,.5)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", zIndex: 59, animation: "dtFade .25s both" }} />
         )}
 
-        {/* SIDEBAR */}
-        {sidebarOpen && (
-          <aside style={{
-            width:"240px", flexShrink:0, background:"var(--app-primary)",
-            overflowY:"auto", overflowX:"hidden",
-            display:"flex", flexDirection:"column",
-            position: isMobile ? "absolute" : "relative",
-            top:0, left:0, bottom:0, zIndex: isMobile ? 41 : 1,
-            height: isMobile ? "100%" : "auto",
-            boxShadow: isMobile ? "4px 0 20px rgba(0,0,0,0.4)" : "none"
+        {/* Espacio del rail en computador (el menú expandido se superpone, no empuja el contenido) */}
+        {!drawerMode && <div style={{ width: 76, flex: "none" }} />}
+
+        {/* MENÚ LATERAL */}
+        <aside
+          onMouseEnter={() => { if (!drawerMode) setRailHover(true); }}
+          onMouseLeave={() => { if (!drawerMode) setRailHover(false); }}
+          style={{
+            position: drawerMode ? "fixed" : "absolute", top: 0, bottom: 0, left: 0,
+            width: drawerMode ? "min(320px, 88vw)" : (navExpanded ? 288 : 76),
+            transform: drawerMode && !navOpen ? "translateX(-105%)" : "none",
+            transition: drawerMode ? "transform .35s cubic-bezier(.2,.8,.2,1)" : "width .32s cubic-bezier(.2,.8,.2,1)",
+            background: "#0E2240", color: "#fff", zIndex: drawerMode ? 60 : 35, overflow: "hidden",
+            boxShadow: navExpanded ? "24px 0 60px -20px rgba(9,24,49,.55)" : "none",
+            paddingTop: drawerMode ? "env(safe-area-inset-top)" : 0, paddingBottom: "env(safe-area-inset-bottom)",
           }}>
-            <div style={{ padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
-              <button
-                onClick={() => setShowDocuments(true)}
-                style={{
-                  width:"100%", display:"flex", alignItems:"center", gap:"10px",
-                  background:"linear-gradient(135deg,rgba(212,114,26,0.25),rgba(212,114,26,0.10))",
-                  border:"1.5px solid rgba(212,114,26,0.35)", borderRadius:"10px",
-                  color:"#fff", padding:"10px 14px", cursor:"pointer",
-                  fontSize:"13px", fontWeight:"700", fontFamily:"Georgia,serif",
-                  transition:"all 0.2s", letterSpacing:"0.3px",
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(212,114,26,0.35)"; e.currentTarget.style.borderColor = "rgba(212,114,26,0.6)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "linear-gradient(135deg,rgba(212,114,26,0.25),rgba(212,114,26,0.10))"; e.currentTarget.style.borderColor = "rgba(212,114,26,0.35)"; }}
-              >
-                <span style={{ fontSize:"18px" }}>📚</span>
-                Manuales
-              </button>
-              <div style={{ display:"flex", gap:"6px", marginTop:"6px" }}>
-                <button
-                  onClick={() => setShowCalc3D(true)}
-                  style={{
-                    flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:"6px",
-                    background:"rgba(255,149,0,0.18)",
-                    border:"1.5px solid rgba(255,149,0,0.35)", borderRadius:"10px",
-                    color:"#fff", padding:"9px 10px", cursor:"pointer",
-                    fontSize:"12px", fontWeight:"700", fontFamily:"Georgia,serif",
-                    transition:"all 0.2s",
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,149,0,0.32)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,149,0,0.18)"; }}
-                >
-                  <span style={{ fontSize:"14px" }}>🖨️</span>
-                  Bambu A1
-                </button>
+          <div style={{ width: drawerMode ? "min(320px, 88vw)" : 288, height: "100%", overflowY: "auto", overflowX: "hidden", padding: "14px 14px 24px", display: "flex", flexDirection: "column", gap: 4 }}>
+            {drawerMode && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "2px 2px 10px" }}>
+                <span style={{ fontFamily: "var(--dt-serif)", fontSize: 20, fontWeight: 600 }}>Menú</span>
+                <button aria-label="Cerrar menú" onClick={() => setNavOpen(false)} style={hdrBtn(false)}><Icon.close width={18} height={18} /></button>
               </div>
-              <button
-                onClick={() => setShowCalcPan(true)}
-                style={{
-                  width:"100%", marginTop:"6px", display:"flex", alignItems:"center", justifyContent:"center", gap:"6px",
-                  background:"rgba(212,114,26,0.18)",
-                  border:"1.5px solid rgba(212,114,26,0.35)", borderRadius:"10px",
-                  color:"#fff", padding:"9px 10px", cursor:"pointer",
-                  fontSize:"12px", fontWeight:"700", fontFamily:"Georgia,serif",
-                  transition:"all 0.2s",
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(212,114,26,0.32)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "rgba(212,114,26,0.18)"; }}
-              >
-                <span style={{ fontSize:"14px" }}>🍞</span>
-                Calculadora de Masas
+            )}
+            {[
+              [Icon.book, "Manuales", () => { setShowDocuments(true); setNavOpen(false); }],
+              [Icon.printer3d, "Bambu A1", () => { setShowCalc3D(true); setNavOpen(false); }],
+              [Icon.calc, "Calculadora de Masas", () => { setShowCalcPan(true); setNavOpen(false); }],
+            ].map(([Ic, label, fn]) => (
+              <button key={label} onClick={fn} className="dt-hov-dark" title={label} style={navRow(false)}>
+                <span style={{ width: 30, display: "flex", justifyContent: "center", color: "#F0A35E", flex: "none" }}><Ic /></span>
+                <span style={labelStyle}>{label}</span>
               </button>
-            </div>
-
+            ))}
+            <div style={{ height: 1, background: "rgba(255,255,255,.1)", margin: "8px 4px" }} />
             {canSeeBodega && (
-              <div style={{ padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
-                <button
-                  onClick={() => selectCat(BODEGA_CAT)}
-                  style={{
-                    width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", gap:"10px",
-                    background: isBodegaView
-                      ? "linear-gradient(135deg,rgba(124,58,237,0.45),rgba(124,58,237,0.20))"
-                      : "linear-gradient(135deg,rgba(124,58,237,0.25),rgba(124,58,237,0.10))",
-                    border: isBodegaView ? "1.5px solid rgba(167,139,250,0.7)" : "1.5px solid rgba(124,58,237,0.35)",
-                    borderRadius:"10px",
-                    color:"#fff", padding:"10px 14px", cursor:"pointer",
-                    fontSize:"13px", fontWeight:"700", fontFamily:"Georgia,serif",
-                    transition:"all 0.2s", letterSpacing:"0.3px",
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "linear-gradient(135deg,rgba(124,58,237,0.45),rgba(124,58,237,0.20))"; }}
-                  onMouseLeave={e => { if (!isBodegaView) e.currentTarget.style.background = "linear-gradient(135deg,rgba(124,58,237,0.25),rgba(124,58,237,0.10))"; }}
-                  title="Subrecetas de produccion (planta/bodega). Modulo separado del menu."
-                >
-                  <span style={{ display:"flex", alignItems:"center", gap:"10px" }}>
-                    <span style={{ fontSize:"18px" }}>🏭</span>
-                    Recetas Bodega
-                  </span>
-                  <span style={{ background: isBodegaView ? "#A78BFA" : "rgba(255,255,255,0.18)", borderRadius:"10px", padding:"2px 8px", fontSize:"11px", fontWeight:"700", color:"#fff" }}>
-                    {bodegaCount}
-                  </span>
-                </button>
-              </div>
+              <button onClick={() => pickCat(BODEGA_CAT)} className="dt-hov-dark" title="Recetas Bodega" style={navRow(isBodegaView)}>
+                <span style={{ width: 30, display: "flex", justifyContent: "center", color: "#F0A35E", flex: "none" }}><Icon.box /></span>
+                <span style={labelStyle}>Recetas Bodega</span>
+                <span style={badge("rgba(255,255,255,.14)")}>{bodegaCount}</span>
+              </button>
             )}
-
             {isAdmin && toCompleteCount > 0 && (
-              <div style={{ padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
-                <button
-                  onClick={() => selectCat(PENDING_CAT)}
-                  style={{
-                    width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", gap:"10px",
-                    background: isPendingView
-                      ? "linear-gradient(135deg,rgba(245,158,11,0.45),rgba(245,158,11,0.20))"
-                      : "linear-gradient(135deg,rgba(245,158,11,0.22),rgba(245,158,11,0.08))",
-                    border: isPendingView ? "1.5px solid rgba(251,191,36,0.8)" : "1.5px solid rgba(245,158,11,0.35)",
-                    borderRadius:"10px",
-                    color:"#fff", padding:"10px 14px", cursor:"pointer",
-                    fontSize:"13px", fontWeight:"700", fontFamily:"Georgia,serif",
-                    transition:"all 0.2s", letterSpacing:"0.3px",
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "linear-gradient(135deg,rgba(245,158,11,0.45),rgba(245,158,11,0.20))"; }}
-                  onMouseLeave={e => { if (!isPendingView) e.currentTarget.style.background = "linear-gradient(135deg,rgba(245,158,11,0.22),rgba(245,158,11,0.08))"; }}
-                  title="Recetas-borrador sin ingredientes (creadas desde productos sin receta). Entrá a llenarlas."
-                >
-                  <span style={{ display:"flex", alignItems:"center", gap:"10px" }}>
-                    <span style={{ fontSize:"18px" }}>📝</span>
-                    Por completar
-                  </span>
-                  <span style={{ background: isPendingView ? "#FBBF24" : "rgba(255,255,255,0.18)", borderRadius:"10px", padding:"2px 8px", fontSize:"11px", fontWeight:"700", color:"#fff" }}>
-                    {toCompleteCount}
-                  </span>
-                </button>
-              </div>
+              <button onClick={() => pickCat(PENDING_CAT)} className="dt-hov-dark" title="Por completar" style={navRow(isPendingView)}>
+                <span style={{ width: 30, display: "flex", justifyContent: "center", color: "#F0A35E", flex: "none" }}><Icon.pencil /></span>
+                <span style={labelStyle}>Por completar</span>
+                <span style={badge("#D9731A")}>{toCompleteCount}</span>
+              </button>
             )}
 
-            <div style={{ padding:"14px 16px 8px", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
-              <div style={{ color:"#D4721A", fontSize:"9px", fontWeight:"700", letterSpacing:"2px", fontFamily:"Georgia,serif" }}>{t.categories}</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 12px 6px", opacity: navExpanded || drawerMode ? 1 : 0, transition: "opacity .2s" }}>
+              <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: ".22em", color: "rgba(255,255,255,.5)" }}>{String(t.categories || "CATEGORÍAS").toUpperCase()}</span>
+              {isAdmin && (
+                <button onClick={(e) => { e.stopPropagation(); setEditCats(v => !v); }} style={{ height: 26, padding: "0 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,.18)", background: editCats ? "#D9731A" : "transparent", color: "#fff", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>{editCats ? "Listo" : "Editar"}</button>
+              )}
             </div>
             {allCategories.map(cat => {
-              // "Todas" cuenta solo recetas de menu (bodega va aparte en su propio modulo)
-              const totalMenu = recipes.filter(r => r.category !== BODEGA_CAT).length;
-              const count = cat.id==="all" ? totalMenu : (catCounts[cat.id]||0);
-              const active = selectedCat===cat.id;
+              const count = cat.id === "all" ? totalMenu : (catCounts[cat.id] || 0);
+              const active = selectedCat === cat.id;
+              const isAll = cat.id === "all";
+              const label = isAll ? "Todas las recetas" : titleCase(cat.label);
               return (
-                <button
-                  key={cat.id}
-                  onClick={() => selectCat(cat.id)}
-                  style={{
-                    width:"100%", textAlign:"left",
-                    background: active ? "rgba(212,114,26,0.22)" : "transparent",
-                    border:"none",
-                    borderLeft: active ? "3px solid #D4721A" : "3px solid transparent",
-                    color: active ? "#fff" : "#9BBACC",
-                    padding:"10px 16px",
-                    cursor:"pointer",
-                    display:"flex", justifyContent:"space-between", alignItems:"center",
-                    fontSize:"13px", fontWeight: active ? "700" : "400",
-                    transition:"all 0.15s"
-                  }}
-                >
-                  <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1, marginRight:"8px" }}>
-                    {cat.icon} {cat.label}
-                  </span>
-                  <span style={{ display:"flex", alignItems:"center", gap:"6px", flexShrink:0 }}>
-                    {isAdmin && cat.id !== "all" && (
-                      <span
-                        onClick={(e) => { e.stopPropagation(); setCategoryModal({ mode: "edit", initial: cat }); }}
-                        style={{ background:"rgba(255,255,255,0.1)", borderRadius:"6px", padding:"2px 5px", fontSize:"11px", cursor:"pointer", color:"var(--app-primary-light)", lineHeight:1, opacity:0.5, transition:"opacity 0.2s" }}
-                        onMouseEnter={e => e.currentTarget.style.opacity = "1"}
-                        onMouseLeave={e => e.currentTarget.style.opacity = "0.5"}
-                        title={`Editar categoría ${cat.label}`}
-                      >✏️</span>
-                    )}
-                    {isAdmin && cat.id !== "all" && count > 0 && (
-                      <span
-                        onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id); }}
-                        style={{ background:"rgba(231,76,60,0.15)", borderRadius:"6px", padding:"2px 5px", fontSize:"11px", cursor:"pointer", color:"#e74c3c", lineHeight:1, opacity:0.5, transition:"opacity 0.2s" }}
-                        onMouseEnter={e => e.currentTarget.style.opacity = "1"}
-                        onMouseLeave={e => e.currentTarget.style.opacity = "0.5"}
-                        title={`Eliminar categoría ${cat.label}`}
-                      >🗑️</span>
-                    )}
-                    <span style={{ background: active ? "#D4721A" : "rgba(255,255,255,0.1)", borderRadius:"10px", padding:"2px 7px", fontSize:"11px", fontWeight:"700", color: active ? "#fff" : "#9BBACC" }}>
-                      {count}
+                <button key={cat.id} onClick={() => pickCat(cat.id)} className="dt-hov-dark" title={label} style={navRow(active)}>
+                  {isAll
+                    ? <span style={{ width: 30, height: 30, borderRadius: 9, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", background: "#D9731A", color: "#fff", fontSize: 14 }}>★</span>
+                    : <Monogram name={cat.label} />}
+                  <span style={{ ...labelStyle, fontWeight: active ? 700 : 600 }}>{label}</span>
+                  {editCats && isAdmin && !isAll ? (
+                    <span style={{ display: "flex", gap: 4, flex: "none" }}>
+                      <span role="button" title={`Editar categoría ${cat.label}`} onClick={(e) => { e.stopPropagation(); setCategoryModal({ mode: "edit", initial: cat }); }} style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(255,255,255,.1)", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon.pencil width={14} height={14} /></span>
+                      {count > 0 && <span role="button" title={`Eliminar categoría ${cat.label}`} onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id); }} style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(200,66,59,.25)", color: "#FFB1AB", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon.trash width={14} height={14} /></span>}
                     </span>
-                  </span>
+                  ) : (
+                    <span style={{ ...badge("transparent", "rgba(255,255,255,.55)"), padding: 0, fontWeight: 700, fontSize: 12 }}>{count}</span>
+                  )}
                 </button>
               );
             })}
-            {isAdmin && (
-              <button
-                onClick={() => setCategoryModal({ mode: "create" })}
-                style={{
-                  width: "100%", textAlign: "left", background: "rgba(212,114,26,0.12)", border: "none",
-                  borderLeft: "3px solid #D4721A", color: "#D4721A", padding: "10px 16px", cursor: "pointer",
-                  fontSize: "13px", fontWeight: "600", marginTop: "4px"
-                }}
-              >
-                {t.newCategory}
+            {isAdmin && (navExpanded || drawerMode) && (
+              <button onClick={() => { setCategoryModal({ mode: "create" }); setNavOpen(false); }} style={{ ...navRow(false), color: "#F0A35E", marginTop: 4, border: "1px dashed rgba(240,163,94,.5)" }}>
+                <span style={{ width: 30, display: "flex", justifyContent: "center", flex: "none" }}><Icon.plus width={18} height={18} /></span>
+                <span>{String(t.newCategory || "Nueva categoría").replace(/^\+\s*/, "")}</span>
               </button>
             )}
-          </aside>
-        )}
+          </div>
+        </aside>
 
         {/* CONTENIDO PRINCIPAL */}
-        <main style={{ flex:1, overflowY:"auto", padding: isMobile ? "14px" : "22px", minWidth:0 }}>
-          {/* Título */}
-          <div style={{ marginBottom:"18px" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:"12px", flexWrap:"wrap" }}>
-              <h1 style={{ margin:0, color:"var(--app-primary)", fontFamily:"Georgia,serif", fontSize: isMobile?"18px":"21px", fontWeight:"700" }}>
-                {isPendingView
-                  ? <>📝 Por completar</>
-                  : isBodegaView
-                  ? <>🏭 Recetas Bodega</>
-                  : <>{allCategories.find(c=>c.id===selectedCat)?.icon} {allCategories.find(c=>c.id===selectedCat)?.label}</>}
-              </h1>
-              {selectedCat?.toLowerCase().includes("pizza") && (
-                <button
-                  onClick={() => setShowPizzaBuilder(true)}
-                  style={{ background:"linear-gradient(135deg,#c0392b,#e74c3c)", border:"none", borderRadius:"20px", color:"#fff", padding:"6px 16px", cursor:"pointer", fontFamily:"Georgia,serif", fontSize:"13px", fontWeight:"700", boxShadow:"0 3px 12px rgba(192,57,43,0.4)", letterSpacing:"0.5px", display:"flex", alignItems:"center", gap:"6px" }}
-                >
-                  🍕 Armar Pizza
-                </button>
-              )}
-              {isBodegaView && isAdmin && (
-                <button
-                  onClick={handleCreateBodega}
-                  style={{ background:"linear-gradient(135deg,#7C3AED,#A78BFA)", border:"none", borderRadius:"20px", color:"#fff", padding:"6px 16px", cursor:"pointer", fontFamily:"Georgia,serif", fontSize:"13px", fontWeight:"700", boxShadow:"0 3px 12px rgba(124,58,237,0.35)", letterSpacing:"0.5px", display:"flex", alignItems:"center", gap:"6px" }}
-                >
-                  + Nueva receta bodega
-                </button>
-              )}
-            </div>
-            <div style={{ color:"#888", fontSize:"13px", marginTop:"3px" }}>
-              {filtered.length} {filtered.length!==1 ? t.recipes : t.recipe}{search && ` — "${search}"`}
+        <main style={{ flex: 1, overflowY: "auto", padding: `${vpMobile ? 16 : 34}px ${padX}px calc(96px + env(safe-area-inset-bottom))`, minWidth: 0, position: "relative", zIndex: 1 }}>
+          {/* Encabezado de la categoría */}
+          <div style={{ display: "flex", flexDirection: "column", gap: vpMobile ? 10 : 14, marginBottom: vpMobile ? 14 : 22 }}>
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".28em", color: "#D9731A" }}>CATEGORÍA</span>
+                <h1 style={{ margin: 0, fontFamily: "var(--dt-serif)", fontSize: vpMobile ? 28 : 46, fontWeight: 600, color: "#0E2240", lineHeight: 1.05 }}>{headTitle}</h1>
+                <span style={{ fontSize: 14, color: "#8A847A" }}>{shown.length} {shown.length !== 1 ? t.recipes : t.recipe}{search && ` — “${search}”`}</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {String(selectedCat || "").toLowerCase().includes("pizza") && (
+                  <button onClick={() => setShowPizzaBuilder(true)} style={{ height: 40, padding: "0 16px", borderRadius: 12, border: 0, background: "#C8423B", color: "#fff", fontWeight: 800, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}><Icon.pizza width={16} height={16} />Armar pizza</button>
+                )}
+                {isBodegaView && isAdmin && (
+                  <button onClick={handleCreateBodega} style={{ height: 40, padding: "0 16px", borderRadius: 12, border: 0, background: "#3F5E8C", color: "#fff", fontWeight: 800, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}><Icon.plus width={16} height={16} />Nueva receta bodega</button>
+                )}
+              </div>
             </div>
 
             {isBodegaView && bodegaSubs.length > 0 && (
-              <div style={{ display:"flex", flexWrap:"wrap", gap:"6px", marginTop:"12px" }}>
-                <button
-                  onClick={() => setSelectedBodegaSub("all")}
-                  style={{
-                    background: selectedBodegaSub === "all" ? "#7C3AED" : "#F0ECE6",
-                    color: selectedBodegaSub === "all" ? "#fff" : "#5a3e2b",
-                    border:"none", borderRadius:"14px",
-                    padding:"5px 12px", cursor:"pointer",
-                    fontSize:"12px", fontWeight: selectedBodegaSub === "all" ? "700" : "600",
-                  }}
-                >Todas <span style={{ opacity:0.8 }}>({bodegaCount})</span></button>
-                {bodegaSubs.map(([sub, count]) => {
-                  const active = selectedBodegaSub === sub;
-                  return (
-                    <button
-                      key={sub}
-                      onClick={() => setSelectedBodegaSub(sub)}
-                      style={{
-                        background: active ? "#7C3AED" : "#F0ECE6",
-                        color: active ? "#fff" : "#5a3e2b",
-                        border:"none", borderRadius:"14px",
-                        padding:"5px 12px", cursor:"pointer",
-                        fontSize:"12px", fontWeight: active ? "700" : "600",
-                      }}
-                    >{sub} <span style={{ opacity:0.8 }}>({count})</span></button>
-                  );
+              <div className="dt-noscroll" style={{ display: "flex", gap: 6, overflowX: "auto", margin: `0 -${padX}px`, padding: `0 ${padX}px 2px` }}>
+                {[["all", "Todas", bodegaCount], ...bodegaSubs.map(([sub, count]) => [sub, sub, count])].map(([key, label, count]) => {
+                  const on = selectedBodegaSub === key;
+                  return <button key={key} onClick={() => setSelectedBodegaSub(key)} style={{ flex: "none", height: 34, padding: "0 13px", borderRadius: 999, border: `1.5px solid ${on ? "#0E2240" : "#E7E1D7"}`, background: on ? "#0E2240" : "#fff", color: on ? "#fff" : "#0E2240", fontWeight: 700, fontSize: 12.5, cursor: "pointer", whiteSpace: "nowrap" }}>{label} <span style={{ opacity: .6 }}>{count}</span></button>;
                 })}
               </div>
             )}
+
+            {/* Barra: Todas / Publicadas / Borradores + Cuadrícula / Lista */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {isAdmin && (
+                <div style={{ display: "flex", gap: 2, background: "#fff", borderRadius: 999, padding: 4, boxShadow: "0 0 0 1px rgba(14,34,64,.06)", flex: vpMobile ? 1 : "none" }}>
+                  {["Todas", "Publicadas", "Borradores"].map(f => (
+                    <button key={f} onClick={() => setPubFilter(f)} style={{ flex: vpMobile ? 1 : "none", height: 34, padding: "0 14px", borderRadius: 999, border: 0, background: pubFilter === f ? "#0E2240" : "transparent", color: pubFilter === f ? "#fff" : "#6E6A63", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{f}</button>
+                  ))}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 2, background: "#fff", borderRadius: 999, padding: 4, boxShadow: "0 0 0 1px rgba(14,34,64,.06)", marginLeft: "auto" }}>
+                {[["grid", Icon.grid, "Cuadrícula"], ["list", Icon.list, "Lista"]].map(([m, Ic, label]) => (
+                  <button key={m} aria-label={label} onClick={() => setListView(m)} style={{ width: 38, height: 34, borderRadius: 999, border: 0, background: viewMode === m ? "#0E2240" : "transparent", color: viewMode === m ? "#fff" : "#8A847A", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Ic width={17} height={17} /></button>
+                ))}
+              </div>
+            </div>
           </div>
 
-          {/* Grid */}
-          {filtered.length===0 ? (
-            <div style={{ textAlign:"center", padding:"60px 20px", color:"#888" }}>
-              <div style={{ fontSize:"48px" }}>🔍</div>
-              <div style={{ marginTop:"12px", fontSize:"15px" }}>{t.noResults}</div>
-              {search && <button onClick={()=>setSearch("")} style={{ marginTop:"10px", background:"var(--app-primary)", border:"none", borderRadius:"8px", color:"#fff", padding:"8px 16px", cursor:"pointer" }}>{t.clearSearch}</button>}
+          {/* Recetas */}
+          {shown.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "60px 20px", color: "#8A847A", fontSize: 15, animation: "dtFade .4s both" }}>
+              {t.noResults}{search && <>{" "}<button onClick={() => setSearch("")} style={{ marginLeft: 6, height: 36, padding: "0 14px", borderRadius: 10, border: 0, background: "#0E2240", color: "#fff", fontWeight: 700, cursor: "pointer" }}>{t.clearSearch}</button></>}
             </div>
-          ) : (
-            <div style={{ display:"grid", gridTemplateColumns: isMobile ? "repeat(auto-fill,minmax(150px,1fr))" : "repeat(auto-fill,minmax(210px,1fr))", gap: isMobile?"12px":"16px" }}>
-              {filtered.map(r => (
-                <div
-                  key={r.id}
-                  onClick={() => openRecipe(r)}
-                  style={{ background:"#EDEDED", borderRadius:"14px", overflow:"hidden", boxShadow:"0 2px 10px rgba(0,0,0,0.07)", cursor:"pointer", border:"1px solid #E0E0E0", transition:"all 0.2s" }}
-                  onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-4px)";e.currentTarget.style.boxShadow="0 10px 28px rgba(0,0,0,0.14)";}}
-                  onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 2px 10px rgba(0,0,0,0.07)";}}
-                >
-                  <div style={{ height: isMobile?"100px":"128px", background:r.image?"transparent":"#E5E5E5", display:"flex", alignItems:"center", justifyContent:"center", position:"relative", overflow:"hidden" }}>
-                    {r.image
-                      ? <Image fill src={r.image} alt={r.name} style={{ objectFit:"cover" }} sizes="(max-width:768px) 50vw, 200px" />
-                      : <div style={{ textAlign:"center", color:"#C0B8A8" }}>
-                          <div style={{ fontSize:"28px" }}>{allCategories.find(c=>c.id===r.category)?.icon||"🍽️"}</div>
-                        </div>
-                    }
-                    {r.video && <div style={{ position:"absolute", top:"6px", right:"6px", background:"#e74c3c", borderRadius:"5px", padding:"2px 6px", fontSize:"10px", color:"#fff", fontWeight:"700" }}>▶</div>}
-                    {isAdmin && !r.published && <div style={{ position:"absolute", top:"6px", left:"6px", background:"#7f8c8d", borderRadius:"5px", padding:"2px 6px", fontSize:"10px", color:"#fff", fontWeight:"700" }}>📝 {t.draft}</div>}
+          ) : viewMode === "list" ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {shown.map((r, i) => (
+                <div key={r.id} onClick={() => openRecipe(r)} className="dt-row"
+                  style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 60, padding: "9px 12px", borderRadius: 16, background: "rgba(255,255,255,.92)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", boxShadow: "0 0 0 1px rgba(14,34,64,.06)", cursor: "pointer", animation: "dtUp .5s cubic-bezier(.2,.8,.2,1) both", animationDelay: `${Math.min(i, 14) * 25}ms` }}>
+                  {r.image
+                    ? <div style={{ width: 42, height: 42, borderRadius: 12, overflow: "hidden", position: "relative", flex: "none" }}><Image fill src={r.image} alt={r.name} style={{ objectFit: "cover" }} sizes="42px" /></div>
+                    : <Monogram name={r.name} color={catColor(catLabelOf(r.category))} size={42} radius={12} />}
+                  <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+                    <span style={{ fontSize: 14.5, fontWeight: 700, color: "#0E2240", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.name}</span>
+                    <span style={{ fontSize: 12, color: "#8A847A", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><span style={{ color: "#D9731A", fontWeight: 700 }}>{titleCase(catLabelOf(r.category))}</span> · {t.ingredients_count((r.ingredients || []).length)}</span>
                   </div>
-                  <div style={{ padding: isMobile?"10px":"13px" }}>
-                    <div style={{ background:"#F7F3EE", borderRadius:"5px", padding:"2px 7px", fontSize:"9px", fontWeight:"700", color:"#D4721A", display:"inline-block", marginBottom:"5px", letterSpacing:"0.5px" }}>
-                      {r.category.toUpperCase()}
-                    </div>
-                    <div style={{ fontWeight:"700", color:"var(--app-primary)", fontSize: isMobile?"12px":"13px", lineHeight:"1.3", fontFamily:"Georgia,serif" }}>{r.name}</div>
-                    <div style={{ color:"#aaa", fontSize:"11px", marginTop:"6px" }}>{t.ingredients_count(r.ingredients.length)}</div>
-                  </div>
+                  {isAdmin && <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 800, color: r.published ? "#1F9D6B" : "#B85E10", flex: "none" }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor" }} />{r.published ? "Pub." : "Borr."}</span>}
+                  <span style={{ color: "#C9C2B6", display: "flex", flex: "none" }}><Icon.chevron width={18} height={18} /></span>
                 </div>
               ))}
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill, minmax(${vpMobile ? 140 : vp.w < 1024 ? 190 : 220}px, 1fr))`, gap: vpMobile ? 10 : 20 }}>
+              {shown.map((r, i) => {
+                const cc = catColor(catLabelOf(r.category));
+                return (
+                  <article key={r.id} onClick={() => openRecipe(r)} className="dt-card"
+                    style={{ borderRadius: 20, overflow: "hidden", background: "rgba(255,255,255,.92)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", boxShadow: "0 0 0 1px rgba(14,34,64,.06)", cursor: "pointer", animation: "dtUp .55s cubic-bezier(.2,.8,.2,1) both", animationDelay: `${Math.min(i, 18) * 35}ms`, display: "flex", flexDirection: "column" }}>
+                    <div style={{ aspectRatio: vpMobile ? "16/10" : "4/3", position: "relative", overflow: "hidden", background: `linear-gradient(140deg, ${cc}14, ${cc}26)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {r.image
+                        ? <Image fill src={r.image} alt={r.name} style={{ objectFit: "cover" }} sizes="(max-width:640px) 50vw, 260px" />
+                        : <span style={{ fontFamily: "var(--dt-serif)", fontWeight: 700, fontSize: vpMobile ? 44 : 76, color: cc, opacity: .28 }}>{initialOf(r.name)}</span>}
+                      {isAdmin && (
+                        <span style={{ position: "absolute", top: 10, left: 10, display: "flex", alignItems: "center", gap: 6, height: 24, padding: "0 10px", borderRadius: 999, background: "rgba(255,255,255,.92)", color: r.published ? "#1F9D6B" : "#B85E10", fontSize: 11, fontWeight: 800 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor" }} />{r.published ? "Publicada" : "Borrador"}
+                        </span>
+                      )}
+                      {r.video && <span style={{ position: "absolute", top: 10, right: 10, height: 24, padding: "0 8px", borderRadius: 999, background: "rgba(14,34,64,.8)", color: "#fff", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center" }}>▶</span>}
+                    </div>
+                    <div style={{ padding: vpMobile ? "10px 12px 12px" : "14px 16px 16px", display: "flex", flexDirection: "column", gap: 4 }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: ".18em", color: "#D9731A", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{String(catLabelOf(r.category)).toUpperCase()}</span>
+                      <span style={{ fontFamily: "var(--dt-serif)", fontSize: vpMobile ? 14.5 : 18, fontWeight: 600, color: "#0E2240", lineHeight: 1.2 }}>{r.name}</span>
+                      <span style={{ fontSize: 12, color: "#8A847A" }}>{t.ingredients_count((r.ingredients || []).length)}</span>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           )}
         </main>
