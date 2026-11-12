@@ -6,7 +6,7 @@ export function ImportExcelModal({ show, isAdmin, onClose, importDone, importPre
   if (!show || !isAdmin) return null;
   return (
     <div style={{ position:"fixed", inset:0, zIndex:9998, background:"rgba(10,15,25,0.88)", backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-      <div style={{ background:"#fff", borderRadius:"20px", width:"100%", maxWidth:"480px", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 30px 80px rgba(0,0,0,0.5)", padding:"28px" }}>
+      <div style={{ background:"#fff", borderRadius:"20px", width:"100%", maxWidth:"480px", maxHeight:"calc(var(--app-height, 100vh) * 0.90)", overflowY:"auto", boxShadow:"0 30px 80px rgba(0,0,0,0.5)", padding:"28px" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"20px" }}>
           <div>
             <div style={{ fontSize:"22px", fontWeight:"700", color:"#1b3a5c" }}>📤 Importar recetas</div>

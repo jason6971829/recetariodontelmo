@@ -191,7 +191,7 @@ export function DocumentsPanel({ isAdmin, onClose, currentUser }) {
 
   return (
     <div className="dt-scope" onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(9,24,49,.55)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", animation: "dtFade .25s both", display: "flex", alignItems: mobile ? "flex-end" : "center", justifyContent: "center", padding: mobile ? 0 : 24, fontFamily: "var(--dt-sans)", color: "#14213D" }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: mobile ? "24px 24px 0 0" : 24, width: "100%", maxWidth: 820, maxHeight: mobile ? "94vh" : "min(92vh, 1000px)", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 40px 80px -20px rgba(0,0,0,.5)", animation: mobile ? "dtSheet .4s cubic-bezier(.2,.8,.2,1) both" : "dtPop .35s cubic-bezier(.2,.8,.2,1) both" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: mobile ? "24px 24px 0 0" : 24, width: "100%", maxWidth: 820, height: mobile ? "calc(var(--app-height, 100vh) * 0.95)" : undefined, maxHeight: mobile ? "calc(var(--app-height, 100vh) * 0.95)" : "min(calc(var(--app-height, 100vh) * 0.92), 1000px)", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 40px 80px -20px rgba(0,0,0,.5)", animation: mobile ? "dtSheet .4s cubic-bezier(.2,.8,.2,1) both" : "dtPop .35s cubic-bezier(.2,.8,.2,1) both" }}>
 
         {/* Header */}
         <div style={{ background: "linear-gradient(160deg,#16325A,#0E2240)", color: "#fff", padding: mobile ? "14px 18px" : "20px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexShrink: 0 }}>

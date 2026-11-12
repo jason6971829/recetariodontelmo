@@ -76,7 +76,7 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
     <div onClick={onClose} className="dt-scope"
       style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(9,24,49,.55)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", animation: "dtFade .25s both", display: "flex", alignItems: mobile ? "flex-end" : "center", justifyContent: "center", padding: mobile ? 0 : 24, fontFamily: SANS }}>
       <div onClick={e => e.stopPropagation()}
-        style={{ width: "100%", maxWidth: 960, maxHeight: mobile ? "94vh" : "min(92vh, 1000px)", background: "#fff", borderRadius: mobile ? "24px 24px 0 0" : 24, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 40px 80px -20px rgba(0,0,0,.5)", animation: mobile ? "dtSheet .4s cubic-bezier(.2,.8,.2,1) both" : "dtPop .35s cubic-bezier(.2,.8,.2,1) both", color: C.ink }}>
+        style={{ width: "100%", maxWidth: 960, height: mobile ? "calc(var(--app-height, 100vh) * 0.95)" : undefined, maxHeight: mobile ? "calc(var(--app-height, 100vh) * 0.95)" : "min(calc(var(--app-height, 100vh) * 0.92), 1000px)", background: "#fff", borderRadius: mobile ? "24px 24px 0 0" : 24, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 40px 80px -20px rgba(0,0,0,.5)", animation: mobile ? "dtSheet .4s cubic-bezier(.2,.8,.2,1) both" : "dtPop .35s cubic-bezier(.2,.8,.2,1) both", color: C.ink }}>
 
         {/* Header */}
         <div style={{ background: `linear-gradient(160deg, ${C.navy7}, ${C.navy})`, color: "#fff", padding: `22px ${inner}px 20px`, display: "flex", flexDirection: "column", gap: 16, flex: "none" }}>

@@ -213,7 +213,7 @@ export function ProveedoresPanel({ onClose }) {
           }}>
             <div style={{
               background:"#16213E", borderRadius:"16px", width:"100%", maxWidth:"560px",
-              maxHeight:"90vh", overflowY:"auto", border:"1px solid rgba(255,255,255,0.12)",
+              maxHeight:"calc(var(--app-height, 100vh) * 0.90)", overflowY:"auto", border:"1px solid rgba(255,255,255,0.12)",
               boxShadow:"0 20px 60px rgba(0,0,0,0.5)"
             }}>
               <div style={{ padding:"20px 24px", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>

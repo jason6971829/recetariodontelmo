@@ -675,7 +675,7 @@ export function Calculadora3D({ onClose }) {
     }}>
       <div className="calc3d-root" style={{
         background: "#fff", borderRadius: "16px",
-        width: "100%", maxWidth: "780px", maxHeight: "92vh",
+        width: "100%", maxWidth: "780px", maxHeight: "calc(var(--app-height, 100vh) * 0.92)",
         overflow: "hidden", display: "flex", flexDirection: "column",
         boxShadow: "0 30px 80px rgba(0,0,0,0.5)",
         fontFamily: "'Poppins', sans-serif",

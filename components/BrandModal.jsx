@@ -35,7 +35,7 @@ export function BrandModal({
   if (!show || !isAdmin) return null;
   return (
     <div style={{ position:"fixed", inset:0, zIndex:9995, background:"rgba(10,15,25,0.88)", backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-      <div style={{ background:"#fff", borderRadius:"20px", padding:"28px 24px", width:"100%", maxWidth:"420px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)", maxHeight:"90vh", overflowY:"auto" }}>
+      <div style={{ background:"#fff", borderRadius:"20px", padding:"28px 24px", width:"100%", maxWidth:"420px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)", maxHeight:"calc(var(--app-height, 100vh) * 0.90)", overflowY:"auto" }}>
         <div style={{ textAlign:"center", marginBottom:"18px" }}>
           <div style={{ fontSize:"28px", marginBottom:"6px" }}>🏷️</div>
           <div style={{ color:"var(--app-primary)", fontSize:"17px", fontWeight:"700", fontFamily:"Georgia,serif" }}>{t.brand.title}</div>

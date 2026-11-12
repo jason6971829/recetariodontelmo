@@ -90,7 +90,7 @@ export function ChefAssistant() {
         <div
           style={{
             position: "fixed", bottom: 20, right: 20, zIndex: 500,
-            width: "min(380px, calc(100vw - 24px))", height: "min(560px, calc(100vh - 40px))",
+            width: "min(380px, calc(100vw - 24px))", height: "min(560px, calc(var(--app-height, 100vh) - 40px))",
             background: "#fff", borderRadius: 16, overflow: "hidden",
             display: "flex", flexDirection: "column",
             boxShadow: "0 16px 50px rgba(0,0,0,0.35)", border: "1px solid #E0D8CE",
