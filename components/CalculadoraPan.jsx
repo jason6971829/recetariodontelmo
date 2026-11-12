@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { BasculaEnLista } from "./BasculaEnLista";
+import { useViewport } from "@/hooks/useViewport";
 
 // Calculadora de porcentaje panadero — herramienta independiente.
 // Harina = 100%. Reglas:
@@ -370,12 +371,14 @@ function savePlan(p) {
 }
 
 // ── estilos Don Telmo ─────────────────────────────────────────────
-const C = { navy: "var(--app-primary, #1B3A5C)", navyD: "var(--app-primary-dark, #122845)", gold: "#D4721A", line: "#E0D8CE", cream: "#FDFAF6", ink: "#3a2f29" };
-const inp = { padding: "8px 10px", border: `1.5px solid ${C.line}`, borderRadius: "8px", fontSize: "14px", outline: "none", width: "100%", textAlign: "right", fontWeight: 700, color: C.ink, background: "#fff", fontFamily: "'Poppins', sans-serif", boxSizing: "border-box" };
-const inpDrive = { ...inp, borderColor: C.gold, background: "#FBEFE3" };
-const lbl = { display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "#8a7a6e", fontWeight: 600 };
-const sect = { fontFamily: "Georgia, serif", fontSize: 11, fontWeight: 700, letterSpacing: "2px", color: C.navy, textTransform: "uppercase", margin: "4px 0 10px", paddingBottom: 6, borderBottom: `1.5px solid ${C.gold}` };
-const btn = { border: `1.5px solid ${C.line}`, background: "#fff", color: C.ink, font: "inherit", fontWeight: 700, fontSize: 12, padding: "7px 12px", borderRadius: 8, cursor: "pointer" };
+// Rediseño Don Telmo (tokens del handoff): navy #0E2240, naranja #D9731A, crema #F6F3EE, Manrope / Newsreader
+const C = { navy: "#0E2240", navyD: "#091831", navy7: "#16325A", gold: "#D9731A", gold7: "#B85E10", gold1: "#FBEBDD", line: "#E7E1D7", soft: "#F0ECE5", cream: "#F6F3EE", row: "#FAF8F4", ink: "#14213D", muted: "#8A847A", muted2: "#A39D92", green: "#1F9D6B", red: "#C8423B" };
+const SANS = "var(--dt-sans, Manrope, system-ui, sans-serif)", SERIF = "var(--dt-serif, Newsreader, Georgia, serif)";
+const inp = { height: 44, padding: "0 12px", border: `1.5px solid ${C.line}`, borderRadius: 11, fontSize: 16, outline: "none", width: "100%", minWidth: 0, textAlign: "right", fontWeight: 800, color: C.navy, background: "#fff", fontFamily: SANS, boxSizing: "border-box" };
+const inpDrive = { ...inp, borderColor: "#F1C9A3", background: "#FFF6EE" };
+const lbl = { display: "flex", flexDirection: "column", gap: 4, fontSize: 11.5, color: "#6E6A63", fontWeight: 700, minWidth: 0 };
+const sect = { fontFamily: SANS, fontSize: 11, fontWeight: 800, letterSpacing: ".2em", color: C.navy, textTransform: "uppercase", margin: "4px 0 10px", paddingBottom: 8, borderBottom: `1.5px solid ${C.gold}` };
+const btn = { height: 36, border: `1.5px solid ${C.line}`, background: "#fff", color: C.navy, fontFamily: SANS, fontWeight: 700, fontSize: 12.5, padding: "0 13px", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap", flex: "none" };
 const btnGold = { ...btn, background: C.gold, borderColor: C.gold, color: "#fff" };
 
 // Impresion: solo se imprime la calculadora, tal cual se ve (sin botones), en paginas completas.
@@ -438,6 +441,8 @@ export function CalculadoraPan({ onClose }) {
   const [view, setView] = useState("calc"); // "calc" | "plan" (biga consolidada)
   const [plan, setPlan] = useState(() => (typeof window !== "undefined" ? loadPlan() : null));
   const [pesar, setPesar] = useState(false); // pesaje guiado con la bascula
+  const vp = useViewport();
+  const mobile = vp.mobile;
 
   // Las formulas madre que usan otros panes (ej. Formula CIMPA) no se muestran: se editan desde cualquiera de sus panes
   const visible = recipes.filter(r => !recipes.some(x => x.baseId === r.id));
@@ -628,47 +633,36 @@ export function CalculadoraPan({ onClose }) {
   };
 
   const kpi = (label, val) => (
-    <div style={{ display: "flex", flexDirection: "column", gap: 2, background: C.cream, border: `1px solid ${C.line}`, borderRadius: 10, padding: "10px 12px" }}>
-      <span style={{ fontSize: 10, letterSpacing: 1, textTransform: "uppercase", color: "#9a8a7e", fontWeight: 700 }}>{label}</span>
-      <strong style={{ fontFamily: "'Poppins',sans-serif", fontSize: 20, fontWeight: 700, color: C.navy }}>{val}</strong>
+    <div style={{ display: "flex", flexDirection: "column", gap: 2, background: "#fff", borderRadius: 10, padding: "8px 10px", minWidth: 0 }}>
+      <span style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "#6E6A63", fontWeight: 700 }}>{label}</span>
+      <strong style={{ fontFamily: SANS, fontSize: 17, fontWeight: 800, color: C.navy, fontVariantNumeric: "tabular-nums" }}>{val}</strong>
     </div>
   );
 
   return createPortal(
-    <div className="calcpan-print-root" style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(10,15,25,0.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }}>
+    <div className="calcpan-print-root dt-scope" onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(9,24,49,.55)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", animation: "dtFade .25s both", display: "flex", alignItems: mobile ? "flex-end" : "center", justifyContent: "center", padding: mobile ? 0 : 24 }}>
       <style>{PRINT_CSS}</style>
-      <div className="calcpan-card" style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 680, maxHeight: "92vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 30px 80px rgba(0,0,0,0.5)", fontFamily: "'Poppins',sans-serif" }}>
+      <div className="calcpan-card" onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: mobile ? "24px 24px 0 0" : 24, width: "100%", maxWidth: 780, maxHeight: mobile ? "94vh" : "min(92vh, 1000px)", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 40px 80px -20px rgba(0,0,0,.5)", fontFamily: SANS, color: C.ink, animation: mobile ? "dtSheet .4s cubic-bezier(.2,.8,.2,1) both" : "dtPop .35s cubic-bezier(.2,.8,.2,1) both" }}>
         {/* Header */}
-        <div style={{ background: `linear-gradient(135deg, ${C.navy}, ${C.navyD})`, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
-          <div>
-            <div style={{ color: C.gold, fontSize: 10, fontWeight: 700, letterSpacing: 3, fontFamily: "Georgia,serif" }}>DON TELMO® · 1958 · COMPANY</div>
-            <div style={{ color: "#fff", fontFamily: "Georgia,serif", fontSize: 18, fontWeight: 700, marginTop: 3 }}>🍞 Calculadora de Masas</div>
-            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginTop: 2 }}>Porcentaje panadero · harina = 100%</div>
+        <div style={{ background: `linear-gradient(160deg, ${C.navy7}, ${C.navy})`, color: "#fff", padding: `${mobile ? 14 : 20}px ${mobile ? 18 : 28}px`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexShrink: 0 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".22em", color: "#F0A35E" }}>{view === "plan" ? "BIGA DEL DÍA ANTERIOR" : "PORCENTAJE PANADERO · HARINA = 100%"}</span>
+            <span style={{ fontFamily: SERIF, fontSize: mobile ? 20 : 24, fontWeight: 600 }}>{view === "plan" ? "Biga consolidada" : "Calculadora de masas"}</span>
           </div>
-          <button className="calcpan-noprint" onClick={onClose} title="Cerrar" style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, color: "#fff", width: 36, height: 36, cursor: "pointer", fontSize: 20, flexShrink: 0 }}>×</button>
+          <button className="calcpan-noprint" onClick={onClose} aria-label="Cerrar" style={{ width: 42, height: 42, borderRadius: 12, border: 0, background: "rgba(255,255,255,.1)", color: "#fff", cursor: "pointer", flex: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
         </div>
 
-        {/* Selector de receta */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", padding: "12px 20px", background: C.cream, borderBottom: `1.5px solid ${C.line}`, flexShrink: 0 }}>
-          {view === "plan" ? (<>
-            <div style={{ flex: 1, minWidth: 140, fontWeight: 800, color: C.navy, fontSize: 15 }}>🌙 Biga consolidada del día anterior</div>
-            <button className="calcpan-noprint" style={btn} onClick={printRecipe}>🖨️ Imprimir</button>
-            <button className="calcpan-noprint" style={btnGold} onClick={() => setView("calc")}>← Volver a la fórmula</button>
-          </>) : (<>
-            <select value={selRaw.id} onChange={e => { setSelId(e.target.value); setConfirmDel(false); }} style={{ ...inp, textAlign: "left", width: "auto", flex: 1, minWidth: 140, fontWeight: 700 }}>
-              {visible.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
-            <button className="calcpan-noprint" style={btnGold} onClick={() => { setConfirmDel(false); setEdit(false); setPesar(v => !v); }}>{pesar ? "⚖️ Dejar de pesar" : "⚖️ Pesar"}</button>
-            <button className="calcpan-noprint" style={btn} onClick={printRecipe}>🖨️ Imprimir</button>
-            <button className="calcpan-noprint" style={btn} onClick={newRecipe}>+ Nueva</button>
-            <button className="calcpan-noprint" style={btn} onClick={dupRecipe}>Duplicar</button>
-            <button className="calcpan-noprint" style={{ ...btn, color: "#c0392b", borderColor: "#e8c5bf" }} onClick={() => setConfirmDel(true)}>Borrar</button>
-            <button className="calcpan-noprint" style={edit ? btnGold : btn} onClick={() => setEdit(e => !e)}>{edit ? "Listo ✓" : "✏️ Editar fórmula"}</button>
-            <button className="calcpan-noprint" style={btn} onClick={() => { setConfirmDel(false); setView("plan"); }}>🌙 Biga consolidada</button>
-          </>)}
-        </div>
+        {/* Barra de la vista Biga consolidada */}
+        {view === "plan" && (
+          <div className="calcpan-noprint" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", padding: `12px ${mobile ? 18 : 28}px`, borderBottom: `1px solid ${C.soft}`, flexShrink: 0 }}>
+            <button style={{ ...btn, height: 40, borderRadius: 12 }} onClick={() => setView("calc")}>← Volver a la fórmula</button>
+            <button style={{ ...btnGold, height: 40, borderRadius: 12 }} onClick={printRecipe}>Imprimir</button>
+          </div>
+        )}
         {confirmDel && (
-          <div className="calcpan-noprint" role="alertdialog" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "12px 20px", background: "#FDECEA", borderBottom: "1.5px solid #e8c5bf", flexShrink: 0 }}>
+          <div className="calcpan-noprint" role="alertdialog" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: `12px ${mobile ? 18 : 28}px`, background: "#FDECEA", borderBottom: "1.5px solid #e8c5bf", flexShrink: 0 }}>
             <span style={{ flex: 1, minWidth: 180, fontSize: 13, fontWeight: 600, color: "#8e2b20" }}>
               ⚠️ ¿Seguro que querés borrar «{sel?.name}»? No se puede deshacer.
             </span>
@@ -678,7 +672,7 @@ export function CalculadoraPan({ onClose }) {
         )}
 
         {/* Body */}
-        <div className="calcpan-body" style={{ overflowY: "auto", flex: 1, padding: "16px 20px 24px", background: "#fff" }}>
+        <div className="calcpan-body" style={{ overflowY: "auto", flex: 1, padding: `${mobile ? 16 : 22}px ${mobile ? 18 : 28}px calc(24px + env(safe-area-inset-bottom))`, background: "#fff" }}>
           {view === "plan" ? (
             <div>
               <div style={sect}>Lotes del día siguiente</div>
@@ -793,6 +787,25 @@ export function CalculadoraPan({ onClose }) {
                 renderSheet(l, `Receta ${k + 1} de ${activeRows.length}${l.tandas > 1 ? ` · Tanda ${t + 1} de ${l.tandas}` : ""}`, `sheet-${l.id}-${t}`)))}
             </div>
           ) : (<>
+          <div className="calcpan-noprint" style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <select value={selRaw.id} onChange={e => { setSelId(e.target.value); setConfirmDel(false); }} aria-label="Fórmula"
+              style={{ flex: 1, minWidth: 0, height: 44, borderRadius: 12, border: `1.5px solid ${C.line}`, padding: "0 12px", fontSize: 16, fontWeight: 700, color: C.navy, background: "#fff", fontFamily: SANS }}>
+              {visible.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+            <button onClick={() => { setConfirmDel(false); setEdit(false); setPesar(v => !v); }}
+              style={{ flex: "none", height: 44, padding: "0 16px", borderRadius: 12, border: 0, background: pesar ? C.green : C.gold, color: "#fff", fontWeight: 800, fontSize: 13.5, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap", transition: "background .2s", fontFamily: SANS }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v17M7 20h10M5 7h14M5 7l-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z" /></svg>
+              {pesar ? "Dejar de pesar" : "Pesar"}
+            </button>
+          </div>
+          <div className="calcpan-noprint dt-noscroll" style={{ display: "flex", gap: 6, overflowX: "auto", margin: `0 -${mobile ? 18 : 28}px 16px`, padding: `0 ${mobile ? 18 : 28}px 2px` }}>
+            <button style={edit ? { ...btn, background: C.navy, borderColor: C.navy, color: "#fff" } : btn} onClick={() => setEdit(e => !e)}>{edit ? "Listo ✓" : "Editar fórmula"}</button>
+            <button style={btn} onClick={() => { setConfirmDel(false); setPesar(false); setView("plan"); }}>Biga consolidada</button>
+            <button style={btn} onClick={printRecipe}>Imprimir</button>
+            <button style={btn} onClick={newRecipe}>+ Nueva</button>
+            <button style={btn} onClick={dupRecipe}>Duplicar</button>
+            <button style={{ ...btn, color: C.red }} onClick={() => setConfirmDel(true)}>Borrar</button>
+          </div>
           {edit && (
             <div style={{ gridColumn: "1/-1" }}>
               <label style={{ ...lbl, marginBottom: 12 }}>Nombre de la receta
@@ -806,18 +819,18 @@ export function CalculadoraPan({ onClose }) {
             </div>
           )}
 
-          <div style={{ ...sect, display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
-            <span style={{ paddingBottom: 2 }}>Lote</span>
+          <div style={{ ...sect, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <span>Lote</span>
             <input
               className="calcpan-panname"
               aria-label="Pan a producir"
               placeholder="Pan a producir (ej. Pan burger)"
               value={sel.pan || ""}
               onChange={e => patchRecipe({ pan: e.target.value })}
-              style={{ ...inp, textAlign: "left", width: "auto", flex: "0 1 60%", minWidth: 0, padding: "6px 10px", fontSize: 14, letterSpacing: 0, textTransform: "none", fontFamily: "'Poppins',sans-serif", marginBottom: 6 }}
+              style={{ ...inp, height: 36, borderRadius: 10, textAlign: "left", width: "min(60%, 260px)", flex: "none", fontSize: 16, fontWeight: 700, letterSpacing: 0, textTransform: "none" }}
             />
           </div>
-          <div key={selRaw.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+          <div key={selRaw.id} style={{ display: "grid", gridTemplateColumns: vp.w < 560 ? "repeat(2, minmax(0,1fr))" : "repeat(4, minmax(0,1fr))", gap: 8, marginBottom: 10 }}>
             <label style={lbl}>Unidades
               <NumInput inputMode="numeric" min="0" step="1" style={drive === "units" ? inpDrive : inp} value={R.units} onChange={v => setUnits(v)} />
             </label>
@@ -827,11 +840,11 @@ export function CalculadoraPan({ onClose }) {
             <label style={lbl}>Merma (%)
               <NumInput inputMode="decimal" min="0" step="0.5" style={inp} value={sel.merma} onChange={v => patchRecipe({ merma: v })} />
             </label>
-            <label style={lbl}>Redondear peso a (g)
+            <label style={lbl}>Redondear a (g)
               <NumInput inputMode="numeric" min="0" step="1" style={inp} value={sel.round} onChange={v => patchRecipe({ round: v })} />
             </label>
           </div>
-          <div style={{ fontFamily: "'Poppins',sans-serif", fontSize: 12, color: "#8a7a6e", background: "#FBEFE3", borderRadius: 8, padding: "8px 10px", marginBottom: 10 }}>
+          <div style={{ fontSize: 12.5, color: C.muted, background: C.row, borderRadius: 10, padding: "8px 12px", marginBottom: 14 }}>
             {fmt(num(sel.wfinal))} g + {fmt(num(sel.merma), 1)}% merma = {fmt(R.raw, 1)} g → <b style={{ color: C.gold }}>{fmt(R.w, R.r > 0 ? 0 : 1)} g a bolear</b>
           </div>
           {R.total > MOJADORA_MAX && (() => {
@@ -842,58 +855,63 @@ export function CalculadoraPan({ onClose }) {
               </div>
             );
           })()}
-          {/* Peso del bloque que entra a la boleadora (un testo por hueco) */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, border: `2px solid ${C.gold}`, background: "#FFF7EF", borderRadius: 10, padding: "10px 14px", marginBottom: 18 }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: C.navy }}>Masa por boleadora</div>
-              <div style={{ fontSize: 12, color: "#8a7a6e", marginTop: 2 }}>{DIVISORA} huecos × {fmt(R.w, R.r > 0 ? 0 : 1)} g</div>
-            </div>
-            <strong style={{ fontFamily: "'Poppins',sans-serif", fontSize: 30, fontWeight: 800, color: C.gold, lineHeight: 1 }}>
-              {fmt(Math.round(DIVISORA * R.w))} g
-            </strong>
-          </div>
+          {/* A bolear · Boleadora (un testo por hueco) · Masa total */}
+          {(() => {
+            const pad = mobile ? "10px" : "14px 16px", big = mobile ? 19 : 28;
+            const card = (bg, fg, eyebrow, eyeColor, val, sub, subColor) => (
+              <div style={{ padding: pad, borderRadius: 14, background: bg, color: fg, display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+                <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: ".12em", color: eyeColor }}>{eyebrow}</span>
+                <span style={{ fontSize: big, fontWeight: 800, lineHeight: 1, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{val}<span style={{ fontSize: 12, opacity: .65 }}> g</span></span>
+                {sub && <span style={{ fontSize: 10.5, color: subColor }}>{sub}</span>}
+              </div>
+            );
+            return (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 8, marginBottom: 16 }}>
+                {card(C.navy, "#fff", "A BOLEAR", "#F0A35E", fmt(R.w, R.r > 0 ? 0 : 1), null)}
+                {card(C.gold1, C.gold7, "BOLEADORA", C.gold7, fmt(Math.round(DIVISORA * R.w)), `${DIVISORA} × ${fmt(R.w, R.r > 0 ? 0 : 1)} g`, C.gold7)}
+                {card(C.cream, C.navy, "MASA TOTAL", "#6E6A63", fmt(Math.round(R.total)), `${fmt(R.units)} unidades`, "#6E6A63")}
+              </div>
+            );
+          })()}
 
           {/* Biga del dia anterior */}
-          <label className={biga ? undefined : "calcpan-noprint"} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700, color: C.navy, cursor: "pointer", marginBottom: biga ? 10 : 18 }}>
-            <input type="checkbox" checked={!!sel.biga} onChange={e => patchRecipe({ biga: e.target.checked })} style={{ width: 18, height: 18, accentColor: C.gold }} />
-            🌙 Con biga del día anterior
-          </label>
+          <button type="button" role="switch" aria-checked={!!sel.biga} className={biga ? undefined : "calcpan-noprint"} onClick={() => patchRecipe({ biga: !sel.biga })}
+            style={{ display: "flex", alignItems: "center", gap: 12, border: 0, background: "transparent", padding: 0, cursor: "pointer", textAlign: "left", minHeight: 40, marginBottom: biga ? 10 : 16, fontFamily: SANS }}>
+            <span style={{ width: 44, height: 26, borderRadius: 999, background: sel.biga ? C.gold : "#D6D0C6", position: "relative", transition: "background .2s", flex: "none" }}>
+              <span style={{ position: "absolute", top: 3, left: sel.biga ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", boxShadow: "0 2px 4px rgba(0,0,0,.2)", transition: "left .25s cubic-bezier(.2,.8,.2,1)" }} />
+            </span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>Con biga del día anterior</span>
+          </button>
           {biga && (
-            <div style={{ border: `1.5px solid ${C.navy}`, borderRadius: 10, padding: "10px 12px", marginBottom: 18, background: "#F4F7FB" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: C.navy, marginBottom: 8 }}>Biga · preparar hoy en la tarde</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8 }}>
+            <div style={{ border: "1.5px solid #D5DEEA", borderRadius: 16, padding: 12, marginBottom: 16, background: "#F4F7FB", animation: "dtUp .35s both" }}>
+              <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase", color: C.navy, marginBottom: 10 }}>Biga · preparar hoy en la tarde</div>
+              <div style={{ display: "grid", gridTemplateColumns: vp.w < 560 ? "repeat(2, minmax(0,1fr))" : "repeat(4, minmax(0,1fr))", gap: 6 }}>
                 {kpi("Harina (30%)", fmt(biga.harina) + " g")}
                 {kpi("Agua (50%)", fmt(biga.agua) + " g")}
                 {kpi("Levadura (1%)", fmt(biga.levadura) + " g")}
                 {kpi("Biga madura", fmt(biga.total) + " g")}
               </div>
-              <div style={{ fontSize: 12, color: "#5a6b80", marginTop: 8, lineHeight: 1.5 }}>
-                Mañana en la mojadora: se agrega la biga madura entera al inicio y la tabla de abajo ya trae descontadas la harina, el líquido y la levadura.
+              <div style={{ fontSize: 12, color: "#55606F", marginTop: 10, lineHeight: 1.45 }}>
+                Mañana se agrega la biga madura al inicio; las cantidades de abajo ya descuentan harina, líquido y levadura.
               </div>
               {biga.warn.map(w => <div key={w} style={{ fontSize: 12, color: "#c0392b", fontWeight: 600, marginTop: 4 }}>⚠️ {w}</div>)}
             </div>
           )}
 
-          <div style={sect}>Fórmula</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 14 }}>
-            {kpi("Unidades", fmt(R.units))}
-            {kpi("Peso a bolear", fmt(R.w, R.r > 0 ? 0 : 1) + " g")}
-            {kpi("Masa total", fmt(Math.round(R.total)) + " g")}
-          </div>
 
           {pesar ? (
             <div className="calcpan-noprint">
               <BasculaEnLista title={`${(selRaw.pan && selRaw.pan.trim()) || sel.name} · ${fmt(R.units)} u`}
-                rows={pesajeItems().map(it => ({ code: "", name: it.name + (it.note ? ` (${it.note})` : ""), main: `${fmt(it.grams)} g`, sub: "", grams: it.grams, manual: "" }))} />
+                rows={pesajeItems().map(it => ({ code: "", name: it.name, note: it.note || "", main: `${fmt(Math.max(5, Math.round(it.grams / 5) * 5))} g`, sub: "", grams: it.grams, manual: "" }))} />
             </div>
           ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontVariantNumeric: "tabular-nums" }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: "left", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#9a8a7e", padding: "6px 4px", borderBottom: `1px solid ${C.line}` }}>Ingrediente</th>
-                  <th style={{ textAlign: "right", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#9a8a7e", padding: "6px 4px", borderBottom: `1px solid ${C.line}`, width: 70 }}>%</th>
-                  <th style={{ textAlign: "right", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#9a8a7e", padding: "6px 4px", borderBottom: `1px solid ${C.line}`, width: 130 }}>Gramos</th>
+                  <th style={{ textAlign: "left", fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".14em", color: C.muted2, padding: "0 4px 6px", borderBottom: `1.5px solid ${C.navy}` }}>Fórmula</th>
+                  <th style={{ textAlign: "right", fontSize: 10.5, fontWeight: 800, letterSpacing: ".14em", color: C.muted2, padding: "0 4px 6px", borderBottom: `1.5px solid ${C.navy}`, width: 56 }}>%</th>
+                  <th style={{ textAlign: "right", fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".14em", color: C.muted2, padding: "0 4px 6px", borderBottom: `1.5px solid ${C.navy}`, width: mobile ? 96 : 112 }}>Gramos</th>
                   {edit && <th style={{ width: 30, borderBottom: `1px solid ${C.line}` }} />}
                   {Array.from({ length: CHECK_COLS }, (_, k) => (
                     <th key={`chk-h-${k}`} className="calcpan-printonly" style={{ textAlign: "center", fontSize: 11, color: "#9a8a7e", padding: "6px 2px", borderBottom: `1px solid ${C.line}`, width: 28 }}>✓</th>
@@ -903,10 +921,10 @@ export function CalculadoraPan({ onClose }) {
               <tbody>
                 {biga && (
                   <tr style={{ background: "#F4F7FB" }}>
-                    <td style={{ padding: "6px 4px", borderBottom: `1px solid #f0ebe5`, fontWeight: 700, color: C.navy }}>🌙 Biga madura (del día anterior)</td>
+                    <td style={{ padding: "6px 4px", borderBottom: `1px solid ${C.soft}`, fontWeight: 700, color: C.navy, fontSize: mobile ? 13.5 : 14.5 }}>Biga madura (del día anterior)</td>
                     <td style={{ padding: "6px 4px", borderBottom: `1px solid #f0ebe5`, textAlign: "right", color: "#8a7a6e" }}>—</td>
                     <td style={{ padding: "6px 4px", borderBottom: `1px solid #f0ebe5` }}>
-                      <div style={{ ...inp, padding: "7px 8px", background: "#F4F7FB", borderColor: C.navy, color: C.navy }}>{biga.total}</div>
+                      <div style={{ textAlign: "right", fontWeight: 800, color: C.navy, fontSize: mobile ? 13.5 : 14.5, padding: "0 10px", fontVariantNumeric: "tabular-nums" }}>{fmt(biga.total)}</div>
                     </td>
                     {edit && <td style={{ borderBottom: `1px solid #f0ebe5` }} />}
                     {Array.from({ length: CHECK_COLS }, (_, k) => (
@@ -918,21 +936,21 @@ export function CalculadoraPan({ onClose }) {
                 )}
                 {sel.ings.map((x, i) => (
                   <tr key={i}>
-                    <td style={{ padding: "6px 4px", borderBottom: `1px solid #f0ebe5`, fontWeight: 600, color: C.ink }}>
+                    <td style={{ padding: "6px 4px", borderBottom: `1px solid ${C.soft}`, fontWeight: 600, color: C.ink, fontSize: mobile ? 13.5 : 14.5, lineHeight: 1.25, height: mobile ? 38 : 46 }}>
                       {edit
                         ? <input style={{ ...inp, textAlign: "left", padding: "6px 8px" }} value={x.name} onChange={e => patchIng(i, { name: e.target.value })} />
                         : x.name}
-                      {reducedRow(biga, i) && <div style={{ fontSize: 11, fontWeight: 600, color: C.navy }}>restante (ya descontada la biga)</div>}
+                      {reducedRow(biga, i) && <div style={{ fontSize: 11, fontWeight: 600, color: C.gold }}>Restante · ya descontada la biga</div>}
                     </td>
-                    <td style={{ padding: "6px 4px", borderBottom: `1px solid #f0ebe5`, textAlign: "right", fontFamily: "'Poppins',sans-serif", color: "#8a7a6e" }}>
+                    <td style={{ padding: "6px 4px", borderBottom: `1px solid ${C.soft}`, textAlign: "right", fontSize: 13, color: C.muted }}>
                       {edit
                         ? <NumInput step="0.1" min="0" style={{ ...inp, padding: "6px 8px" }} value={x.pct} onChange={v => patchIng(i, { pct: v })} />
                         : fmt(num(x.pct), num(x.pct) % 1 ? 1 : 0)}
                     </td>
                     <td style={{ padding: "6px 4px", borderBottom: `1px solid #f0ebe5` }}>
                       {reducedRow(biga, i)
-                        ? <div style={{ ...inp, padding: "7px 8px", background: "#F4F7FB", borderColor: C.navy, color: C.navy }}>{G[i]}</div>
-                        : <NumInput inputMode="numeric" min="0" step="1" style={{ ...inp, padding: "7px 8px" }} value={R.grams[i]} onChange={v => setGram(i, v)} />}
+                        ? <div style={{ textAlign: "right", fontWeight: 800, color: C.navy, fontSize: mobile ? 13.5 : 14.5, padding: "0 10px", fontVariantNumeric: "tabular-nums" }}>{fmt(G[i])}</div>
+                        : <NumInput inputMode="numeric" min="0" step="1" style={{ ...inp, height: 36, borderRadius: 10, borderColor: "transparent", background: C.row, fontSize: mobile ? 14 : 15, padding: "0 10px" }} value={R.grams[i]} onChange={v => setGram(i, v)} />}
                     </td>
                     {edit && (
                       <td style={{ padding: "6px 0", borderBottom: `1px solid #f0ebe5`, textAlign: "center" }}>
@@ -949,14 +967,14 @@ export function CalculadoraPan({ onClose }) {
               </tbody>
               <tfoot>
                 <tr>
-                  <td style={{ padding: "8px 4px", fontWeight: 700, color: C.navy, borderTop: `2px solid ${C.ink}` }}>Masa total</td>
-                  <td style={{ padding: "8px 4px", textAlign: "right", fontWeight: 700, color: "#8a7a6e", borderTop: `2px solid ${C.ink}` }}>{fmt(R.SUM, 1)}%</td>
-                  <td style={{ padding: "6px 4px", borderTop: `2px solid ${C.ink}` }}>
-                    <NumInput inputMode="numeric" min="0" step="1" style={{ ...inp, padding: "7px 8px" }} value={Math.round(R.total)} onChange={v => setTotal(v)} />
+                  <td style={{ padding: "8px 4px", fontFamily: SERIF, fontSize: 18, fontWeight: 600, color: C.navy, borderTop: `1.5px solid ${C.navy}` }}>Masa total</td>
+                  <td style={{ padding: "8px 4px", textAlign: "right", fontSize: 13, fontWeight: 700, color: C.muted, borderTop: `1.5px solid ${C.navy}` }}>{fmt(R.SUM, 1)}%</td>
+                  <td style={{ padding: "6px 4px", borderTop: `1.5px solid ${C.navy}` }}>
+                    <NumInput inputMode="numeric" min="0" step="1" style={{ ...inp, height: 38, borderRadius: 10, color: C.gold, fontSize: 15 }} value={Math.round(R.total)} onChange={v => setTotal(v)} />
                   </td>
-                  {edit && <td style={{ borderTop: `2px solid ${C.ink}` }} />}
+                  {edit && <td style={{ borderTop: `1.5px solid ${C.navy}` }} />}
                   {Array.from({ length: CHECK_COLS }, (_, k) => (
-                    <td key={`chk-f-${k}`} className="calcpan-printonly" style={{ borderTop: `2px solid ${C.ink}` }} />
+                    <td key={`chk-f-${k}`} className="calcpan-printonly" style={{ borderTop: `1.5px solid ${C.navy}` }} />
                   ))}
                 </tr>
               </tfoot>
@@ -966,7 +984,7 @@ export function CalculadoraPan({ onClose }) {
 
           {edit && <button style={{ ...btn, marginTop: 10 }} onClick={addIng}>+ Agregar ingrediente</button>}
 
-          <p style={{ fontSize: 12, color: "#9a8a7e", margin: "14px 0 0" }}>
+          <p className="calcpan-noprint" style={{ fontSize: 12, color: C.muted2, margin: "12px 0 0" }}>
             Ejemplo: si solo tenés 5.000 g de harina, escribilo en Harina y vas a ver cuántos panes salen.
           </p>
           {drive === "flour" && R.left >= 1 && (
@@ -984,18 +1002,18 @@ export function CalculadoraPan({ onClose }) {
                   onChange={e => patchFormula(() => ({ instr: e.target.value }))}
                   rows={12}
                   placeholder="Paso a paso, reglas de bodega, empaque, etc."
-                  style={{ ...inp, textAlign: "left", fontFamily: "'Poppins',sans-serif", fontWeight: 400, fontSize: 13, lineHeight: 1.5, resize: "vertical", minHeight: 160 }}
+                  style={{ ...inp, height: "auto", padding: "10px 12px", textAlign: "left", fontWeight: 400, fontSize: 14, lineHeight: 1.5, resize: "vertical", minHeight: 160 }}
                 />
                 <p style={{ fontSize: 11, color: "#8a7a6e", margin: "6px 0 0", lineHeight: 1.5 }}>
                   Números automáticos: <b>{"{unidades}"}</b>, <b>{"{peso}"}</b> (a bolear), <b>{"{final}"}</b>, <b>{"{hidratacion}"}</b>, <b>{"{g:Sal}"}</b> (gramos de un ingrediente), <b>{"{kg:Harina}"}</b>, <b>{"{hielo}"}</b> / <b>{"{agua}"}</b> (mitades del líquido) y <b>{"{division}"}</b> (bloques para la divisora). Se actualizan solos al cambiar la fórmula.
                 </p>
               </>) : (
                 <>
-                  <button className="calcpan-noprint" style={btn} onClick={setShowInstr}>
-                    {showInstr ? "▲ Ocultar instrucciones" : "📋 Ver instrucciones"}
+                  <button className="calcpan-noprint" style={{ ...btn, height: 42, borderRadius: 12, padding: "0 16px", fontSize: 13 }} onClick={setShowInstr}>
+                    {showInstr ? "Ocultar instrucciones" : "Ver instrucciones"}
                   </button>
                   {showInstr && (
-                    <div style={{ marginTop: 10, whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.55, color: C.ink, background: C.cream, border: `1px solid ${C.line}`, borderRadius: 10, padding: "12px 14px" }}>
+                    <div style={{ marginTop: 10, whiteSpace: "pre-wrap", fontSize: 13.5, lineHeight: 1.6, color: C.ink, background: C.row, borderRadius: 14, padding: "14px 16px" }}>
                       {instrText}
                     </div>
                   )}
@@ -1005,7 +1023,7 @@ export function CalculadoraPan({ onClose }) {
           )}
 
           <div className="calcpan-noprint" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 18 }}>
-            <button style={btnGold} onClick={copyRecipe}>Copiar receta</button>
+            <button style={{ ...btnGold, height: 42, borderRadius: 12, padding: "0 16px", fontSize: 13 }} onClick={copyRecipe}>Copiar receta</button>
             {toast && <span style={{ fontSize: 13, color: C.navy, fontWeight: 600 }}>{toast}</span>}
           </div>
           </>)}

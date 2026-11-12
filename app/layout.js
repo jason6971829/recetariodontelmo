@@ -5,7 +5,7 @@ export const metadata = {
 };
 
 export const viewport = {
-  themeColor: "#1B3A5C",
+  themeColor: "#0E2240",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -16,21 +16,55 @@ export default function RootLayout({ children }) {
     <html lang="es">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-        <meta name="theme-color" content="#1B3A5C" />
+        <meta name="theme-color" content="#0E2240" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="manifest" href="/manifest.json" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,500;6..72,600;6..72,700&display=swap" rel="stylesheet" />
         <style>{`
-          :root { --app-primary: #1B3A5C; --app-primary-dark: #0d2340; --app-primary-light: #8BAACC; --app-primary-rgb: 27,58,92; }
+          :root {
+            --app-primary: #0E2240; --app-primary-dark: #091831; --app-primary-light: #9FB3CF; --app-primary-rgb: 14,34,64;
+            /* Rediseño Don Telmo: tokens */
+            --dt-navy: #0E2240; --dt-navy-700: #16325A; --dt-orange: #D9731A; --dt-orange-400: #E8832B; --dt-orange-300: #F0A35E;
+            --dt-orange-700: #B85E10; --dt-orange-100: #FBEBDD; --dt-orange-50: #FFF6EE; --dt-cream: #F6F3EE; --dt-cream-row: #FAF8F4;
+            --dt-line: #E7E1D7; --dt-line-soft: #EFEAE2; --dt-ink: #14213D; --dt-ink-2: #3C3A36; --dt-muted: #8A847A; --dt-muted-2: #A39D92;
+            --dt-green: #1F9D6B; --dt-green-100: #E7F5EE; --dt-red: #C8423B;
+            --dt-serif: Newsreader, Georgia, serif; --dt-sans: Manrope, system-ui, -apple-system, sans-serif;
+            --dt-ease: cubic-bezier(.2,.8,.2,1);
+          }
           html, body {
             margin: 0;
             height: 100%;
             overflow: hidden;
             overscroll-behavior-y: none;
           }
+          body { background: #F6F3EE; color: #14213D; font-family: var(--dt-sans); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+          input, select, textarea, button { font-family: inherit; }
+          .dt-scope input:focus, .dt-scope select:focus, .dt-scope textarea:focus { outline: none; border-color: #D9731A !important; box-shadow: 0 0 0 4px rgba(217,115,26,.14); }
+          ::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-thumb { background: rgba(14,34,64,.18); border-radius: 8px; } ::-webkit-scrollbar-track { background: transparent; }
+          .dt-noscroll { scrollbar-width: none; } .dt-noscroll::-webkit-scrollbar { display: none; }
+          @keyframes dtUp { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
+          @keyframes dtFade { from { opacity: 0 } to { opacity: 1 } }
+          @keyframes dtPop { from { opacity: 0; transform: translateY(10px) scale(.97) } to { opacity: 1; transform: none } }
+          @keyframes dtSheet { from { transform: translateY(100%) } to { transform: none } }
+          @keyframes dtDrop { from { opacity: 0; transform: translateY(-6px) scale(.98) } to { opacity: 1; transform: none } }
+          @keyframes dtBreathe { 0%,100% { transform: translate(-50%,-50%) scale(1) } 50% { transform: translate(-50%,-50%) scale(1.03) } }
+          @keyframes dtGlow { 0%,100% { opacity: .55 } 50% { opacity: .9 } }
+          @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
         `}</style>
+        <script dangerouslySetInnerHTML={{ __html: `
+          // Tamaño de vista (A− / A / A+): zoom en <body>. Por defecto 0,88 en celular y 1 en tablet/computador.
+          (function(){ try {
+            var z = parseFloat(localStorage.getItem('dt_zoom'));
+            if (!(z > 0)) z = window.innerWidth < 640 ? 0.88 : 1;
+            window.__dtZoom = z;
+            document.documentElement.style.setProperty('--dt-zoom', z);
+          } catch (e) { window.__dtZoom = 1; } })();
+        ` }} />
       </head>
-      <body style={{ margin: 0, overflow: "hidden", height: "100%", overscrollBehaviorY: "none" }}>
+      <body style={{ margin: 0, overflow: "hidden", height: "100%", overscrollBehaviorY: "none", zoom: "var(--dt-zoom, 1)" }}>
         {children}
         <script
           dangerouslySetInnerHTML={{
@@ -38,7 +72,8 @@ export default function RootLayout({ children }) {
               // Altura real del viewport (fix iOS Safari donde 100vh != ventana visible)
               (function() {
                 function setAppHeight() {
-                  document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
+                  // con zoom en <body> la altura disponible en px CSS es innerHeight / zoom
+                  document.documentElement.style.setProperty('--app-height', (window.innerHeight / (window.__dtZoom || 1)) + 'px');
                 }
                 setAppHeight();
                 window.addEventListener('resize', setAppHeight);
