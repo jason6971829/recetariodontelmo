@@ -1,12 +1,15 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { useBascula, BasculaStatus, tolFor, GRAMERA_MAX } from "@/components/PesajeBascula";
+import { useBascula, BasculaStatus, tolFor } from "@/components/PesajeBascula";
 
 // Pesaje dentro de la misma lista de ingredientes de la receta (sin abrir otra pantalla):
 // al lado de cada ingrediente se ve la meta y lo que marca la báscula.
 const C = { navy: "#1B3A5C", gold: "#D4721A", line: "#E0D8CE", ink: "#3a2f29", ok: "#1e8e4e", bad: "#c0392b", grey: "#8a7a6e" };
 const fmt = (v) => Math.round(v).toLocaleString("es-CO");
 const HIST_KEY = "calcpan_pesajes_v1";
+// La SAT CS30 marca de a 5 g: todo se pesa en ella y la meta se aproxima al múltiplo de 5 más cercano
+const STEP = 5;
+export const metaPesa = (g) => Math.max(STEP, Math.round(g / STEP) * STEP);
 
 // rows: [{ code, name, main, sub, grams (número o null), manual (texto si no se pesa) }]
 export function BasculaEnLista({ title, rows }) {
@@ -15,22 +18,21 @@ export function BasculaEnLista({ title, rows }) {
   const firstPending = (res, from = 0) => {
     for (let k = 0; k < rows.length; k++) {
       const i = (from + k) % rows.length;
-      if (weighable(rows[i]) && !res[i] && !(rows[i].grams < GRAMERA_MAX)) return i;
+      if (weighable(rows[i]) && !res[i]) return i;
     }
     return -1;
   };
   const [res, setRes] = useState({}); // i -> { actual, how }
   const [cur, setCur] = useState(() => firstPending({}));
   const [base, setBase] = useState(0);
-  const [force, setForce] = useState({}); // chicos que se pesan igual en la báscula
   const wasOk = useRef(false);
 
   const row = cur >= 0 ? rows[cur] : null;
-  const target = row ? row.grams : 0;
+  const target = row ? metaPesa(row.grams) : 0;
   const tol = tolFor(target);
   const g = b.scaleG - base;
   const diff = g - target;
-  const inRange = !!row && b.stable && Math.abs(diff) <= tol;
+  const inRange = !!row && b.stable && g > 0 && Math.abs(diff) <= tol;
 
   useEffect(() => {
     if (inRange && !wasOk.current) {
@@ -45,7 +47,7 @@ export function BasculaEnLista({ title, rows }) {
     wasOk.current = inRange;
   }, [inRange]);
 
-  const select = (i) => { setCur(i); setBase(b.scaleG); setForce(f => ({ ...f, [i]: true })); };
+  const select = (i) => { setCur(i); setBase(b.scaleG); };
   const mark = (i, entry) => setRes(r => ({ ...r, [i]: entry }));
   const commit = (how) => {
     if (cur < 0) return;
@@ -94,7 +96,7 @@ export function BasculaEnLista({ title, rows }) {
             </div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 2 }}>
               <span style={{ fontSize: 34, fontWeight: 800, color, lineHeight: 1, opacity: b.live && !b.moving ? 1 : 0.45 }}>{b.live ? fmt(g) : "—"}</span>
-              <span style={{ fontSize: 16, fontWeight: 700, color: C.grey }}>/ {fmt(target)} g</span>
+              <span style={{ fontSize: 16, fontWeight: 700, color: C.grey }}>/ {fmt(target)} g{target !== row.grams && <span style={{ fontSize: 11 }}> (receta {fmt(row.grams)} g)</span>}</span>
               <span style={{ marginLeft: "auto", fontSize: 14, fontWeight: 800, color }}>{msg}</span>
             </div>
             <div style={{ position: "relative", height: 10, background: "#f0ebe5", borderRadius: 5, overflow: "hidden", marginTop: 6 }}>
@@ -116,28 +118,25 @@ export function BasculaEnLista({ title, rows }) {
           </>
         ) : (
           <div style={{ fontWeight: 800, color: allDone ? C.ok : C.navy, fontSize: 14, marginTop: 4 }}>
-            {allDone ? "✅ Todo listo" : "Lo que falta se mide, se cuenta o va en gramera: marcalo en la lista."}
+            {allDone ? "✅ Todo listo" : "Lo que falta va en litros o unidades: medilo o contalo y marcalo en la lista."}
           </div>
         )}
-        <div style={{ fontSize: 11, color: C.grey, marginTop: 6 }}>{doneCount} de {total} listos · tocá un ingrediente para pesarlo · mismo tazón: seguí echando; otro recipiente: ⓪ Cero</div>
+        <div style={{ fontSize: 11, color: C.grey, marginTop: 6 }}>{doneCount} de {total} listos · la pesa marca de a 5 g, las metas van aproximadas · tocá un ingrediente para pesarlo · otro recipiente: ⓪ Cero</div>
       </div>
 
       {rows.map((r, i) => {
         const done = res[i];
         const isCur = i === cur;
         const w = weighable(r);
-        const small = w && r.grams < GRAMERA_MAX && !force[i];
         let right;
         if (isCur) {
           right = <span style={{ fontWeight: 800, color, fontSize: 15 }}>{b.live ? `${fmt(g)} g` : "— g"}</span>;
         } else if (done && done.actual != null) {
-          const d = done.actual - r.grams;
-          const bad = Math.abs(d) > tolFor(r.grams);
+          const d = done.actual - metaPesa(r.grams);
+          const bad = Math.abs(d) > tolFor(metaPesa(r.grams));
           right = <span style={{ fontWeight: 800, color: bad ? C.bad : C.ok, fontSize: 14 }}>{fmt(done.actual)} g {bad ? `(${d > 0 ? "+" : ""}${fmt(d)})` : "✓"}</span>;
         } else if (!w) {
           right = <button style={chk(!!done)} onClick={(e) => { e.stopPropagation(); done ? setRes(x => { const y = { ...x }; delete y[i]; return y; }) : mark(i, { actual: null, how: "manual" }); }}>{done ? "✓ medido" : "☐ medido"}</button>;
-        } else if (small) {
-          right = <button style={chk(!!done)} onClick={(e) => { e.stopPropagation(); done ? setRes(x => { const y = { ...x }; delete y[i]; return y; }) : mark(i, { actual: null, how: "gramera" }); }}>{done ? "✓ gramera" : "🥄 gramera"}</button>;
         } else {
           right = <span style={{ color: C.grey, fontSize: 13, fontWeight: 700 }}>—</span>;
         }
