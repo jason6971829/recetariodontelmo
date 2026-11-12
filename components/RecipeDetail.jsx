@@ -1,5 +1,5 @@
 "use client";
-import { memo, useState, useMemo } from "react";
+import { memo, useState, useMemo, useEffect } from "react";
 import Image from "next/image";
 import { TextToSpeech } from "@/components/TextToSpeech";
 import { useLang } from "@/lib/LangContext";
@@ -9,6 +9,7 @@ import { normalizeIngredient, ingredientToReadable } from "@/lib/ingredients";
 import { parseQty, parseNumber, fmtScaled, fmtNum, defaultBaseIndex, GRAMS_PER } from "@/lib/scaleRecipe";
 import { BasculaEnLista } from "@/components/BasculaEnLista";
 import { useViewport } from "@/hooks/useViewport";
+import { loadUi, saveUi } from "@/lib/session";
 
 // ── Rediseño Don Telmo: detalle de receta (modal; bottom sheet en celular) ──
 const C = { navy: "#0E2240", navy7: "#16325A", orange: "#D9731A", orange4: "#E8832B", orange3: "#F0A35E", orange7: "#B85E10", orange1: "#FBEBDD", cream: "#F6F3EE", row: "#FAF8F4", line: "#E7E1D7", ink: "#14213D", ink2: "#3C3A36", muted: "#8A847A", muted2: "#A39D92", green: "#1F9D6B", red: "#C8423B" };
@@ -45,10 +46,14 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
   const canCalc = parsed.some(Boolean);
   // La báscula es para producción: solo en Recetas Bodega (la Calculadora de Masas tiene la suya)
   const canPesar = canCalc && String(recipe.category || "").trim().toUpperCase() === "RECETAS BODEGA";
-  const [calcOn, setCalcOn] = useState(false);
-  const [baseIdx, setBaseIdx] = useState(() => defaultBaseIndex(parsed));
-  const [have, setHave] = useState("");
-  const [pesar, setPesar] = useState(false);
+  // Si la app se cerró a mitad de trabajo, se vuelve con la misma cantidad y al pesaje
+  const [ui0] = useState(() => { const v = typeof window !== "undefined" ? loadUi("dt_recipe_ui") : null; return v && String(v.id) === String(recipe.id) ? v : null; });
+  const [calcOn, setCalcOn] = useState(() => !!ui0?.calcOn);
+  const [baseIdx, setBaseIdx] = useState(() => (ui0?.baseIdx != null ? ui0.baseIdx : defaultBaseIndex(parsed)));
+  const [have, setHave] = useState(() => ui0?.have || "");
+  const [pesar, setPesar] = useState(() => !!ui0?.pesar);
+  useEffect(() => { saveUi("dt_recipe_ui", { id: recipe.id, calcOn, baseIdx, have, pesar }); }, [recipe.id, calcOn, baseIdx, have, pesar]);
+  useEffect(() => () => saveUi("dt_recipe_ui", null), []);
   const base = parsed[baseIdx];
   const haveNum = parseNumber(have);
   const factor = calcOn && base && base.qty > 0 && isFinite(haveNum) && haveNum > 0 ? haveNum / base.qty : 1;
@@ -76,10 +81,10 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
     <div onClick={onClose} className="dt-scope"
       style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(9,24,49,.55)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", animation: "dtFade .25s both", display: "flex", alignItems: mobile ? "flex-end" : "center", justifyContent: "center", padding: mobile ? 0 : 24, fontFamily: SANS }}>
       <div onClick={e => e.stopPropagation()}
-        style={{ width: "100%", maxWidth: 960, height: mobile ? "calc(var(--app-height, 100vh) * 0.95)" : undefined, maxHeight: mobile ? "calc(var(--app-height, 100vh) * 0.95)" : "min(calc(var(--app-height, 100vh) * 0.92), 1000px)", background: "#fff", borderRadius: mobile ? "24px 24px 0 0" : 24, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 40px 80px -20px rgba(0,0,0,.5)", animation: mobile ? "dtSheet .4s cubic-bezier(.2,.8,.2,1) both" : "dtPop .35s cubic-bezier(.2,.8,.2,1) both", color: C.ink }}>
+        style={{ width: "100%", maxWidth: 960, height: mobile ? "var(--app-height, 100vh)" : undefined, maxHeight: mobile ? "var(--app-height, 100vh)" : "min(calc(var(--app-height, 100vh) * 0.92), 1000px)", background: "#fff", borderRadius: mobile ? 0 : 24, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 40px 80px -20px rgba(0,0,0,.5)", animation: mobile ? "dtSheet .4s cubic-bezier(.2,.8,.2,1) both" : "dtPop .35s cubic-bezier(.2,.8,.2,1) both", color: C.ink }}>
 
         {/* Header */}
-        <div style={{ background: `linear-gradient(160deg, ${C.navy7}, ${C.navy})`, color: "#fff", padding: `22px ${inner}px 20px`, display: "flex", flexDirection: "column", gap: 16, flex: "none" }}>
+        <div style={{ background: `linear-gradient(160deg, ${C.navy7}, ${C.navy})`, color: "#fff", padding: mobile ? `calc(16px + env(safe-area-inset-top)) ${inner}px 18px` : `22px ${inner}px 20px`, display: "flex", flexDirection: "column", gap: 16, flex: "none" }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
               <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: ".24em", color: C.orange3 }}>DON TELMO® · {String(recipe.category || "").toUpperCase()}</span>

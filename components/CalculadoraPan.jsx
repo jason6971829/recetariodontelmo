@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { BasculaEnLista } from "./BasculaEnLista";
 import { useViewport } from "@/hooks/useViewport";
+import { loadUi, saveUi } from "@/lib/session";
 
 // Calculadora de porcentaje panadero — herramienta independiente.
 // Harina = 100%. Reglas:
@@ -433,7 +434,9 @@ function NumInput({ value, onChange, ...props }) {
 // Los demás usan la calculadora (unidades, lote, biga, pesar, imprimir) pero no tocan los porcentajes.
 export function CalculadoraPan({ onClose, isAdmin = false }) {
   const [recipes, setRecipes] = useState(() => (typeof window !== "undefined" ? loadRecipes() : SEED));
-  const [selId, setSelId] = useState(() => recipes[0]?.id ?? SEED[0].id);
+  // Si la app se cerró a mitad de trabajo, se vuelve al mismo pan y al pesaje
+  const [ui0] = useState(() => (typeof window !== "undefined" ? loadUi("calcpan_ui") : null));
+  const [selId, setSelId] = useState(() => (ui0?.selId && recipes.some(r => r.id === ui0.selId) ? ui0.selId : (recipes[0]?.id ?? SEED[0].id)));
   const [editRaw, setEdit] = useState(false);
   const edit = editRaw && isAdmin; // solo el admin edita la fórmula
   const [drive, setDrive] = useState("units");
@@ -443,7 +446,9 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
   const [confirmDel, setConfirmDel] = useState(false);
   const [view, setView] = useState("calc"); // "calc" | "plan" (biga consolidada)
   const [plan, setPlan] = useState(() => (typeof window !== "undefined" ? loadPlan() : null));
-  const [pesar, setPesar] = useState(false); // pesaje guiado con la bascula
+  const [pesar, setPesar] = useState(() => !!ui0?.pesar); // pesaje guiado con la bascula
+  useEffect(() => { saveUi("calcpan_ui", { selId, pesar }); }, [selId, pesar]);
+  useEffect(() => () => saveUi("calcpan_ui", null), []); // cerrar a propósito = empezar limpio la próxima vez
   const vp = useViewport();
   const mobile = vp.mobile;
 
@@ -645,9 +650,9 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
   return createPortal(
     <div className="calcpan-print-root dt-scope" onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(9,24,49,.55)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", animation: "dtFade .25s both", display: "flex", alignItems: mobile ? "flex-end" : "center", justifyContent: "center", padding: mobile ? 0 : 24 }}>
       <style>{PRINT_CSS}</style>
-      <div className="calcpan-card" onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: mobile ? "24px 24px 0 0" : 24, width: "100%", maxWidth: 780, height: mobile ? "calc(var(--app-height, 100vh) * 0.95)" : undefined, maxHeight: mobile ? "calc(var(--app-height, 100vh) * 0.95)" : "min(calc(var(--app-height, 100vh) * 0.92), 1000px)", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 40px 80px -20px rgba(0,0,0,.5)", fontFamily: SANS, color: C.ink, animation: mobile ? "dtSheet .4s cubic-bezier(.2,.8,.2,1) both" : "dtPop .35s cubic-bezier(.2,.8,.2,1) both" }}>
+      <div className="calcpan-card" onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: mobile ? 0 : 24, width: "100%", maxWidth: 780, height: mobile ? "var(--app-height, 100vh)" : undefined, maxHeight: mobile ? "var(--app-height, 100vh)" : "min(calc(var(--app-height, 100vh) * 0.92), 1000px)", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 40px 80px -20px rgba(0,0,0,.5)", fontFamily: SANS, color: C.ink, animation: mobile ? "dtSheet .4s cubic-bezier(.2,.8,.2,1) both" : "dtPop .35s cubic-bezier(.2,.8,.2,1) both" }}>
         {/* Header */}
-        <div style={{ background: `linear-gradient(160deg, ${C.navy7}, ${C.navy})`, color: "#fff", padding: `${mobile ? 14 : 20}px ${mobile ? 18 : 28}px`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexShrink: 0 }}>
+        <div style={{ background: `linear-gradient(160deg, ${C.navy7}, ${C.navy})`, color: "#fff", padding: mobile ? `calc(12px + env(safe-area-inset-top)) 18px 12px` : `20px 28px`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
             <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".22em", color: "#F0A35E" }}>{view === "plan" ? "BIGA DEL DÍA ANTERIOR" : "PORCENTAJE PANADERO · HARINA = 100%"}</span>
             <span style={{ fontFamily: SERIF, fontSize: mobile ? 20 : 24, fontWeight: 600 }}>{view === "plan" ? "Biga consolidada" : "Calculadora de masas"}</span>

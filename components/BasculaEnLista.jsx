@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useBascula } from "@/components/PesajeBascula";
 import { useViewport } from "@/hooks/useViewport";
+import { loadUi, saveUi } from "@/lib/session";
+import { touchActivity } from "@/lib/security";
 
 // Panel de Pesaje (rediseño): se usa dentro de la Calculadora de Masas y de la receta, sin abrir otra pantalla.
 // La lectura viene de la báscula real (useBascula: Web Serial en computador, WebUSB CH340 en Android).
@@ -30,9 +32,36 @@ export function BasculaEnLista({ title, rows }) {
     }
     return -1;
   };
-  const [res, setRes] = useState({}); // i -> { actual, how }
-  const [cur, setCur] = useState(() => firstPending({}));
-  const [base, setBase] = useState(0);
+  // Progreso guardado: si la app se cierra o se recarga a mitad del pesaje, vuelve donde iba
+  const sig = `${title}|${rows.map(r => `${r.name}:${r.grams ?? r.manual}`).join(",")}`;
+  const [savedRef] = useState(() => ({ v: typeof window !== "undefined" ? loadUi("dt_pesaje") : null })); // copia tomada al abrir
+  const saved0 = savedRef.v && savedRef.v.sig === sig ? savedRef.v : null;
+  const [res, setRes] = useState(() => saved0?.res || {}); // i -> { actual, how }
+  const [cur, setCur] = useState(() => (saved0 && saved0.cur != null ? saved0.cur : firstPending({})));
+  const [base, setBase] = useState(() => saved0?.base || 0);
+  // la receta puede terminar de cargar un instante después (ej. unidades): si ahí coincide lo guardado, se recupera
+  useEffect(() => {
+    const v = savedRef.v;
+    if (v && v.sig === sig && Object.keys(res).length === 0 && Object.keys(v.res || {}).length > 0) {
+      setRes(v.res); setCur(v.cur != null ? v.cur : firstPending(v.res)); setBase(v.base || 0);
+      savedRef.v = null;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sig]);
+  useEffect(() => { saveUi("dt_pesaje", { sig, res, cur, base }); }, [sig, res, cur, base]);
+  // al cerrar el pesaje a propósito se borra; si la app se cae, no pasa por acá y queda guardado
+  useEffect(() => () => saveUi("dt_pesaje", null), []);
+
+  // Pantalla siempre encendida mientras se pesa + la sesión no se cierra por inactividad
+  useEffect(() => {
+    let lock = null, alive = true;
+    const req = async () => { try { if (alive && document.visibilityState === "visible" && navigator.wakeLock) lock = await navigator.wakeLock.request("screen"); } catch { /* */ } };
+    req();
+    const onVis = () => { if (document.visibilityState === "visible") req(); };
+    document.addEventListener("visibilitychange", onVis);
+    const keep = setInterval(() => { try { touchActivity(); } catch { /* */ } }, 60000);
+    return () => { alive = false; document.removeEventListener("visibilitychange", onVis); clearInterval(keep); try { lock?.release(); } catch { /* */ } };
+  }, []);
   const wasOk = useRef(false);
 
   const row = cur >= 0 ? rows[cur] : null;

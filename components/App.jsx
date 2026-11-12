@@ -41,6 +41,7 @@ import { useLang, LangProvider } from "@/lib/LangContext";
 import { LANGUAGES } from "@/lib/i18n";
 import { THEMES } from "@/lib/themes";
 import { useViewport } from "@/hooks/useViewport";
+import { saveSession, loadSession, clearSession, saveCtx, loadCtx } from "@/lib/session";
 import { setZoom, ZOOM_OPTS } from "@/lib/viewZoom";
 import { Icon, Monogram, catColor, initialOf, titleCase } from "@/components/dt/ui";
 
@@ -449,6 +450,7 @@ export default function App() {
       const msLeft = getSessionMsLeft();
       inactivityRef.current = setTimeout(() => {
         if (isSessionExpired()) {
+          clearSession();
           setCurrentUser(null);
           setScreen("login");
           setLoginForm({ username:"", password:"" });
@@ -466,6 +468,33 @@ export default function App() {
       clearTimeout(inactivityRef.current);
     };
   }, [screen]);
+
+  // ── Sesión que sobrevive a recargas + volver a la ventana donde estaba ──
+  // (el Zebra/celular puede cerrar la pestaña al bloquearse: al volver se entra solo y se reabre lo que estaba)
+  const ctxReadyRef = useRef(false);
+  useEffect(() => {
+    if (loading || currentUser) return;
+    const ses = loadSession();
+    if (!ses) return;
+    if (isSessionExpired()) { clearSession(); return; }
+    const u = users.find(x => String(x.id) === String(ses.id) && x.username === ses.username);
+    if (u) { setCurrentUser(u); setScreen("app"); }
+  }, [loading, users, currentUser]);
+  useEffect(() => {
+    if (screen !== "app" || ctxReadyRef.current) return;
+    ctxReadyRef.current = true;
+    const c = loadCtx();
+    if (c?.modal === "calc") setShowCalcPan(true);
+    else if (c?.modal === "recipe") {
+      const r = recipes.find(x => String(x.id) === String(c.id));
+      if (r) setSelectedRecipe(r);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
+  useEffect(() => {
+    if (screen !== "app" || !ctxReadyRef.current) return;
+    saveCtx(showCalcPan ? { modal: "calc" } : selectedRecipe ? { modal: "recipe", id: selectedRecipe.id } : null);
+  }, [screen, showCalcPan, selectedRecipe]);
 
   const saveUsers = useCallback(async u => { setUsers(u); await saveUsersDb(u); }, []);
 
@@ -499,6 +528,7 @@ export default function App() {
     resetLoginAttempts();
     setLoginAttemptsLeft(5);
     setCurrentUser(u); setScreen("app"); setLoginError("");
+    saveSession(u);
     logActivity(u.id, "login");
     setTimeout(() => setShowBanner(true), 300);
     if (isMobile && biometricSupported && !hasBiometric) {
@@ -513,6 +543,7 @@ export default function App() {
     const user = await authBiometric();
     if (user) {
       setCurrentUser(user); setScreen("app");
+      saveSession(user);
       logActivity(user.id, "login");
       setTimeout(() => setShowBanner(true), 300);
     } else {
@@ -527,7 +558,7 @@ export default function App() {
     if (!ok) alert("No se pudo registrar el acceso biométrico");
   }, [registerBiometric, currentUser]);
 
-  const handleLogout = useCallback(() => { setCurrentUser(null); setScreen("login"); setLoginForm({username:"",password:""}); setSelectedRecipe(null); }, []);
+  const handleLogout = useCallback(() => { clearSession(); ctxReadyRef.current = false; setCurrentUser(null); setScreen("login"); setLoginForm({username:"",password:""}); setSelectedRecipe(null); }, []);
 
   const selectCat = useCallback((catId) => {
     setSelectedCat(catId);
