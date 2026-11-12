@@ -166,7 +166,22 @@ export default function App() {
   // para que el service worker la guarde y funcione después sin datos ni wifi.
   useEffect(() => {
     if (typeof window === "undefined" || !navigator.onLine) return;
-    const t = setTimeout(() => { import("@/components/CalculadoraPan").catch(() => {}); }, 4000);
+    const t = setTimeout(() => {
+      // todo lo que se abre aparte (paneles, calculadoras, pizza…) queda guardado para usarse sin internet
+      [
+        () => import("@/components/CalculadoraPan"), () => import("@/components/Calculadora3D"),
+        () => import("@/components/PizzaBuilderModal"), () => import("@/components/CostingPanel"),
+        () => import("@/components/SuppliesPanel"), () => import("@/components/DocumentsPanel"),
+        () => import("@/components/UsersPanel"), () => import("@/components/ActivityReport"),
+        () => import("@/components/ProgressReport"), () => import("@/components/CategoryModal"),
+        () => import("@/components/WatermarkModal"), () => import("@/components/BrandModal"),
+        () => import("@/components/BannerConfigModal"), () => import("@/components/ImportExcelModal"),
+        () => import("@/components/ProfileGuardModal"), () => import("@/components/ProfileModal"),
+        () => import("@/components/LangModal"), () => import("@/components/BiometricPrompt"),
+        () => import("@/components/ChefAssistant"), () => import("@/data/seed-recipes"),
+        () => import("jspdf"), () => import("xlsx"),
+      ].reduce((p, f) => p.then(() => f().catch(() => {})), Promise.resolve());
+    }, 4000);
     return () => clearTimeout(t);
   }, []);
 
