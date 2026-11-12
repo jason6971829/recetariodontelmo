@@ -20,16 +20,25 @@ export const tolFor = (t) => Math.max(5, Math.round((t * 0.005) / 5) * 5); // ±
 const isAndroid = () => typeof navigator !== "undefined" && /android/i.test(navigator.userAgent || "");
 
 // ── parser de tramas ──
-const FRAME = /(-?\s*\d+(?:\.\d+)?)\s*kg[^S]*S(\d)(\d)/i;
+// "W"        → "\n00.290kg\r\nS00"  (mientras se mueve manda 0.000: no sirve como peso)
+// ENQ + DC1  → "\x01\x02U 0.325KG?\x03\x04"  (S = quieta, U = moviéndose, CON el peso: se ve subir en vivo)
+const FRAME_W = /(-?\s*\d+(?:\.\d+)?)\s*kg[^S\x02]*S(\d)(\d)/;
+const FRAME_LIVE = /\x02([SU])\s*(-?\d+(?:\.\d+)?)\s*KG/;
 export function parseFrames(text) {
   const out = [];
   let rest = text;
   for (;;) {
-    const m = FRAME.exec(rest);
+    const a = FRAME_W.exec(rest), b = FRAME_LIVE.exec(rest);
+    const m = a && (!b || a.index <= b.index) ? a : b;
     if (!m) break;
-    const kg = parseFloat(m[1].replace(/\s+/g, ""));
-    const d1 = parseInt(m[2], 10);
-    out.push({ g: Math.round(kg * 1000), motion: (d1 & 1) === 1, zero: (d1 & 2) === 2 });
+    if (m === a) {
+      const kg = parseFloat(a[1].replace(/\s+/g, ""));
+      const d1 = parseInt(a[2], 10);
+      out.push({ g: Math.round(kg * 1000), motion: (d1 & 1) === 1, zero: (d1 & 2) === 2, live: false });
+    } else {
+      const g = Math.round(parseFloat(b[2]) * 1000);
+      out.push({ g, motion: b[1] === "U", zero: g === 0, live: true });
+    }
     rest = rest.slice(m.index + m[0].length);
   }
   return { frames: out, rest: rest.slice(-200) };
@@ -138,8 +147,8 @@ export function useBascula() {
   const tryRef = useRef(0); // cada intento de conexion; uno viejo no pisa el estado de uno nuevo
 
   const onFrame = useCallback((f) => {
-    if (f.motion) { setMoving(true); return; }
-    setMoving(false);
+    setMoving(f.motion);
+    if (f.motion && !f.live) return; // el formato "W" manda 0 mientras se mueve: se ignora ese peso
     setReading({ ...f, at: Date.now() });
   }, []);
 
@@ -160,7 +169,14 @@ export function useBascula() {
       frames.forEach(onFrame);
     }).then(() => { if (tr.current === t) { setConn("error"); setErr("Se desconectó la pesa."); clearInterval(poll.current); } });
     const W = new Uint8Array([0x57]);
-    poll.current = setInterval(() => { tr.current?.write(W).catch(() => {}); }, 300);
+    // se alternan los dos pedidos: "W" (estado rápido) y ENQ+DC1 (peso en vivo mientras se mueve)
+    const ENQ = new Uint8Array([0x05]), DC1 = new Uint8Array([0x11]);
+    let tick = 0;
+    poll.current = setInterval(() => {
+      const t = tr.current; if (!t) return;
+      if (tick++ % 2 === 0) t.write(W).catch(() => {});
+      else { t.write(ENQ).catch(() => {}); setTimeout(() => tr.current?.write(DC1).catch(() => {}), 60); }
+    }, 350);
     setConn("on"); setErr("");
   }, [onFrame]);
 

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { useBascula, BasculaStatus, tolFor } from "@/components/PesajeBascula";
+import { useBascula, tolFor } from "@/components/PesajeBascula";
 
 // Pesaje dentro de la misma lista de ingredientes de la receta (sin abrir otra pantalla):
 // al lado de cada ingrediente se ve la meta y lo que marca la báscula.
@@ -73,56 +73,74 @@ export function BasculaEnLista({ title, rows }) {
 
   let color = C.grey, msg = "";
   if (row && b.live) {
-    if (!b.stable) msg = b.moving ? "esperá que se quede quieta…" : "";
+    if (!b.stable) msg = b.moving ? "⏳" : "";
     else if (inRange) { color = C.ok; msg = "✅ listo"; }
-    else if (diff < 0) { color = C.gold; msg = `faltan ${fmt(-diff)} g`; }
-    else { color = C.bad; msg = `sacá ${fmt(diff)} g`; }
+    else if (diff < 0) { color = C.gold; msg = `faltan ${fmt(-diff)}`; }
+    else { color = C.bad; msg = `sacá ${fmt(diff)}`; }
   }
+  if (row && b.live && !b.stable && b.moving) color = g > target + tol ? C.bad : C.gold;
 
-  const btn = { border: `1.5px solid ${C.line}`, background: "#fff", color: C.ink, borderRadius: 8, padding: "8px 10px", fontSize: 13, fontWeight: 700, cursor: "pointer" };
+  const btn = { border: `1.5px solid ${C.line}`, background: "#fff", color: C.ink, borderRadius: 7, padding: "6px 8px", fontSize: 12, fontWeight: 700, cursor: "pointer", lineHeight: 1.1 };
   const dim = (off) => (off ? { opacity: 0.4, cursor: "not-allowed" } : null);
-  const chk = (on) => ({ ...btn, padding: "5px 8px", fontSize: 12, background: on ? C.ok : "#fff", color: on ? "#fff" : C.ink, borderColor: on ? C.ok : C.line, whiteSpace: "nowrap" });
+  const chk = (on) => ({ ...btn, padding: "3px 7px", fontSize: 11, background: on ? C.ok : "#fff", color: on ? "#fff" : C.ink, borderColor: on ? C.ok : C.line, whiteSpace: "nowrap" });
+  const dot = b.conn === "on" ? (b.stale ? C.bad : C.ok) : b.conn === "sim" ? "#6b46c1" : "#bbb";
+  const dotTitle = b.conn === "on" ? (b.stale ? "Sin señal de la pesa" : "Pesa conectada") : b.conn === "sim" ? "Modo prueba (sin pesa)" : b.conn === "connecting" ? "Conectando…" : "Pesa sin conectar";
 
   return (
     <div>
-      {/* barra de la báscula: queda pegada arriba mientras se baja por la lista */}
-      <div style={{ position: "sticky", top: 0, zIndex: 3, background: "#fff", border: `2px solid ${row ? color : C.line}`, borderRadius: 10, padding: "6px 10px 10px", marginBottom: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}>
-        <BasculaStatus b={b} compact />
-        {row ? (
+      {/* recuadro de la báscula: compacto y pegado arriba mientras se baja por la lista */}
+      <div style={{ position: "sticky", top: 0, zIndex: 3, background: "#fff", border: `2px solid ${row ? color : C.line}`, borderRadius: 10, padding: "7px 9px 8px", marginBottom: 6, boxShadow: "0 3px 10px rgba(0,0,0,0.08)" }}>
+        {/* fila 1: estado · ingrediente · progreso */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+          <span title={dotTitle} style={{ width: 9, height: 9, borderRadius: "50%", background: dot, flexShrink: 0 }} />
+          <span style={{ fontSize: 12, fontWeight: 800, color: C.navy, flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {row ? row.name : allDone ? "✅ Todo listo" : "Falta medir o contar"}
+          </span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: C.grey, flexShrink: 0 }}>{doneCount}/{total}</span>
+          {b.conn !== "on" && b.conn !== "connecting" && (
+            <button style={{ ...btn, padding: "4px 8px", fontSize: 11, background: C.gold, borderColor: C.gold, color: "#fff" }} onClick={() => b.connect("auto")}>🔌 Conectar</button>
+          )}
+          {b.conn === "on" && <button title="Desconectar la pesa" style={{ ...btn, padding: "3px 7px", fontSize: 11, color: C.grey }} onClick={b.stop}>✕</button>}
+          {b.conn !== "sim" && b.conn !== "on" && b.conn !== "connecting" && (
+            <button title="Probar sin pesa" style={{ ...btn, padding: "4px 7px", fontSize: 11 }} onClick={b.startSim}>🧪</button>
+          )}
+        </div>
+        {b.err && (
+          <div style={{ marginTop: 5, padding: "5px 8px", background: "#FDECEA", color: "#8e2b20", fontSize: 11, fontWeight: 600, borderRadius: 6 }}>
+            {b.err}{b.conn === "error" && <> · <button style={{ ...btn, padding: "2px 6px", fontSize: 10 }} onClick={() => b.connect(/android/i.test(navigator.userAgent) ? "serial" : "usb")}>otro modo</button></>}
+          </div>
+        )}
+
+        {row && (
           <>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: C.grey }}>PESANDO</span>
-              <span style={{ fontWeight: 800, color: C.navy, fontSize: 14, flex: 1, minWidth: 0 }}>{row.name}</span>
+            {/* fila 2: peso en vivo / meta */}
+            <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginTop: 3 }}>
+              <span style={{ fontSize: 28, fontWeight: 800, color, lineHeight: 1, opacity: b.live ? (b.moving ? 0.7 : 1) : 0.4, fontVariantNumeric: "tabular-nums" }}>{b.live ? fmt(g) : "—"}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: C.grey }}>/ {fmt(target)} g</span>
+              {target !== row.grams && <span style={{ fontSize: 10, color: C.grey }}>(receta {fmt(row.grams)})</span>}
+              <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 800, color, whiteSpace: "nowrap" }}>{msg}</span>
             </div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 2 }}>
-              <span style={{ fontSize: 34, fontWeight: 800, color, lineHeight: 1, opacity: b.live && !b.moving ? 1 : 0.45 }}>{b.live ? fmt(g) : "—"}</span>
-              <span style={{ fontSize: 16, fontWeight: 700, color: C.grey }}>/ {fmt(target)} g{target !== row.grams && <span style={{ fontSize: 11 }}> (receta {fmt(row.grams)} g)</span>}</span>
-              <span style={{ marginLeft: "auto", fontSize: 14, fontWeight: 800, color }}>{msg}</span>
-            </div>
-            <div style={{ position: "relative", height: 10, background: "#f0ebe5", borderRadius: 5, overflow: "hidden", marginTop: 6 }}>
+            <div style={{ position: "relative", height: 6, background: "#f0ebe5", borderRadius: 3, overflow: "hidden", marginTop: 5 }}>
               <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${Math.max(0, Math.min(1.15, target ? g / target : 0)) / 1.15 * 100}%`, background: color, transition: "width .25s" }} />
               <div style={{ position: "absolute", top: 0, bottom: 0, left: `${100 / 1.15}%`, width: 2, background: C.ink }} />
             </div>
-            <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+            {/* fila 3: botones */}
+            <div style={{ display: "flex", gap: 5, marginTop: 6 }}>
               <button style={{ ...btn, flex: 2, background: inRange ? C.ok : "#d9d2c9", borderColor: inRange ? C.ok : "#d9d2c9", color: "#fff", ...dim(!inRange) }} disabled={!inRange} onClick={() => commit("scale")}>✓ Listo</button>
               <button style={{ ...btn, flex: 1, ...dim(!b.stable) }} disabled={!b.stable} onClick={() => setBase(b.scaleG)} title="Al cambiar de recipiente: pone en cero lo que hay en la pesa">⓪ Cero</button>
-              <button style={{ ...btn, flex: 1, ...dim(!b.stable || inRange) }} disabled={!b.stable || inRange} onClick={() => commit("aceptado")}>Aceptar así</button>
+              <button style={{ ...btn, flex: 1, ...dim(!b.stable || inRange) }} disabled={!b.stable || inRange} onClick={() => commit("aceptado")}>Aceptar</button>
             </div>
             {b.conn === "sim" && (
-              <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap", alignItems: "center" }}>
-                <span style={{ fontSize: 11, color: "#6b46c1", fontWeight: 700 }}>Simular:</span>
-                {[-50, -5, 5, 50, 500].map(d => <button key={d} style={{ ...btn, padding: "3px 7px", fontSize: 11 }} onClick={() => b.setSimG(x => Math.max(0, x + d))}>{d > 0 ? "+" : ""}{d}</button>)}
-                <button style={{ ...btn, padding: "3px 7px", fontSize: 11 }} onClick={() => b.setSimG(base + target)}>= meta</button>
+              <div style={{ display: "flex", gap: 3, marginTop: 5, flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ fontSize: 10, color: "#6b46c1", fontWeight: 700 }}>Simular:</span>
+                {[-50, -5, 5, 50, 500].map(d => <button key={d} style={{ ...btn, padding: "2px 6px", fontSize: 10 }} onClick={() => b.setSimG(x => Math.max(0, x + d))}>{d > 0 ? "+" : ""}{d}</button>)}
+                <button style={{ ...btn, padding: "2px 6px", fontSize: 10 }} onClick={() => b.setSimG(base + target)}>= meta</button>
               </div>
             )}
           </>
-        ) : (
-          <div style={{ fontWeight: 800, color: allDone ? C.ok : C.navy, fontSize: 14, marginTop: 4 }}>
-            {allDone ? "✅ Todo listo" : "Lo que falta va en litros o unidades: medilo o contalo y marcalo en la lista."}
-          </div>
         )}
-        <div style={{ fontSize: 11, color: C.grey, marginTop: 6 }}>{doneCount} de {total} listos · la pesa marca de a 5 g, las metas van aproximadas · tocá un ingrediente para pesarlo · otro recipiente: ⓪ Cero</div>
       </div>
+      <div style={{ fontSize: 10, color: C.grey, margin: "0 2px 5px" }}>Tocá un ingrediente para pesarlo · metas de a 5 g · otro recipiente: ⓪ Cero</div>
 
       {rows.map((r, i) => {
         const done = res[i];
@@ -130,24 +148,24 @@ export function BasculaEnLista({ title, rows }) {
         const w = weighable(r);
         let right;
         if (isCur) {
-          right = <span style={{ fontWeight: 800, color, fontSize: 15 }}>{b.live ? `${fmt(g)} g` : "— g"}</span>;
+          right = <span style={{ fontWeight: 800, color, fontSize: 13 }}>{b.live ? `${fmt(g)} g` : "—"}</span>;
         } else if (done && done.actual != null) {
           const d = done.actual - metaPesa(r.grams);
           const bad = Math.abs(d) > tolFor(metaPesa(r.grams));
-          right = <span style={{ fontWeight: 800, color: bad ? C.bad : C.ok, fontSize: 14 }}>{fmt(done.actual)} g {bad ? `(${d > 0 ? "+" : ""}${fmt(d)})` : "✓"}</span>;
+          right = <span style={{ fontWeight: 800, color: bad ? C.bad : C.ok, fontSize: 12 }}>{fmt(done.actual)} g {bad ? `(${d > 0 ? "+" : ""}${fmt(d)})` : "✓"}</span>;
         } else if (!w) {
           right = <button style={chk(!!done)} onClick={(e) => { e.stopPropagation(); done ? setRes(x => { const y = { ...x }; delete y[i]; return y; }) : mark(i, { actual: null, how: "manual" }); }}>{done ? "✓ medido" : "☐ medido"}</button>;
         } else {
-          right = <span style={{ color: C.grey, fontSize: 13, fontWeight: 700 }}>—</span>;
+          right = <span style={{ color: "#c9bfb3", fontSize: 12, fontWeight: 700 }}>—</span>;
         }
         return (
           <div key={i} onClick={w ? () => select(i) : undefined}
-            style={{ background: isCur ? "#FFF8F2" : done ? "#EEF8F1" : i % 2 === 0 ? "#F7F3EE" : "#fff", border: `1.5px solid ${isCur ? color : "transparent"}`, padding: "7px 10px", borderRadius: 6, marginBottom: 3, fontSize: 13, color: "#333", lineHeight: 1.35, display: "flex", alignItems: "center", gap: 8, cursor: w ? "pointer" : "default" }}>
-            {r.code && <span style={{ background: C.gold, color: "#fff", borderRadius: 4, padding: "2px 7px", fontSize: 10, fontWeight: 700, flexShrink: 0, fontFamily: "monospace" }}>{r.code}</span>}
+            style={{ background: isCur ? "#FFF8F2" : done ? "#EEF8F1" : i % 2 === 0 ? "#F7F3EE" : "#fff", border: `1.5px solid ${isCur ? color : "transparent"}`, padding: "5px 8px", borderRadius: 6, marginBottom: 2, fontSize: 12, color: "#333", lineHeight: 1.3, display: "flex", alignItems: "center", gap: 6, cursor: w ? "pointer" : "default" }}>
+            {r.code && <span style={{ background: C.gold, color: "#fff", borderRadius: 3, padding: "1px 5px", fontSize: 9, fontWeight: 700, flexShrink: 0, fontFamily: "monospace" }}>{r.code}</span>}
             <span style={{ flex: 1, minWidth: 0 }}>
-              <b style={{ color: C.navy }}>{r.main}</b>{r.sub && <span style={{ color: C.grey, fontSize: 11 }}> · {r.sub}</span>} - {r.name}
+              <b style={{ color: C.navy }}>{r.main}</b>{r.sub && <span style={{ color: C.grey, fontSize: 10 }}> · {r.sub}</span>} <span style={{ color: "#555" }}>{r.name}</span>
             </span>
-            <span style={{ flexShrink: 0, textAlign: "right" }}>{right}</span>
+            <span style={{ flexShrink: 0, textAlign: "right", minWidth: 54 }}>{right}</span>
           </div>
         );
       })}
