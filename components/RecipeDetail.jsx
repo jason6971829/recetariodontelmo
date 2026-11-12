@@ -1,5 +1,5 @@
 "use client";
-import { memo, useState } from "react";
+import { memo, useState, useMemo } from "react";
 import Image from "next/image";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { TextToSpeech } from "@/components/TextToSpeech";
@@ -7,6 +7,8 @@ import { useLang } from "@/lib/LangContext";
 import { generateRecipePDF } from "@/lib/recipePDF";
 import { printRecipeThermal } from "@/lib/thermalPrint";
 import { normalizeIngredient, ingredientToReadable } from "@/lib/ingredients";
+import { parseQty, parseNumber, fmtScaled, fmtNum, defaultBaseIndex, GRAMS_PER } from "@/lib/scaleRecipe";
+import { PesajeBascula } from "@/components/PesajeBascula";
 
 // ── Estilos estáticos a nivel de módulo (se crean una sola vez) ──
 const S = {
@@ -56,6 +58,27 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
   const { t } = useLang();
   const ytId = getYtId(recipe.video);
   const [downloading, setDownloading] = useState(false);
+
+  // ── Calculadora: todo se ajusta en proporción al ingrediente principal ──
+  const ings = useMemo(() => (recipe.ingredients || []).map(normalizeIngredient), [recipe.ingredients]);
+  const parsed = useMemo(() => ings.map(n => parseQty(n.text)), [ings]);
+  const canCalc = parsed.some(Boolean);
+  const [calcOn, setCalcOn] = useState(false);
+  const [baseIdx, setBaseIdx] = useState(() => defaultBaseIndex(parsed));
+  const [have, setHave] = useState("");
+  const [pesar, setPesar] = useState(false);
+  const base = parsed[baseIdx];
+  const haveNum = parseNumber(have);
+  const factor = calcOn && base && base.qty > 0 && isFinite(haveNum) && haveNum > 0 ? haveNum / base.qty : 1;
+  const setFactor = (f) => base && setHave(fmtNum(base.qty * f, 3));
+  const rinde = parseQty(recipe.portions);
+  const pesajeItems = () => ings.map((n, i) => {
+    const p = parsed[i];
+    const name = p?.name || n.text;
+    const note = n.code ? `Código ${n.code}` : "";
+    if (p && GRAMS_PER[p.unit]) return { name, grams: Math.round(p.qty * factor * GRAMS_PER[p.unit]), note };
+    return { name, manual: p ? fmtScaled(p, factor).main : n.text, note };
+  });
 
   async function handleDownloadPDF() {
     setDownloading(true);
@@ -143,7 +166,7 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
 
         {/* Body */}
         <div style={S.bodyScroll}>
-          <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:0 }}>
+          <div style={{ display:"grid", gridTemplateColumns: isMobile ? "minmax(0,1fr)" : "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap:0 }}>
 
             {/* Izquierda: imagen + ingredientes */}
             <div style={{ ...S.colLeft, borderRight: isMobile ? "none" : "1px solid #F0ECE6", borderBottom: isMobile ? "1px solid #F0ECE6" : "none" }}>
@@ -159,22 +182,68 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
 
               <div style={S.sectionRow}>
                 <div style={S.sectionTitle}>{t.detail.ingredients}</div>
-                <TextToSpeech text={recipe.ingredients.map(ingredientToReadable).join(". ")} label="ingredientes" userId={currentUser?.id} />
+                <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+                  {canCalc && (
+                    <button onClick={() => { setCalcOn(c => !c); setHave(""); }} title="Calcular en proporción"
+                      style={{ background: calcOn ? "#D4721A" : "#fff", color: calcOn ? "#fff" : "#D4721A", border:"1.5px solid #D4721A", borderRadius:"8px", padding:"5px 10px", cursor:"pointer", fontSize:"12px", fontWeight:"700" }}>
+                      🧮 {calcOn ? "Cerrar" : "Calcular"}
+                    </button>
+                  )}
+                  <TextToSpeech text={recipe.ingredients.map(ingredientToReadable).join(". ")} label="ingredientes" userId={currentUser?.id} />
+                </div>
               </div>
-              {recipe.ingredients.length > 0
-                ? recipe.ingredients.map((ing, i) => {
-                    const n = normalizeIngredient(ing);
+
+              {calcOn && base && (
+                <div style={{ background:"#FFF8F2", border:"1.5px solid #E8C9A0", borderRadius:"10px", padding:"12px", marginBottom:"10px" }}>
+                  <div style={{ fontSize:"12px", color:"#8a6a4e", fontWeight:"700", marginBottom:"6px" }}>INGREDIENTE PRINCIPAL</div>
+                  <select value={baseIdx} onChange={e => { setBaseIdx(Number(e.target.value)); setHave(""); }}
+                    style={{ width:"100%", padding:"8px", borderRadius:"8px", border:"1.5px solid #E0D8CE", fontSize:"13px", fontWeight:"700", color:"#3a2f29", background:"#fff", marginBottom:"8px" }}>
+                    {parsed.map((p, i) => p && <option key={i} value={i}>{p.name || ings[i].text} ({fmtNum(p.qty)} {p.unitRaw})</option>)}
+                  </select>
+                  <label style={{ display:"flex", alignItems:"center", gap:"8px", fontSize:"13px", fontWeight:"700", color:"#3a2f29" }}>
+                    ¿Cuánto tenés?
+                    <input inputMode="decimal" value={have} placeholder={fmtNum(base.qty)} onChange={e => setHave(e.target.value.replace(/[^0-9.,]/g, ""))} onFocus={e => e.target.select()}
+                      style={{ flex:1, minWidth:0, padding:"9px 10px", borderRadius:"8px", border:"2px solid #D4721A", fontSize:"18px", fontWeight:"800", textAlign:"right", color:"#3a2f29" }} />
+                    <span>{base.unitRaw}</span>
+                  </label>
+                  <div style={{ display:"flex", gap:"6px", marginTop:"8px", flexWrap:"wrap", alignItems:"center" }}>
+                    {[0.25, 0.5, 1, 2, 3].map(f => (
+                      <button key={f} onClick={() => setFactor(f)} style={{ border:"1.5px solid #E0D8CE", background: Math.abs(factor - f) < 1e-9 ? "#1B3A5C" : "#fff", color: Math.abs(factor - f) < 1e-9 ? "#fff" : "#3a2f29", borderRadius:"8px", padding:"4px 10px", fontSize:"12px", fontWeight:"700", cursor:"pointer" }}>×{fmtNum(f, 2)}</button>
+                    ))}
+                    <span style={{ marginLeft:"auto", fontSize:"12px", fontWeight:"700", color:"#8a6a4e" }}>
+                      Receta ×{fmtNum(factor, 3)}{rinde ? ` · rinde ${fmtScaled(rinde, factor).main}` : ""}
+                    </span>
+                  </div>
+                  <button onClick={() => setPesar(true)} style={{ width:"100%", marginTop:"10px", background:"#D4721A", border:"none", borderRadius:"8px", color:"#fff", padding:"10px", cursor:"pointer", fontSize:"14px", fontWeight:"800" }}>
+                    ⚖️ Pesar con la báscula
+                  </button>
+                </div>
+              )}
+
+              {ings.length > 0
+                ? ings.map((n, i) => {
+                    const p = parsed[i];
+                    const isBase = calcOn && i === baseIdx;
+                    const sc = calcOn && p ? fmtScaled(p, factor) : null;
                     return (
-                      <div key={i} style={{ background: i%2===0 ? "#F7F3EE" : "#fff", padding:"7px 10px", borderRadius:"6px", marginBottom:"3px", fontSize:"13px", color:"#333", lineHeight:"1.4", display:"flex", alignItems:"center", gap:"8px" }}>
+                      <div key={i} onClick={calcOn && p ? () => { setBaseIdx(i); setHave(""); } : undefined}
+                        style={{ background: isBase ? "#FBEFE3" : i%2===0 ? "#F7F3EE" : "#fff", border: isBase ? "1.5px solid #D4721A" : "1.5px solid transparent", padding:"7px 10px", borderRadius:"6px", marginBottom:"3px", fontSize:"13px", color:"#333", lineHeight:"1.4", display:"flex", alignItems:"center", gap:"8px", cursor: calcOn && p ? "pointer" : "default" }}>
                         {n.code && (
                           <span style={{ background:"#D4721A", color:"#fff", borderRadius:"4px", padding:"2px 7px", fontSize:"10px", fontWeight:"700", letterSpacing:"0.5px", flexShrink:0, fontFamily:"monospace" }}>{n.code}</span>
                         )}
-                        <span>{n.text}</span>
+                        {sc ? (
+                          <span style={{ flex:1, minWidth:0 }}>
+                            <b style={{ color: isBase ? "#D4721A" : "#1B3A5C" }}>{sc.main}</b>
+                            {sc.sub && <span style={{ color:"#8a7a6e", fontSize:"11px" }}> · {sc.sub}</span>}
+                            {" - "}{p.name}{isBase && <span style={{ color:"#D4721A", fontSize:"11px", fontWeight:"700" }}> ★ principal</span>}
+                          </span>
+                        ) : <span>{n.text}</span>}
                       </div>
                     );
                   })
                 : <div style={S.noText}>{t.detail.noIngredients}</div>
               }
+              {calcOn && <div style={{ fontSize:"11px", color:"#8a7a6e", marginTop:"6px" }}>Tocá un ingrediente para usarlo como principal. Lo calculado no cambia la receta guardada.</div>}
             </div>
 
             {/* Derecha: preparación + secciones */}
@@ -226,6 +295,14 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
           <div style={S.footer}>━━━ DON TELMO® 1958 ━━━</div>
         </div>
       </div>
+      {pesar && (
+        <PesajeBascula
+          title={recipe.name}
+          subtitle={base ? `${fmtScaled(base, factor).main} de ${base.name || "principal"} · receta ×${fmtNum(factor, 3)}` : ""}
+          items={pesajeItems()}
+          onClose={() => setPesar(false)}
+        />
+      )}
     </div>
   );
 });

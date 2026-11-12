@@ -214,18 +214,20 @@ export function PesajeBascula({ title, subtitle, items, onClose }) {
   const stale = conn === "on" && (!reading || now - reading.at > 2500) && !moving;
   const scaleG = reading ? reading.g : 0;
   const cur = scaleG - base;
-  const small = item && item.grams < GRAMERA_MAX && !forceScale[idx];
-  const target = item ? item.grams : 0;
+  // manual: lo que no se pesa (litros, unidades): solo se mide/cuenta y se marca
+  const manual = !!(item && item.manual);
+  const small = !!item && !manual && item.grams < GRAMERA_MAX && !forceScale[idx];
+  const target = item && !manual ? item.grams : 0;
   const tol = tolFor(target);
   const diff = cur - target;
   const stable = live && reading && !moving && !stale;
   const inRange = stable && Math.abs(diff) <= tol;
 
   useEffect(() => {
-    if (!item || small) { wasOk.current = false; return; }
+    if (!item || small || manual) { wasOk.current = false; return; }
     if (inRange && !wasOk.current) beep(true);
     wasOk.current = inRange;
-  }, [inRange, item, small]);
+  }, [inRange, item, small, manual]);
 
   const commit = (actual, how) => {
     setRes(r => r.map((x, k) => k === idx ? { actual, how } : x));
@@ -242,7 +244,7 @@ export function PesajeBascula({ title, subtitle, items, onClose }) {
     saved.current = true;
     try {
       const h = JSON.parse(localStorage.getItem(HIST_KEY) || "[]");
-      h.unshift({ at: new Date().toISOString(), title, subtitle, items: items.map((it, k) => ({ name: it.name, meta: it.grams, real: res[k]?.actual ?? null, how: res[k]?.how ?? "salteado" })) });
+      h.unshift({ at: new Date().toISOString(), title, subtitle, items: items.map((it, k) => ({ name: it.name, meta: it.manual || it.grams, real: res[k]?.actual ?? null, how: res[k]?.how ?? "salteado" })) });
       localStorage.setItem(HIST_KEY, JSON.stringify(h.slice(0, 60)));
     } catch { /* */ }
   }, [done]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -261,7 +263,7 @@ export function PesajeBascula({ title, subtitle, items, onClose }) {
   })();
 
   let color = "#9a8a7e", msg = "";
-  if (item && !small && live) {
+  if (item && !small && !manual && live) {
     if (!stable) { msg = moving ? "Esperá que la pesa se quede quieta…" : ""; }
     else if (inRange) { color = C.ok; msg = diff === 0 ? "✅ Exacto" : `✅ Bien (${diff > 0 ? "+" : ""}${fmt(diff)} g)`; }
     else if (diff < 0) { color = C.gold; msg = `Faltan ${fmt(-diff)} g`; }
@@ -312,11 +314,17 @@ export function PesajeBascula({ title, subtitle, items, onClose }) {
 
           <div style={{ display: "flex", gap: 10, alignItems: "baseline", marginTop: 10 }}>
             <span style={{ fontSize: 13, color: "#8a7a6e", fontWeight: 700 }}>META</span>
-            <span style={{ ...big, fontSize: 30, color: C.ink }}>{fmt(target)} g</span>
-            {!small && <span style={{ fontSize: 13, color: "#8a7a6e" }}>± {tol} g</span>}
+            <span style={{ ...big, fontSize: 30, color: C.ink }}>{manual ? item.manual : `${fmt(target)} g`}</span>
+            {!small && !manual && <span style={{ fontSize: 13, color: "#8a7a6e" }}>± {tol} g</span>}
           </div>
 
-          {small ? (
+          {manual ? (
+            <div style={{ marginTop: 14, padding: 14, border: `2px dashed ${C.navy}`, borderRadius: 14, background: "#F4F7FB" }}>
+              <div style={{ fontWeight: 800, fontSize: 16, color: C.navy }}>📏 Medir o contar</div>
+              <div style={{ fontSize: 13, margin: "6px 0 12px" }}>Esto no se pesa en la pesa (va en litros o unidades). Medilo o contalo y marcalo.</div>
+              <button style={{ ...bigBtn, background: C.ok, color: "#fff" }} onClick={() => commit(null, "manual")}>✓ Listo</button>
+            </div>
+          ) : small ? (
             <div style={{ marginTop: 14, padding: 14, border: `2px dashed ${C.gold}`, borderRadius: 14, background: "#FBEFE3" }}>
               <div style={{ fontWeight: 800, fontSize: 16, color: C.gold }}>🥄 Pesar en la gramera</div>
               <div style={{ fontSize: 13, margin: "6px 0 12px" }}>Es menos de {GRAMERA_MAX} g: esta pesa marca de a 5 g y no es exacta acá. Pesalo en la gramera y marcalo.</div>
@@ -374,10 +382,10 @@ export function PesajeBascula({ title, subtitle, items, onClose }) {
                   return (
                     <tr key={k}>
                       <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", fontWeight: 600 }}>{it.name}{r?.how === "gramera" && <span style={{ fontSize: 11, color: C.gold }}> · gramera</span>}</td>
-                      <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", textAlign: "right" }}>{fmt(it.grams)}</td>
+                      <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", textAlign: "right" }}>{it.manual || fmt(it.grams)}</td>
                       <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", textAlign: "right", fontWeight: 700 }}>{r?.actual != null ? fmt(r.actual) : "—"}</td>
                       <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", textAlign: "right", fontWeight: 700, color: r?.how === "salteado" ? "#9a8a7e" : bad ? C.bad : C.ok }}>
-                        {r?.how === "salteado" ? "saltado" : d == null || r.how === "gramera" ? "✓" : `${d > 0 ? "+" : ""}${fmt(d)}`}
+                        {r?.how === "salteado" ? "saltado" : !r ? "—" : d == null || r.how === "gramera" ? "✓" : `${d > 0 ? "+" : ""}${fmt(d)}`}
                       </td>
                     </tr>
                   );
