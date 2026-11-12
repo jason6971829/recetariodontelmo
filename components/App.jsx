@@ -624,10 +624,15 @@ export default function App() {
     }
   }, []);
 
+  // Eliminar: solo admin, con doble filtro (aviso + clave de seguridad del Perfil)
   const handleDelete = (r) => {
+    if (currentUser?.role !== "admin") return;
     setConfirmModal({
-      title: "Eliminar Receta",
-      message: `¿Estás seguro de eliminar "${r.name}"? Esta acción no se puede deshacer.`,
+      title: "Eliminar receta",
+      message: `¿Seguro que quieres eliminar «${r.name}»? Esta acción no se puede deshacer.`,
+      details: [`Receta: ${r.name}`, `Categoría: ${r.category}`, `${(r.ingredients || []).length} ingredientes${r.image ? " y su foto" : ""}`],
+      requireKey: true,
+      confirmLabel: "Eliminar receta",
       onConfirm: async () => {
         if (r.image && r.image.includes("supabase")) {
           await deleteImage(r.image);
@@ -641,17 +646,26 @@ export default function App() {
   };
 
   const handleDeleteCategory = (catId) => {
+    if (currentUser?.role !== "admin") return;
     const catLabel = allCategories.find(c => c.id === catId)?.label || catId;
     const catRecipes = recipes.filter(r => r.category === catId);
+    const n = catRecipes.length;
     setConfirmModal({
-      title: "Eliminar Categoría Completa",
-      message: `¿Estás seguro de eliminar la categoría "${catLabel}" y sus ${catRecipes.length} receta${catRecipes.length !== 1 ? "s" : ""}? Esta acción no se puede deshacer.`,
+      title: "Eliminar categoría completa",
+      message: n
+        ? `¿Seguro que quieres eliminar la categoría «${catLabel}» y sus ${n} receta${n !== 1 ? "s" : ""}? Esta acción no se puede deshacer.`
+        : `¿Seguro que quieres eliminar la categoría «${catLabel}»? No tiene recetas.`,
+      details: [`Categoría: ${catLabel}`, ...catRecipes.slice(0, 30).map(r => r.name), ...(n > 30 ? [`… y ${n - 30} más`] : [])],
+      requireKey: true,
+      confirmLabel: n ? `Eliminar categoría y ${n} receta${n !== 1 ? "s" : ""}` : "Eliminar categoría",
       onConfirm: async () => {
         for (const r of catRecipes) {
           if (r.image && r.image.includes("supabase")) await deleteImage(r.image);
           await deleteRecipeDb(r.id);
         }
+        await deleteCategoryDb(catId);
         setRecipes(prev => prev.filter(r => r.category !== catId));
+        setDbCategories(prev => prev.filter(c => c.id !== catId));
         setSelectedCat("all");
         setSelectedRecipe(null);
         setConfirmModal(null);
@@ -1007,7 +1021,7 @@ export default function App() {
                   {editCats && isAdmin && !isAll ? (
                     <span style={{ display: "flex", gap: 4, flex: "none" }}>
                       <span role="button" title={`Editar categoría ${cat.label}`} onClick={(e) => { e.stopPropagation(); setCategoryModal({ mode: "edit", initial: cat }); }} style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(255,255,255,.1)", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon.pencil width={14} height={14} /></span>
-                      {count > 0 && <span role="button" title={`Eliminar categoría ${cat.label}`} onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id); }} style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(200,66,59,.25)", color: "#FFB1AB", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon.trash width={14} height={14} /></span>}
+                      {<span role="button" title={`Eliminar categoría ${cat.label}`} onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id); }} style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(200,66,59,.25)", color: "#FFB1AB", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon.trash width={14} height={14} /></span>}
                     </span>
                   ) : (
                     <span style={{ ...badge("transparent", "rgba(255,255,255,.55)"), padding: 0, fontWeight: 700, fontSize: 12 }}>{count}</span>
@@ -1259,7 +1273,7 @@ export default function App() {
         />
       </Suspense>
 
-      <ConfirmModal confirmModal={confirmModal} onCancel={() => setConfirmModal(null)} />
+      <ConfirmModal confirmModal={confirmModal} profileHash={profileHash} onCancel={() => setConfirmModal(null)} />
 
       {/* Asistente de cocina (avatar flotante). Solo cuando hay ninguna ficha/modal a pantalla completa abierto. */}
       {!showForm && !selectedRecipe && <ChefAssistant />}
