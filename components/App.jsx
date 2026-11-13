@@ -33,7 +33,6 @@ const PizzaBuilderModal= dynamic(() => import("@/components/PizzaBuilderModal").
 const DocumentsPanel   = dynamic(() => import("@/components/DocumentsPanel").then(m => ({ default: m.DocumentsPanel })), { ssr: false });
 const SuppliesPanel    = dynamic(() => import("@/components/SuppliesPanel").then(m => ({ default: m.SuppliesPanel })), { ssr: false });
 const CostingPanel     = dynamic(() => import("@/components/CostingPanel").then(m => ({ default: m.CostingPanel })), { ssr: false });
-const Calculadora3D    = dynamic(() => import("@/components/Calculadora3D").then(m => ({ default: m.Calculadora3D })), { ssr: false });
 const CalculadoraPan   = dynamic(() => import("@/components/CalculadoraPan").then(m => ({ default: m.CalculadoraPan })), { ssr: false });
 const ChefAssistant    = dynamic(() => import("@/components/ChefAssistant").then(m => ({ default: m.ChefAssistant })), { ssr: false });
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -98,7 +97,6 @@ export default function App() {
   const [showDocuments, setShowDocuments] = useState(false);
   const [showSupplies, setShowSupplies] = useState(false);
   const [showCosting, setShowCosting] = useState(false);
-  const [showCalc3D, setShowCalc3D] = useState(false);
   const [showCalcPan, setShowCalcPan] = useState(false);
   const [showBannerConfig, setShowBannerConfig] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -181,7 +179,7 @@ export default function App() {
     const t = setTimeout(() => {
       // todo lo que se abre aparte (paneles, calculadoras, pizza…) queda guardado para usarse sin internet
       [
-        () => import("@/components/CalculadoraPan"), () => import("@/components/Calculadora3D"),
+        () => import("@/components/CalculadoraPan"),
         () => import("@/components/PizzaBuilderModal"), () => import("@/components/CostingPanel"),
         () => import("@/components/SuppliesPanel"), () => import("@/components/DocumentsPanel"),
         () => import("@/components/UsersPanel"), () => import("@/components/ActivityReport"),
@@ -839,7 +837,7 @@ export default function App() {
 
   return (
     <div className="dt-scope" style={{ height: "var(--app-height, 100vh)", display: "flex", flexDirection: "column", fontFamily: "var(--dt-sans)", color: "#14213D", overflow: "hidden", background: "#F6F3EE", position: "relative" }}>
-{!selectedRecipe && !showForm && !showUsers && !showReport && !showProgress && !showWatermarkUpload && !showLangModal && !categoryModal && !confirmModal && !showBiometricPrompt && !showPizzaBuilder && !showDocuments && !showSupplies && !showCosting && !showCalc3D && <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} customLogo={watermarkLogo} opacity={watermarkOpacity} size={watermarkSize} />}
+{!selectedRecipe && !showForm && !showUsers && !showReport && !showProgress && !showWatermarkUpload && !showLangModal && !categoryModal && !confirmModal && !showBiometricPrompt && !showPizzaBuilder && !showDocuments && !showSupplies && !showCosting && <GlobalWatermark username={currentUser?.name || ""} sede={currentUser?.sede || ""} customLogo={watermarkLogo} opacity={watermarkOpacity} size={watermarkSize} />}
 
       {/* OFFLINE BANNER */}
       {!online && (
@@ -977,7 +975,6 @@ export default function App() {
             )}
             {[
               [Icon.book, "Manuales", () => { setShowDocuments(true); setNavOpen(false); }],
-              [Icon.printer3d, "Bambu A1", () => { setShowCalc3D(true); setNavOpen(false); }],
               [Icon.calc, "Calculadora de Masas", () => { setShowCalcPan(true); setNavOpen(false); }],
             ].map(([Ic, label, fn]) => (
               <button key={label} onClick={fn} className="dt-hov-dark" title={label} style={navRow(false)}>
@@ -1170,9 +1167,6 @@ export default function App() {
         )}
         {showCalcPan && (
           <CalculadoraPan isAdmin={isAdmin} onClose={()=>setShowCalcPan(false)} />
-        )}
-        {showCalc3D && (
-          <Calculadora3D onClose={()=>setShowCalc3D(false)} />
         )}
         {showCosting && isAdmin && (
           <CostingPanel recipes={recipes} onClose={()=>setShowCosting(false)} />
