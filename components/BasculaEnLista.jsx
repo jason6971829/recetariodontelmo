@@ -9,6 +9,8 @@ import { touchActivity } from "@/lib/security";
 // La lectura viene de la báscula real (useBascula: Web Serial en computador, WebUSB CH340 en Android).
 const C = { navy: "#0E2240", orange: "#D9731A", orange700: "#B85E10", cream: "#F6F3EE", row: "#FAF8F4", line: "#E7E1D7", track: "#EFEAE2", ink2: "#3C3A36", muted: "#8A847A", muted2: "#A39D92", green: "#1F9D6B", green100: "#E7F5EE", red: "#C8423B" };
 const fmt = (v) => Math.round(v).toLocaleString("es-CO");
+// Formato gabycontrol / pantalla de la pesa: kilos con tres decimales (325 g → "0.325")
+const kg = (g) => (Math.round(Number(g) || 0) / 1000).toFixed(3);
 const HIST_KEY = "calcpan_pesajes_v1";
 // La SAT CS30 marca de a 5 g: la meta se aproxima al múltiplo de 5 más cercano
 const STEP = 5;
@@ -121,7 +123,7 @@ export function BasculaEnLista({ title, rows }) {
     : b.conn === "sim" ? { bg: "#EFEAFB", fg: "#6B46C1", label: "Modo prueba", anim: "none" }
     : b.conn === "connecting" ? { bg: "#F0ECE5", fg: C.muted, label: "Conectando…", anim: "none" }
     : { bg: "#F0ECE5", fg: C.muted, label: "Pesa desconectada", anim: "none" };
-  const stateLabel = !connected ? "sin señal" : !b.stable && b.moving ? "⏳ midiendo…" : inRange ? "✓ en rango" : over ? `+${fmt(diff)} g de más` : `faltan ${fmt(-diff)} g`;
+  const stateLabel = !connected ? "sin señal" : !b.stable && b.moving ? "⏳ midiendo…" : inRange ? "✓ en rango" : over ? `+${kg(diff)} KILO de más` : `faltan ${kg(-diff)} KILO`;
   const btnOutline = { height: compact ? 44 : 46, borderRadius: 12, border: `1.5px solid ${C.line}`, background: "#FFFFFF", color: C.navy, fontWeight: 700, fontSize: 13.5, cursor: "pointer", whiteSpace: "nowrap" };
   const isOn = b.conn === "on" || b.conn === "sim";
 
@@ -173,12 +175,12 @@ export function BasculaEnLista({ title, rows }) {
               {/* 3. lectura */}
               <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10, padding: "12px 14px", borderRadius: 14, background: C.cream }}>
                 <span style={{ display: "flex", alignItems: "baseline", gap: 4, fontVariantNumeric: "tabular-nums", opacity: connected ? (b.moving ? 0.75 : 1) : 0.5 }}>
-                  <span style={{ fontSize: compact ? 44 : 56, fontWeight: 800, lineHeight: 0.9, color: readColor, letterSpacing: "-.02em", transition: "color .25s" }}>{connected ? fmt(g) : "0"}</span>
-                  <span style={{ fontSize: 18, fontWeight: 700, color: C.muted }}>g</span>
+                  <span style={{ fontSize: compact ? 44 : 56, fontWeight: 800, lineHeight: 0.9, color: readColor, letterSpacing: "-.02em", transition: "color .25s" }}>{connected ? kg(g) : "0.000"}</span>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: C.muted }}>KILO</span>
                 </span>
                 <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, textAlign: "right" }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>meta <strong style={{ color: C.navy, fontSize: 14 }}>{fmt(t)} g</strong></span>
-                  {t !== row.grams && <span style={{ fontSize: 10.5, color: C.muted2 }}>receta {fmt(row.grams)} g</span>}
+                  <span style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>meta <strong style={{ color: C.navy, fontSize: 14 }}>{kg(t)} KILO</strong></span>
+                  {t !== row.grams && <span style={{ fontSize: 10.5, color: C.muted2 }}>receta {kg(row.grams)} KILO</span>}
                   <span style={{ fontSize: 14, fontWeight: 800, color: readColor }}>{stateLabel}</span>
                 </span>
               </div>
@@ -237,8 +239,8 @@ export function BasculaEnLista({ title, rows }) {
           else if (hecho) {
             const dv = d.actual - metaPesa(r.grams);
             const bad = Math.abs(dv) > tolPesa(metaPesa(r.grams));
-            right = `${fmt(d.actual)} g${bad ? ` (${dv > 0 ? "+" : ""}${fmt(dv)})` : ""}`; rightColor = bad ? C.red : C.green;
-          } else if (isCur) { right = connected ? `${fmt(g)} g` : "—"; rightColor = C.orange; }
+            right = `${kg(d.actual)}${bad ? ` (${dv > 0 ? "+" : ""}${kg(dv)})` : ""}`; rightColor = bad ? C.red : C.green;
+          } else if (isCur) { right = connected ? kg(g) : "—"; rightColor = C.orange; }
           else { right = "—"; rightColor = "#C9C2B6"; }
           return (
             <div key={i} onClick={tap}

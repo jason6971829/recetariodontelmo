@@ -104,6 +104,8 @@ function resolveRecipe(rec, list) {
 const fmt = (v, d = 0) =>
   (isFinite(v) ? v : 0).toLocaleString("es-CO", { minimumFractionDigits: d, maximumFractionDigits: d });
 const num = (v) => { const x = parseFloat(v); return isFinite(x) ? x : 0; };
+// Formato gabycontrol: los gramos se muestran en KILO con tres decimales y punto (6067 g → "6.067")
+const kg = (g) => (Math.round(Number(g) || 0) / 1000).toFixed(3);
 const uid = () => "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 function loadRecipes() {
@@ -568,15 +570,15 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 12 }}>
           {kpi("Unidades", fmt(LR.units))}
           {kpi("Peso a bolear", wTxt + " g")}
-          {kpi("Masa total", fmt(Math.round(LR.total)) + " g")}
-          {kpi(`Boleadora (${DIVISORA})`, fmt(Math.round(DIVISORA * LR.w)) + " g")}
+          {kpi("Masa total", kg(LR.total) + " KILO")}
+          {kpi(`Boleadora (${DIVISORA})`, kg(DIVISORA * LR.w) + " KILO")}
         </div>
         <table style={{ width: "100%", borderCollapse: "collapse", fontVariantNumeric: "tabular-nums" }}>
           <thead>
             <tr>
               <th style={{ ...th, textAlign: "left" }}>Ingrediente (mojadora)</th>
               <th style={{ ...th, textAlign: "right", width: 50 }}>%</th>
-              <th style={{ ...th, textAlign: "right", width: 90 }}>Gramos</th>
+              <th style={{ ...th, textAlign: "right", width: 90 }}>KILO</th>
               {Array.from({ length: CHECK_COLS }, (_, k) => <th key={k} style={{ ...th, textAlign: "center", width: 26, padding: "6px 2px" }}>✓</th>)}
             </tr>
           </thead>
@@ -584,7 +586,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
             <tr style={{ background: "#F4F7FB" }}>
               <td style={{ ...td, fontWeight: 700, color: C.navy }}>🌙 Biga madura (de la tina)</td>
               <td style={{ ...td, textAlign: "right", color: "#8a7a6e" }}>—</td>
-              <td style={{ ...td, textAlign: "right", fontWeight: 800, color: C.navy }}>{fmt(b.total)}</td>
+              <td style={{ ...td, textAlign: "right", fontWeight: 800, color: C.navy }}>{kg(b.total)}</td>
               {Array.from({ length: CHECK_COLS }, (_, k) => <td key={k} style={{ ...td, textAlign: "center", padding: "6px 2px" }}>{box}</td>)}
             </tr>
             {rec.ings.map((x, i) => (
@@ -594,7 +596,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
                   {reducedRow(b, i) && <div style={{ fontSize: 10, fontWeight: 600, color: C.navy }}>restante (ya descontada la biga)</div>}
                 </td>
                 <td style={{ ...td, textAlign: "right", color: "#8a7a6e" }}>{fmt(num(x.pct), num(x.pct) % 1 ? 1 : 0)}</td>
-                <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{fmt(b.grams[i])}</td>
+                <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{kg(b.grams[i])}</td>
                 {Array.from({ length: CHECK_COLS }, (_, k) => <td key={k} style={{ ...td, textAlign: "center", padding: "6px 2px" }}>{box}</td>)}
               </tr>
             ))}
@@ -631,9 +633,9 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
   };
 
   const copyRecipe = async () => {
-    const txt = `${sel.name}${sel.pan && sel.pan.trim() ? " — " + sel.pan.trim() : ""}\n${fmt(R.units)} unidades × ${fmt(R.w, R.r > 0 ? 0 : 1)} g\nMasa total: ${fmt(Math.round(R.total))} g\n\n` +
-      (biga ? `— Biga (preparar el día anterior) —\nHarina: ${fmt(biga.harina)} g\nAgua: ${fmt(biga.agua)} g\nLevadura fresca: ${fmt(biga.levadura)} g\nBiga madura: ${fmt(biga.total)} g\n\n— Mojadora —\nBiga madura: ${fmt(biga.total)} g\n` : "") +
-      sel.ings.map((x, i) => `${x.name}: ${fmt(G[i])} g${reducedRow(biga, i) ? " (descontada la biga)" : ` (${fmt(num(x.pct), num(x.pct) % 1 ? 1 : 0)}%)`}`).join("\n") +
+    const txt = `${sel.name}${sel.pan && sel.pan.trim() ? " — " + sel.pan.trim() : ""}\n${fmt(R.units)} unidades × ${fmt(R.w, R.r > 0 ? 0 : 1)} g\nMasa total: ${kg(R.total)} KILO\n\n` +
+      (biga ? `— Biga (preparar el día anterior) —\nHarina: ${kg(biga.harina)} KILO\nAgua: ${kg(biga.agua)} KILO\nLevadura fresca: ${kg(biga.levadura)} KILO\nBiga madura: ${kg(biga.total)} KILO\n\n— Mojadora —\nBiga madura: ${kg(biga.total)} KILO\n` : "") +
+      sel.ings.map((x, i) => `${x.name}: ${kg(G[i])} KILO${reducedRow(biga, i) ? " (descontada la biga)" : ` (${fmt(num(x.pct), num(x.pct) % 1 ? 1 : 0)}%)`}`).join("\n") +
       (instrText ? `\n\n— Instrucciones —\n${instrText}` : "");
     try { await navigator.clipboard.writeText(txt); setToast("Receta copiada"); }
     catch { setToast("No se pudo copiar"); }
@@ -716,9 +718,9 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
                         <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", width: 70 }} title="Cuántas veces se hace esta receta en la mojadora">
                           <NumInput inputMode="numeric" min="1" step="1" style={{ ...inp, padding: "6px 8px", fontSize: 13 }} value={l.tandas} onChange={v => patchLote(l.id, { tandas: v === "" ? "" : Math.max(1, Math.round(num(v))) })} />
                         </td>
-                        <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", textAlign: "right", fontWeight: 600, color: C.ink, whiteSpace: "nowrap" }}>{fmt(l.flour * l.tandas)} g</td>
+                        <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", textAlign: "right", fontWeight: 600, color: C.ink, whiteSpace: "nowrap" }}>{kg(l.flour * l.tandas)} KILO</td>
                         <td style={{ padding: "6px 4px", borderBottom: "1px solid #f0ebe5", textAlign: "right", fontWeight: 700, color: C.gold, whiteSpace: "nowrap" }}>{l.active === false ? "—" : (
-                          <>{fmt(l.part.total * l.tandas)} g{l.tandas > 1 && <div style={{ fontSize: 10, fontWeight: 600, color: "#8a7a6e" }}>{fmt(l.part.total)} g × {l.tandas}</div>}</>
+                          <>{kg(l.part.total * l.tandas)} KILO{l.tandas > 1 && <div style={{ fontSize: 10, fontWeight: 600, color: "#8a7a6e" }}>{kg(l.part.total)} KILO × {l.tandas}</div>}</>
                         )}</td>
                         <td className="calcpan-noprint" style={{ padding: "6px 2px", borderBottom: "1px solid #f0ebe5", textAlign: "center" }}>
                           <button onClick={() => toggleLoteInstr(l)} title={l.rec.instrOpen ? "Las instrucciones se imprimen" : "Las instrucciones no se imprimen"}
@@ -734,7 +736,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
                     <tr>
                       <td className="calcpan-noprint" style={{ borderTop: `2px solid ${C.ink}` }} />
                       <td colSpan={3} style={{ padding: "8px 4px", fontWeight: 700, color: C.navy, borderTop: `2px solid ${C.ink}` }}>Harina total ({activeRows.length} {activeRows.length === 1 ? "receta" : "recetas"}, {planTandas} {planTandas === 1 ? "tanda" : "tandas"})</td>
-                      <td style={{ padding: "8px 4px", textAlign: "right", fontWeight: 800, color: C.navy, borderTop: `2px solid ${C.ink}`, whiteSpace: "nowrap" }}>{fmt(planFlour)} g</td>
+                      <td style={{ padding: "8px 4px", textAlign: "right", fontWeight: 800, color: C.navy, borderTop: `2px solid ${C.ink}`, whiteSpace: "nowrap" }}>{kg(planFlour)} KILO</td>
                       <td style={{ borderTop: `2px solid ${C.ink}` }} />
                       <td className="calcpan-noprint" style={{ borderTop: `2px solid ${C.ink}` }} />
                       <td className="calcpan-noprint" style={{ borderTop: `2px solid ${C.ink}` }} />
@@ -744,7 +746,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
               </div>
               {activeRows.filter(l => l.LR.total > MOJADORA_MAX).map(l => (
                 <div key={`max-${l.id}`} className="calcpan-noprint" style={{ fontSize: 12, fontWeight: 600, color: "#8e2b20", background: "#FDECEA", border: "1.5px solid #e8c5bf", borderRadius: 8, padding: "7px 10px", marginTop: 8, lineHeight: 1.45 }}>
-                  ⚠️ {l.rec.name}: cada tanda pesa {fmt(Math.round(l.LR.total))} g y la mojadora aguanta {fmt(MOJADORA_MAX)} g. Bajá a {fmt(Math.floor(MOJADORA_MAX / l.LR.w))} unidades o menos por tanda y subí las tandas.
+                  ⚠️ {l.rec.name}: cada tanda pesa {kg(l.LR.total)} KILO y la mojadora aguanta {kg(MOJADORA_MAX)} KILO. Bajá a {fmt(Math.floor(MOJADORA_MAX / l.LR.w))} unidades o menos por tanda y subí las tandas.
                 </div>
               ))}
               <button className="calcpan-noprint" style={{ ...btn, marginTop: 10 }} onClick={addLote}>+ Agregar lote</button>
@@ -754,7 +756,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
                 <thead>
                   <tr>
                     <th style={{ textAlign: "left", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#9a8a7e", padding: "6px 4px", borderBottom: `1px solid ${C.line}` }}>Ingrediente</th>
-                    <th style={{ textAlign: "right", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#9a8a7e", padding: "6px 4px", borderBottom: `1px solid ${C.line}` }}>Gramos</th>
+                    <th style={{ textAlign: "right", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#9a8a7e", padding: "6px 4px", borderBottom: `1px solid ${C.line}` }}>KILO</th>
                     {Array.from({ length: CHECK_COLS }, (_, k) => (
                       <th key={`bc-h-${k}`} className="calcpan-printonly" style={{ textAlign: "center", fontSize: 11, color: "#9a8a7e", padding: "6px 2px", borderBottom: `1px solid ${C.line}`, width: 28 }}>✓</th>
                     ))}
@@ -764,7 +766,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
                   {[["Harina (30% de la harina total)", planBiga.harina], ["Agua (50% de la harina de biga)", planBiga.agua], ["Levadura fresca (1% de la harina de biga)", planBiga.levadura]].map(([n, g]) => (
                     <tr key={n}>
                       <td style={{ padding: "8px 4px", borderBottom: "1px solid #f0ebe5", fontWeight: 600, color: C.ink }}>{n}</td>
-                      <td style={{ padding: "8px 4px", borderBottom: "1px solid #f0ebe5", textAlign: "right", fontWeight: 800, fontSize: 18, color: C.navy, whiteSpace: "nowrap" }}>{fmt(g)} g</td>
+                      <td style={{ padding: "8px 4px", borderBottom: "1px solid #f0ebe5", textAlign: "right", fontWeight: 800, fontSize: 18, color: C.navy, whiteSpace: "nowrap" }}>{kg(g)} KILO</td>
                       {Array.from({ length: CHECK_COLS }, (_, k) => (
                         <td key={`bc-${k}`} className="calcpan-printonly" style={{ padding: "6px 2px", borderBottom: "1px solid #f0ebe5", textAlign: "center" }}>
                           <span style={{ display: "inline-block", width: 16, height: 16, border: `1.5px solid ${C.ink}`, borderRadius: 3 }} />
@@ -776,7 +778,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
               </table>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, border: `2px solid ${C.gold}`, background: "#FFF7EF", borderRadius: 10, padding: "10px 14px", marginTop: 12 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: C.navy }}>Biga madura total (una tina)</div>
-                <strong style={{ fontSize: 30, fontWeight: 800, color: C.gold, lineHeight: 1 }}>{fmt(planBiga.total)} g</strong>
+                <strong style={{ fontSize: 30, fontWeight: 800, color: C.gold, lineHeight: 1 }}>{kg(planBiga.total)} KILO</strong>
               </div>
               <p style={{ fontSize: 12, color: "#8a7a6e", margin: "10px 0 0", lineHeight: 1.5 }}>
                 Al día siguiente, cada lote toma de la tina la cantidad de la columna <b>Biga madura</b>. Cada hoja de receta impresa ya trae la mojadora con la biga descontada.
@@ -861,25 +863,25 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
             const t = Math.ceil(R.total / MOJADORA_MAX);
             return (
               <div className="calcpan-noprint" style={{ fontSize: 13, fontWeight: 600, color: "#8e2b20", background: "#FDECEA", border: "1.5px solid #e8c5bf", borderRadius: 8, padding: "8px 10px", marginBottom: 10, lineHeight: 1.45 }}>
-                ⚠️ {fmt(Math.round(R.total))} g no entran en la mojadora (máx. {fmt(MOJADORA_MAX)} g). Hacelo en {t} tandas de unas {fmt(Math.ceil(R.units / t))} unidades.
+                ⚠️ {kg(R.total)} KILO no entran en la mojadora (máx. {kg(MOJADORA_MAX)} KILO). Hacelo en {t} tandas de unas {fmt(Math.ceil(R.units / t))} unidades.
               </div>
             );
           })()}
           {/* A bolear · Boleadora (un testo por hueco) · Masa total */}
           {(() => {
             const pad = mobile ? "10px" : "14px 16px", big = mobile ? 19 : 28;
-            const card = (bg, fg, eyebrow, eyeColor, val, sub, subColor) => (
+            const card = (bg, fg, eyebrow, eyeColor, val, sub, subColor, unit = " g") => (
               <div style={{ padding: pad, borderRadius: 14, background: bg, color: fg, display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
                 <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: ".12em", color: eyeColor }}>{eyebrow}</span>
-                <span style={{ fontSize: big, fontWeight: 800, lineHeight: 1, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{val}<span style={{ fontSize: 12, opacity: .65 }}> g</span></span>
+                <span style={{ fontSize: big, fontWeight: 800, lineHeight: 1, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{val}<span style={{ fontSize: 12, opacity: .65 }}>{unit}</span></span>
                 {sub && <span style={{ fontSize: 10.5, color: subColor }}>{sub}</span>}
               </div>
             );
             return (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 8, marginBottom: 16 }}>
                 {card(C.navy, "#fff", "A BOLEAR", "#F0A35E", fmt(R.w, R.r > 0 ? 0 : 1), null)}
-                {card(C.gold1, C.gold7, "BOLEADORA", C.gold7, fmt(Math.round(DIVISORA * R.w)), `${DIVISORA} × ${fmt(R.w, R.r > 0 ? 0 : 1)} g`, C.gold7)}
-                {card(C.cream, C.navy, "MASA TOTAL", "#6E6A63", fmt(Math.round(R.total)), `${fmt(R.units)} unidades`, "#6E6A63")}
+                {card(C.gold1, C.gold7, "BOLEADORA", C.gold7, kg(DIVISORA * R.w), `${DIVISORA} × ${fmt(R.w, R.r > 0 ? 0 : 1)} g`, C.gold7, " KILO")}
+                {card(C.cream, C.navy, "MASA TOTAL", "#6E6A63", kg(R.total), `${fmt(R.units)} unidades`, "#6E6A63", " KILO")}
               </div>
             );
           })()}
@@ -896,10 +898,10 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
             <div style={{ border: "1.5px solid #D5DEEA", borderRadius: 16, padding: 12, marginBottom: 16, background: "#F4F7FB", animation: "dtUp .35s both" }}>
               <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase", color: C.navy, marginBottom: 10 }}>Biga · preparar hoy en la tarde</div>
               <div style={{ display: "grid", gridTemplateColumns: vp.w < 560 ? "repeat(2, minmax(0,1fr))" : "repeat(4, minmax(0,1fr))", gap: 6 }}>
-                {kpi("Harina (30%)", fmt(biga.harina) + " g")}
-                {kpi("Agua (50%)", fmt(biga.agua) + " g")}
-                {kpi("Levadura (1%)", fmt(biga.levadura) + " g")}
-                {kpi("Biga madura", fmt(biga.total) + " g")}
+                {kpi("Harina (30%)", kg(biga.harina) + " KILO")}
+                {kpi("Agua (50%)", kg(biga.agua) + " KILO")}
+                {kpi("Levadura (1%)", kg(biga.levadura) + " KILO")}
+                {kpi("Biga madura", kg(biga.total) + " KILO")}
               </div>
               <div style={{ fontSize: 12, color: "#55606F", marginTop: 10, lineHeight: 1.45 }}>
                 Mañana se agrega la biga madura al inicio; las cantidades de abajo ya descuentan harina, líquido y levadura.
@@ -912,7 +914,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
           {pesar ? (
             <div className="calcpan-noprint">
               <BasculaEnLista title={`${(selRaw.pan && selRaw.pan.trim()) || sel.name} · ${fmt(R.units)} u`}
-                rows={pesajeItems().map(it => ({ code: "", name: it.name, note: it.note || "", main: `${fmt(Math.max(5, Math.round(it.grams / 5) * 5))} g`, sub: "", grams: it.grams, manual: "" }))} />
+                rows={pesajeItems().map(it => ({ code: "", name: it.name, note: it.note || "", main: `${kg(Math.max(5, Math.round(it.grams / 5) * 5))} KILO`, sub: "", grams: it.grams, manual: "" }))} />
             </div>
           ) : (
           <div style={{ overflowX: "auto" }}>
@@ -921,7 +923,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
                 <tr>
                   <th style={{ textAlign: "left", fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".14em", color: C.muted2, padding: "0 4px 6px", borderBottom: `1.5px solid ${C.navy}` }}>Fórmula</th>
                   <th style={{ textAlign: "right", fontSize: 10.5, fontWeight: 800, letterSpacing: ".14em", color: C.muted2, padding: "0 4px 6px", borderBottom: `1.5px solid ${C.navy}`, width: 56 }}>%</th>
-                  <th style={{ textAlign: "right", fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".14em", color: C.muted2, padding: "0 4px 6px", borderBottom: `1.5px solid ${C.navy}`, width: mobile ? 96 : 112 }}>Gramos</th>
+                  <th style={{ textAlign: "right", fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".14em", color: C.muted2, padding: "0 4px 6px", borderBottom: `1.5px solid ${C.navy}`, width: mobile ? 96 : 112 }}>KILO</th>
                   {edit && <th style={{ width: 30, borderBottom: `1px solid ${C.line}` }} />}
                   {Array.from({ length: CHECK_COLS }, (_, k) => (
                     <th key={`chk-h-${k}`} className="calcpan-printonly" style={{ textAlign: "center", fontSize: 11, color: "#9a8a7e", padding: "6px 2px", borderBottom: `1px solid ${C.line}`, width: 28 }}>✓</th>
@@ -934,7 +936,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
                     <td style={{ padding: "6px 4px", borderBottom: `1px solid ${C.soft}`, fontWeight: 700, color: C.navy, fontSize: mobile ? 13.5 : 14.5 }}>Biga madura (del día anterior)</td>
                     <td style={{ padding: "6px 4px", borderBottom: `1px solid #f0ebe5`, textAlign: "right", color: "#8a7a6e" }}>—</td>
                     <td style={{ padding: "6px 4px", borderBottom: `1px solid #f0ebe5` }}>
-                      <div style={{ textAlign: "right", fontWeight: 800, color: C.navy, fontSize: mobile ? 13.5 : 14.5, padding: "0 10px", fontVariantNumeric: "tabular-nums" }}>{fmt(biga.total)}</div>
+                      <div style={{ textAlign: "right", fontWeight: 800, color: C.navy, fontSize: mobile ? 13.5 : 14.5, padding: "0 10px", fontVariantNumeric: "tabular-nums" }}>{kg(biga.total)}</div>
                     </td>
                     {edit && <td style={{ borderBottom: `1px solid #f0ebe5` }} />}
                     {Array.from({ length: CHECK_COLS }, (_, k) => (
@@ -959,8 +961,8 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
                     </td>
                     <td style={{ padding: "6px 4px", borderBottom: `1px solid #f0ebe5` }}>
                       {reducedRow(biga, i)
-                        ? <div style={{ textAlign: "right", fontWeight: 800, color: C.navy, fontSize: mobile ? 13.5 : 14.5, padding: "0 10px", fontVariantNumeric: "tabular-nums" }}>{fmt(G[i])}</div>
-                        : <NumInput inputMode="numeric" min="0" step="1" style={{ ...inp, height: 36, borderRadius: 10, borderColor: "transparent", background: C.row, fontSize: mobile ? 14 : 15, padding: "0 10px" }} value={R.grams[i]} onChange={v => setGram(i, v)} />}
+                        ? <div style={{ textAlign: "right", fontWeight: 800, color: C.navy, fontSize: mobile ? 13.5 : 14.5, padding: "0 10px", fontVariantNumeric: "tabular-nums" }}>{kg(G[i])}</div>
+                        : <NumInput inputMode="decimal" min="0" step="0.001" style={{ ...inp, height: 36, borderRadius: 10, borderColor: "transparent", background: C.row, fontSize: mobile ? 14 : 15, padding: "0 10px" }} value={kg(R.grams[i])} onChange={v => setGram(i, num(v) * 1000)} />}
                     </td>
                     {edit && (
                       <td style={{ padding: "6px 0", borderBottom: `1px solid #f0ebe5`, textAlign: "center" }}>
@@ -980,7 +982,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
                   <td style={{ padding: "8px 4px", fontFamily: SERIF, fontSize: 18, fontWeight: 600, color: C.navy, borderTop: `1.5px solid ${C.navy}` }}>Masa total</td>
                   <td style={{ padding: "8px 4px", textAlign: "right", fontSize: 13, fontWeight: 700, color: C.muted, borderTop: `1.5px solid ${C.navy}` }}>{fmt(R.SUM, 1)}%</td>
                   <td style={{ padding: "6px 4px", borderTop: `1.5px solid ${C.navy}` }}>
-                    <NumInput inputMode="numeric" min="0" step="1" style={{ ...inp, height: 38, borderRadius: 10, color: C.gold, fontSize: 15 }} value={Math.round(R.total)} onChange={v => setTotal(v)} />
+                    <NumInput inputMode="decimal" min="0" step="0.001" style={{ ...inp, height: 38, borderRadius: 10, color: C.gold, fontSize: 15 }} value={kg(R.total)} onChange={v => setTotal(num(v) * 1000)} />
                   </td>
                   {edit && <td style={{ borderTop: `1.5px solid ${C.navy}` }} />}
                   {Array.from({ length: CHECK_COLS }, (_, k) => (
@@ -995,11 +997,11 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
           {edit && <button style={{ ...btn, marginTop: 10 }} onClick={addIng}>+ Agregar ingrediente</button>}
 
           <p className="calcpan-noprint" style={{ fontSize: 12, color: C.muted2, margin: "12px 0 0" }}>
-            Ejemplo: si solo tenés 5.000 g de harina, escribilo en Harina y vas a ver cuántos panes salen.
+            Ejemplo: si solo tenés 5.000 KILO de harina, escribilo en Harina y vas a ver cuántos panes salen.
           </p>
           {drive === "flour" && R.left >= 1 && (
             <p style={{ fontSize: 13, color: C.gold, fontWeight: 600, margin: "6px 0 0" }}>
-              Salen {fmt(R.units)} panes de {fmt(R.w, R.r > 0 ? 0 : 1)} g y sobran {fmt(Math.round(R.left))} g de masa.
+              Salen {fmt(R.units)} panes de {fmt(R.w, R.r > 0 ? 0 : 1)} g y sobran {kg(R.left)} KILO de masa.
             </p>
           )}
 
