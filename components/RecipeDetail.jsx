@@ -6,7 +6,7 @@ import { useLang } from "@/lib/LangContext";
 import { generateRecipePDF } from "@/lib/recipePDF";
 import { printRecipeThermal } from "@/lib/thermalPrint";
 import { normalizeIngredient, ingredientToReadable } from "@/lib/ingredients";
-import { parseQty, parseNumber, fmtScaled, fmtNum, defaultBaseIndex, GRAMS_PER } from "@/lib/scaleRecipe";
+import { parseQty, parseNumber, fmtScaled, fmtNum, fmtGaby, defaultBaseIndex, GRAMS_PER } from "@/lib/scaleRecipe";
 import { BasculaEnLista } from "@/components/BasculaEnLista";
 import { useViewport } from "@/hooks/useViewport";
 import { loadUi, saveUi } from "@/lib/session";
@@ -57,7 +57,7 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
   const base = parsed[baseIdx];
   const haveNum = parseNumber(have);
   const factor = calcOn && base && base.qty > 0 && isFinite(haveNum) && haveNum > 0 ? haveNum / base.qty : 1;
-  const setFactor = (f) => base && setHave(fmtNum(base.qty * f, 3));
+  const setFactor = (f) => base && setHave(fmtGaby(base.qty * f));
   const rinde = parseQty(recipe.portions);
   // Filas para pesar en la misma lista: meta en gramos de lo que va en peso; lo demás se mide o se cuenta
   const pesoRows = ings.map((n, i) => {
@@ -158,12 +158,12 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
                   <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: ".16em", color: C.orange7 }}>INGREDIENTE PRINCIPAL</span>
                   <select value={baseIdx} onChange={e => { setBaseIdx(Number(e.target.value)); setHave(""); }}
                     style={{ height: 44, borderRadius: 11, border: `1.5px solid ${C.line}`, background: "#fff", padding: "0 12px", fontSize: 16, fontWeight: 700, color: C.navy, minWidth: 0 }}>
-                    {parsed.map((p, i) => p && <option key={i} value={i}>{p.name || ings[i].text} ({fmtNum(p.qty)} {p.unitRaw})</option>)}
+                    {parsed.map((p, i) => p && <option key={i} value={i}>{p.name || ings[i].text} ({fmtScaled(p, 1).main})</option>)}
                   </select>
                 </label>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: C.navy, whiteSpace: "nowrap" }}>¿Cuánto tienes?</span>
-                  <input inputMode="decimal" value={have} placeholder={fmtNum(base.qty)} onChange={e => setHave(e.target.value.replace(/[^0-9.,]/g, ""))} onFocus={e => e.target.select()}
+                  <input inputMode="decimal" value={have} placeholder={fmtGaby(base.qty)} onChange={e => setHave(e.target.value.replace(/[^0-9.,]/g, ""))} onFocus={e => e.target.select()}
                     style={{ flex: 1, minWidth: 0, height: 48, borderRadius: 12, border: `2px solid ${C.orange}`, background: "#fff", padding: "0 14px", fontSize: 20, fontWeight: 800, color: C.navy, textAlign: "right" }} />
                   <span style={{ fontSize: 13, fontWeight: 800, color: C.navy }}>{base.unitRaw}</span>
                 </div>

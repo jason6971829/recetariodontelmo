@@ -51,7 +51,7 @@ function scaleIngredient(ing, factor) {
   const { code, text } = normalizeIngredient(ing);
   const scaled = factor === 1 ? text : text.replace(/^\s*(\d+(?:[.,]\d+)?)/, (m) => {
     const n = parseFloat(m.replace(",", ".")) * factor;
-    return String(parseFloat(n.toFixed(4)));
+    return (Math.round(n * 1000) / 1000).toFixed(3); // formato gabycontrol: 0.054
   });
   return code ? { code, text: scaled } : scaled;
 }
