@@ -6,7 +6,7 @@ import { useLang } from "@/lib/LangContext";
 import { generateRecipePDF } from "@/lib/recipePDF";
 import { printRecipeThermal } from "@/lib/thermalPrint";
 import { normalizeIngredient, ingredientToReadable } from "@/lib/ingredients";
-import { parseQty, parseNumber, fmtScaled, fmtNum, fmtGaby, defaultBaseIndex, GRAMS_PER } from "@/lib/scaleRecipe";
+import { parseQty, parseNumber, fmtScaled, fmtNum, fmtGaby, defaultBaseIndex, GRAMS_PER, unitProblem } from "@/lib/scaleRecipe";
 import { BasculaEnLista } from "@/components/BasculaEnLista";
 import { useViewport } from "@/hooks/useViewport";
 import { loadUi, saveUi } from "@/lib/session";
@@ -196,6 +196,7 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
                           <><strong style={{ color: C.navy, fontWeight: 800 }}>{sc.main}</strong>{calcOn && sc.sub && <span style={{ fontSize: 11.5, color: C.muted }}> · {sc.sub}</span>} · {p.name}</>
                         ) : n.text}
                       </span>
+                      {unitProblem(n.text) && <span title={unitProblem(n.text)} style={{ fontSize: 10.5, fontWeight: 800, color: "#C8423B", background: "#FDECEA", padding: "3px 7px", borderRadius: 6, flex: "none" }}>⚠ unidad</span>}
                       {isBase && <span style={{ fontSize: 10.5, fontWeight: 800, color: C.orange, flex: "none" }}>★ principal</span>}
                     </div>
                   );

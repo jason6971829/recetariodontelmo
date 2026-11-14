@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
+import { kgFromG } from "@/lib/scaleRecipe";
 import { createPortal } from "react-dom";
 import { BasculaEnLista } from "./BasculaEnLista";
 import { useViewport } from "@/hooks/useViewport";
@@ -104,8 +105,10 @@ function resolveRecipe(rec, list) {
 const fmt = (v, d = 0) =>
   (isFinite(v) ? v : 0).toLocaleString("es-CO", { minimumFractionDigits: d, maximumFractionDigits: d });
 const num = (v) => { const x = parseFloat(v); return isFinite(x) ? x : 0; };
-// Formato gabycontrol: los gramos se muestran en KILO con tres decimales y punto (6067 g → "6.067")
-const kg = (g) => (Math.round(Number(g) || 0) / 1000).toFixed(3);
+// Formato gabycontrol: los gramos se muestran en KILO con tres decimales, coma decimal (6067 g → "6,067")
+const kg = kgFromG;
+// Para los campos numéricos (el teclado numérico usa punto)
+const kgIn = (g) => (Math.round(Number(g) || 0) / 1000).toFixed(3);
 const uid = () => "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 function loadRecipes() {
@@ -962,7 +965,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
                     <td style={{ padding: "6px 4px", borderBottom: `1px solid #f0ebe5` }}>
                       {reducedRow(biga, i)
                         ? <div style={{ textAlign: "right", fontWeight: 800, color: C.navy, fontSize: mobile ? 13.5 : 14.5, padding: "0 10px", fontVariantNumeric: "tabular-nums" }}>{kg(G[i])}</div>
-                        : <NumInput inputMode="decimal" min="0" step="0.001" style={{ ...inp, height: 36, borderRadius: 10, borderColor: "transparent", background: C.row, fontSize: mobile ? 14 : 15, padding: "0 10px" }} value={kg(R.grams[i])} onChange={v => setGram(i, num(v) * 1000)} />}
+                        : <NumInput inputMode="decimal" min="0" step="0.001" style={{ ...inp, height: 36, borderRadius: 10, borderColor: "transparent", background: C.row, fontSize: mobile ? 14 : 15, padding: "0 10px" }} value={kgIn(R.grams[i])} onChange={v => setGram(i, num(v) * 1000)} />}
                     </td>
                     {edit && (
                       <td style={{ padding: "6px 0", borderBottom: `1px solid #f0ebe5`, textAlign: "center" }}>
@@ -982,7 +985,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
                   <td style={{ padding: "8px 4px", fontFamily: SERIF, fontSize: 18, fontWeight: 600, color: C.navy, borderTop: `1.5px solid ${C.navy}` }}>Masa total</td>
                   <td style={{ padding: "8px 4px", textAlign: "right", fontSize: 13, fontWeight: 700, color: C.muted, borderTop: `1.5px solid ${C.navy}` }}>{fmt(R.SUM, 1)}%</td>
                   <td style={{ padding: "6px 4px", borderTop: `1.5px solid ${C.navy}` }}>
-                    <NumInput inputMode="decimal" min="0" step="0.001" style={{ ...inp, height: 38, borderRadius: 10, color: C.gold, fontSize: 15 }} value={kg(R.total)} onChange={v => setTotal(num(v) * 1000)} />
+                    <NumInput inputMode="decimal" min="0" step="0.001" style={{ ...inp, height: 38, borderRadius: 10, color: C.gold, fontSize: 15 }} value={kgIn(R.total)} onChange={v => setTotal(num(v) * 1000)} />
                   </td>
                   {edit && <td style={{ borderTop: `1.5px solid ${C.navy}` }} />}
                   {Array.from({ length: CHECK_COLS }, (_, k) => (
@@ -997,7 +1000,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
           {edit && <button style={{ ...btn, marginTop: 10 }} onClick={addIng}>+ Agregar ingrediente</button>}
 
           <p className="calcpan-noprint" style={{ fontSize: 12, color: C.muted2, margin: "12px 0 0" }}>
-            Ejemplo: si solo tenés 5.000 KILO de harina, escribilo en Harina y vas a ver cuántos panes salen.
+            Ejemplo: si solo tenés 5,000 KILO de harina, escribilo en Harina y vas a ver cuántos panes salen.
           </p>
           {drive === "flour" && R.left >= 1 && (
             <p style={{ fontSize: 13, color: C.gold, fontWeight: 600, margin: "6px 0 0" }}>

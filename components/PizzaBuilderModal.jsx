@@ -4,7 +4,7 @@ import { generatePizzaPDF } from "@/lib/recipePDF";
 import { printPizzaThermal } from "@/lib/thermalPrint";
 import { useViewport } from "@/hooks/useViewport";
 import { normalizeIngredient } from "@/lib/ingredients";
-import { parseQty, fmtScaled } from "@/lib/scaleRecipe";
+import { parseQty, fmtScaled, fmtGaby } from "@/lib/scaleRecipe";
 
 // ═══ Armar pizza (rediseño Don Telmo) ═══
 // Solo cambia la interfaz: recetas por porción, sabores por tamaño (sufijo (c)/(m)/(p) en el nombre),
@@ -49,10 +49,15 @@ export function getPizzaSuffix(name = "") {
 // y se redondeaba a 1 decimal: 0,054 kg salía como 0,1 kg).
 function scaleIngredient(ing, factor) {
   const { code, text } = normalizeIngredient(ing);
-  const scaled = factor === 1 ? text : text.replace(/^\s*(\d+(?:[.,]\d+)?)/, (m) => {
-    const n = parseFloat(m.replace(",", ".")) * factor;
-    return (Math.round(n * 1000) / 1000).toFixed(3); // formato gabycontrol: 0.054
-  });
+  // "21 GRAMOS - Carne" × 8 → "0,168 KILO - Carne" (formato gabycontrol, nunca gramos)
+  const p = parseQty(text);
+  let scaled = text;
+  if (p && p.unitRaw) {
+    const toBase = p.unit === "GR" ? ["KILO", 0.001] : p.unit === "ML" ? ["LITRO", 0.001] : [p.unitRaw, 1];
+    scaled = `${fmtGaby(p.qty * factor * toBase[1])} ${toBase[0]}${p.name ? " - " + p.name : ""}`;
+  } else if (p) {
+    scaled = text.replace(/^\s*(\d+(?:[.,]\d+)*)/, () => fmtGaby(p.qty * factor));
+  }
   return code ? { code, text: scaled } : scaled;
 }
 function cleanName(name = "") { return name.replace(/\s*\([cmp]\)\s*$/i, "").trim(); }

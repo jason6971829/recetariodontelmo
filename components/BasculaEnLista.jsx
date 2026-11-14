@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { kgFromG } from "@/lib/scaleRecipe";
 import { useBascula } from "@/components/PesajeBascula";
 import { useViewport } from "@/hooks/useViewport";
 import { loadUi, saveUi } from "@/lib/session";
@@ -10,7 +11,7 @@ import { touchActivity } from "@/lib/security";
 const C = { navy: "#0E2240", orange: "#D9731A", orange700: "#B85E10", cream: "#F6F3EE", row: "#FAF8F4", line: "#E7E1D7", track: "#EFEAE2", ink2: "#3C3A36", muted: "#8A847A", muted2: "#A39D92", green: "#1F9D6B", green100: "#E7F5EE", red: "#C8423B" };
 const fmt = (v) => Math.round(v).toLocaleString("es-CO");
 // Formato gabycontrol / pantalla de la pesa: kilos con tres decimales (325 g → "0.325")
-const kg = (g) => (Math.round(Number(g) || 0) / 1000).toFixed(3);
+const kg = kgFromG; // 6067 g → "6,067" (formato gabycontrol)
 const HIST_KEY = "calcpan_pesajes_v1";
 // La SAT CS30 marca de a 5 g: la meta se aproxima al múltiplo de 5 más cercano
 const STEP = 5;
@@ -175,7 +176,7 @@ export function BasculaEnLista({ title, rows }) {
               {/* 3. lectura */}
               <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10, padding: "12px 14px", borderRadius: 14, background: C.cream }}>
                 <span style={{ display: "flex", alignItems: "baseline", gap: 4, fontVariantNumeric: "tabular-nums", opacity: connected ? (b.moving ? 0.75 : 1) : 0.5 }}>
-                  <span style={{ fontSize: compact ? 44 : 56, fontWeight: 800, lineHeight: 0.9, color: readColor, letterSpacing: "-.02em", transition: "color .25s" }}>{connected ? kg(g) : "0.000"}</span>
+                  <span style={{ fontSize: compact ? 44 : 56, fontWeight: 800, lineHeight: 0.9, color: readColor, letterSpacing: "-.02em", transition: "color .25s" }}>{connected ? kg(g) : "0,000"}</span>
                   <span style={{ fontSize: 16, fontWeight: 700, color: C.muted }}>KILO</span>
                 </span>
                 <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, textAlign: "right" }}>

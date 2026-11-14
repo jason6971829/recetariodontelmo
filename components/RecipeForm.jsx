@@ -6,6 +6,7 @@ import { CATEGORIES } from "@/lib/constants";
 import { uploadImage } from "@/lib/storage";
 import { useLang } from "@/lib/LangContext";
 import { normalizeIngredient, ingredientToString } from "@/lib/ingredients";
+import { unitProblem } from "@/lib/scaleRecipe";
 import { InsumoSelector } from "@/components/InsumoSelector";
 import { ProductoSelector } from "@/components/ProductoSelector";
 
@@ -246,6 +247,7 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
                         onBlur={saveEdit}
                         onKeyDown={e=>{ if(e.key==="Enter") saveEdit(); if(e.key==="Escape") setEditingIdx(null); }}
                       />
+                      {unitProblem(editingVal) && <span title={unitProblem(editingVal)} style={{ fontSize:11, fontWeight:800, color:"#C8423B", flex:"none" }}>⚠</span>}
                     </>
                   ) : (
                     <div onClick={()=>startEdit(i,ing)} style={{ flex:1, minWidth:0, background: i % 2 ? "#fff" : "#FAF8F4", border:"1px solid #F0ECE5", borderRadius:12, minHeight:44, padding:"6px 12px", fontSize:14, color:"#3C3A36", cursor:"text", display:"flex", alignItems:"center", gap:10 }}>
@@ -254,7 +256,9 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
                       ) : (
                         <span style={{ background:"#fff", color:"#C8423B", border:"1px dashed #D9731A", borderRadius:6, padding:"2px 7px", fontSize:10.5, fontWeight:700, flexShrink:0 }}>sin ID</span>
                       )}
-                      <span style={{ minWidth:0 }}>{n.text}</span>
+                      <span style={{ minWidth:0 }}>{n.text}
+                        {unitProblem(n.text) && <span style={{ display:"block", fontSize:11.5, fontWeight:700, color:"#C8423B", marginTop:2 }}>⚠ {unitProblem(n.text)}</span>}
+                      </span>
                     </div>
                   )}
                   <button onClick={()=>removeIng(i)} aria-label="Quitar ingrediente" style={{ width:36, height:36, borderRadius:10, border:"1.5px solid #E7E1D7", background:"#fff", color:"#C8423B", cursor:"pointer", flex:"none", display:"flex", alignItems:"center", justifyContent:"center" }}>
