@@ -1,97 +1,126 @@
 "use client";
+import { AdminShell, FootBtn, useToast, A, card } from "@/components/dt/AdminShell";
+
+// Los textos de i18n traen emojis al inicio ("📤 Subir nueva imagen"): se quitan, el ícono va en SVG.
+const txt = (s) => String(s || "").replace(/^[^\p{L}\p{N}]+/u, "");
+
+const Svg = ({ d, size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>
+);
+const P = {
+  frame: "M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM21 15l-5-5L5 21",
+  upload: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12",
+};
+
+const sliderCard = { ...card, borderRadius:16, padding:"14px 16px", display:"flex", flexDirection:"column", gap:6 };
+const sliderName = { fontSize:14, fontWeight:800, color:A.navy };
+const sliderValue = { fontFamily:A.serif, fontSize:20, fontWeight:600, color:A.orange, lineHeight:1 };
+const sliderRow = { display:"flex", alignItems:"center", gap:10, fontSize:11.5, color:A.muted2 };
+const range = { flex:1, minWidth:0, height:44, accentColor:"#D9731A", margin:0, cursor:"pointer", touchAction:"none" };
 
 export function WatermarkModal({ show, isAdmin, onClose, t, watermarkLogo, setWatermarkLogo, watermarkOpacity, watermarkSize, saveWatermark }) {
-  if (!show || !isAdmin) return null;
+  const [toast, showToast] = useToast();
+  // El toast sigue visible un momento después de cerrar (el componente queda montado).
+  if (!show || !isAdmin) return toast;
+  const opPct = Math.round(watermarkOpacity * 100);
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:9995, background:"var(--app-primary-dark)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-      <div style={{ background:"#fff", borderRadius:"20px", padding:"32px 28px", width:"100%", maxWidth:"440px", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
-        <div style={{ fontSize:"28px", marginBottom:"4px", textAlign:"center" }}>🖼️</div>
-        <div style={{ color:"var(--app-primary)", fontSize:"18px", fontWeight:"700", fontFamily:"Georgia,serif", marginBottom:"16px", textAlign:"center" }}>
-          {t.watermark.title}
-        </div>
-
-        <div style={{ background:"#fff", borderRadius:"12px", border:"1px solid #eee", padding:"20px", marginBottom:"16px", textAlign:"center", minHeight:"120px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
-          <img
-            src={watermarkLogo || "https://nhqdsdmqmyoxuyzsdacj.supabase.co/storage/v1/object/public/recipe-images/watermark/logo-watermark.png"}
-            alt={t.watermark.preview}
-            style={{ width: watermarkSize + "%", maxWidth:"220px", opacity: Math.max(watermarkOpacity, 0.15) }}
-          />
-          <div style={{ color:"#bbb", fontSize:"11px", marginTop:"8px" }}>{t.watermark.previewNote}</div>
-        </div>
-
-        <div style={{ background:"#f8f8f8", borderRadius:"10px", padding:"12px 14px", marginBottom:"10px" }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
-            <span style={{ fontSize:"13px", color:"#333", fontWeight:"600" }}>{t.watermark.visibility}</span>
-            <span style={{ fontSize:"13px", color:"var(--app-primary)", fontWeight:"700" }}>{Math.round(watermarkOpacity * 100)}%</span>
-          </div>
-          <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-            <span style={{ fontSize:"11px", color:"#999", width:"40px" }}>{t.watermark.faint}</span>
-            <input type="range" min="1" max="40" value={Math.round(watermarkOpacity * 100)}
-              onChange={e => saveWatermark({ opacity: parseInt(e.target.value) / 100 })}
-              style={{ flex:1, accentColor:"var(--app-primary)", cursor:"pointer", height:"20px", touchAction:"none" }}
+    <>
+      <AdminShell
+        icon={<Svg d={P.frame} size={20} />}
+        title={txt(t.watermark.title)}
+        maxWidth={480}
+        zIndex={9995}
+        bodyGap={14}
+        onClose={onClose}
+        footer={<>
+          <FootBtn kind="gray" disabled={!watermarkLogo} title={t.watermark.restore} onClick={() => { saveWatermark({ logo: null }); showToast("Logo restaurado"); }}>
+            {t.watermark.restoreShort || "Restaurar logo"}
+          </FootBtn>
+          <FootBtn kind="navy" onClick={() => { showToast("Marca de agua guardada"); onClose(); }}>
+            {t.watermark.done || "Listo"}
+          </FootBtn>
+        </>}
+      >
+        <div className="dt-adm" style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          <div style={{
+            ...card, position:"relative", flex:"none", height:210, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden",
+            backgroundColor:"#fff",
+            backgroundImage:"linear-gradient(45deg,#F6F3EE 25%,transparent 25%,transparent 75%,#F6F3EE 75%),linear-gradient(45deg,#F6F3EE 25%,transparent 25%,transparent 75%,#F6F3EE 75%)",
+            backgroundSize:"20px 20px", backgroundPosition:"0 0,10px 10px",
+            animation:"dtUp .4s both",
+          }}>
+            <img
+              src={watermarkLogo || "https://nhqdsdmqmyoxuyzsdacj.supabase.co/storage/v1/object/public/recipe-images/watermark/logo-watermark.png"}
+              alt={t.watermark.preview}
+              style={{ width: watermarkSize + "%", maxHeight:"84%", objectFit:"contain", opacity: Math.max(watermarkOpacity, 0.15), transition:"opacity .25s,width .25s" }}
             />
-            <span style={{ fontSize:"11px", color:"#999", width:"40px", textAlign:"right" }}>{t.watermark.visible}</span>
+            <span style={{ position:"absolute", left:8, right:8, bottom:8, textAlign:"center", fontSize:11.5, color:A.muted2 }}>{t.watermark.previewNote}</span>
           </div>
+
+          <div style={{ ...sliderCard, animation:"dtUp .4s both", animationDelay:"60ms" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <span style={sliderName}>{t.watermark.visibility}</span>
+              <span style={sliderValue}>{opPct}%</span>
+            </div>
+            <div style={sliderRow}>
+              <span>{t.watermark.faint}</span>
+              <input type="range" min="3" max="40" value={opPct} aria-label={t.watermark.visibility}
+                onChange={e => saveWatermark({ opacity: parseInt(e.target.value) / 100 })}
+                style={range}
+              />
+              <span>{t.watermark.visible}</span>
+            </div>
+          </div>
+
+          <div style={{ ...sliderCard, animation:"dtUp .4s both", animationDelay:"120ms" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <span style={sliderName}>{t.watermark.size}</span>
+              <span style={sliderValue}>{watermarkSize}%</span>
+            </div>
+            <div style={sliderRow}>
+              <span>{t.watermark.small}</span>
+              <input type="range" min="20" max="90" value={watermarkSize} aria-label={t.watermark.size}
+                onChange={e => saveWatermark({ size: parseInt(e.target.value) })}
+                style={range}
+              />
+              <span>{t.watermark.large}</span>
+            </div>
+          </div>
+
+          <label className="dt-adm-navy" style={{
+            flex:"none", height:50, borderRadius:14, background:A.navy, color:"#fff", fontWeight:800, fontSize:14.5, cursor:"pointer",
+            display:"flex", alignItems:"center", justifyContent:"center", gap:9, transition:"background .2s",
+            animation:"dtUp .4s both", animationDelay:"180ms",
+          }}>
+            <Svg d={P.upload} />
+            {txt(t.watermark.upload)}
+            <input type="file" accept="image/*" style={{ display:"none" }} onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              try {
+                const { supabase } = await import("@/lib/supabase");
+                const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+                const path = `watermark/custom-watermark.${ext}`;
+                await supabase.storage.from("recipe-images").remove([path]);
+                const { error } = await supabase.storage
+                  .from("recipe-images")
+                  .upload(path, file, { upsert: true, cacheControl: "0" });
+                if (error) throw error;
+                const { data: urlData } = supabase.storage.from("recipe-images").getPublicUrl(path);
+                const stableUrl = urlData.publicUrl;
+                saveWatermark({ logo: stableUrl });
+                setWatermarkLogo(stableUrl + "?t=" + Date.now());
+              } catch (err) {
+                console.error("Watermark upload error:", err);
+                const reader = new FileReader();
+                reader.onload = () => saveWatermark({ logo: reader.result });
+                reader.readAsDataURL(file);
+              }
+            }} />
+          </label>
         </div>
-
-        <div style={{ background:"#f8f8f8", borderRadius:"10px", padding:"12px 14px", marginBottom:"16px" }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
-            <span style={{ fontSize:"13px", color:"#333", fontWeight:"600" }}>{t.watermark.size}</span>
-            <span style={{ fontSize:"13px", color:"var(--app-primary)", fontWeight:"700" }}>{watermarkSize}%</span>
-          </div>
-          <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-            <span style={{ fontSize:"11px", color:"#999", width:"40px" }}>{t.watermark.small}</span>
-            <input type="range" min="10" max="90" value={watermarkSize}
-              onChange={e => saveWatermark({ size: parseInt(e.target.value) })}
-              style={{ flex:1, accentColor:"var(--app-primary)", cursor:"pointer", height:"20px", touchAction:"none" }}
-            />
-            <span style={{ fontSize:"11px", color:"#999", width:"40px", textAlign:"right" }}>{t.watermark.large}</span>
-          </div>
-        </div>
-
-        <label style={{
-          display:"block", background:"var(--app-primary)", color:"#fff", padding:"12px", borderRadius:"10px",
-          textAlign:"center", cursor:"pointer", fontWeight:"700", fontSize:"14px", marginBottom:"12px",
-        }}>
-          {t.watermark.upload}
-          <input type="file" accept="image/*" style={{ display:"none" }} onChange={async (e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            try {
-              const { supabase } = await import("@/lib/supabase");
-              const ext = file.name.split(".").pop()?.toLowerCase() || "png";
-              const path = `watermark/custom-watermark.${ext}`;
-              await supabase.storage.from("recipe-images").remove([path]);
-              const { error } = await supabase.storage
-                .from("recipe-images")
-                .upload(path, file, { upsert: true, cacheControl: "0" });
-              if (error) throw error;
-              const { data: urlData } = supabase.storage.from("recipe-images").getPublicUrl(path);
-              const stableUrl = urlData.publicUrl;
-              saveWatermark({ logo: stableUrl });
-              setWatermarkLogo(stableUrl + "?t=" + Date.now());
-            } catch (err) {
-              console.error("Watermark upload error:", err);
-              const reader = new FileReader();
-              reader.onload = () => saveWatermark({ logo: reader.result });
-              reader.readAsDataURL(file);
-            }
-          }} />
-        </label>
-
-        {watermarkLogo && (
-          <button onClick={() => saveWatermark({ logo: null })} style={{ width:"100%", background:"none", border:"1px solid #ddd", padding:"10px", borderRadius:"10px", cursor:"pointer", fontSize:"13px", color:"#888", marginBottom:"12px" }}>
-            {t.watermark.restore}
-          </button>
-        )}
-
-        <button onClick={onClose} style={{
-          width:"100%", background:"#e74c3c", border:"none", padding:"12px", borderRadius:"10px",
-          color:"#fff", cursor:"pointer", fontWeight:"700", fontSize:"14px",
-        }}>
-          {t.watermark.close}
-        </button>
-      </div>
-    </div>
+      </AdminShell>
+      {toast}
+    </>
   );
 }

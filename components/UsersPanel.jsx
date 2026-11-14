@@ -1,158 +1,201 @@
 "use client";
 import { useState } from "react";
 import { useLang } from "@/lib/LangContext";
+import { useViewport } from "@/hooks/useViewport";
+import { Icon } from "@/components/dt/ui";
+import { AdminShell, FootBtn, Switch, useToast, A, eyebrow, input } from "@/components/dt/AdminShell";
 
 const SEDES = ["Almendros", "Hayuelos", "Capriani", "Campiña", "Felicidad", "Calera", "Granada", "Oficina"];
 
 // Helper: unique key for each user in the UI (existing users use id, new users use _tempId)
 const uid = (u) => u.id ?? u._tempId;
 
+const EMPTY_USER = { username:"", password:"", name:"", role:"cocinero", sede:"", permissions:{} };
+
+// Los textos de i18n traen emojis/símbolos al inicio ("✏️ Editar", "+ Agregar"): se quitan, el ícono va en SVG.
+const txt = (s) => String(s || "").replace(/^[^\p{L}\p{N}]+/u, "");
+
+const Svg = ({ d, size = 16, w = 2, stroke = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>
+);
+const P = {
+  key: "M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4",
+  eye: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+  eyeOff: "M17.9 17.9A10.9 10.9 0 0 1 12 20C5 20 1 12 1 12a18.5 18.5 0 0 1 5.1-5.9M9.9 4.2A10.4 10.4 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.2 3.2M1 1l22 22M14.1 14.1a3 3 0 1 1-4.2-4.2",
+  pencil: "M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z",
+  trash: "M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5",
+  plus: "M12 5v14M5 12h14",
+  check: "M5 12l5 5L20 7",
+};
+
 export function UsersPanel({ users, onSave, onClose }) {
   const [list, setList] = useState(users);
-  const [newUser, setNewUser] = useState({ username:"", password:"", name:"", role:"cocinero", sede:"", permissions:{} });
+  // Un solo formulario (abajo) para agregar y para editar; editingId indica el modo.
+  const [form, setForm] = useState(EMPTY_USER);
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({});
+  const [rev, setRev] = useState({}); // claves visibles por fila
+  const [closing, setClosing] = useState(false);
   const { t } = useLang();
-  const inp = { padding:"9px 10px", border:"1.5px solid #E0D8CE", borderRadius:"7px", fontSize:"13px", outline:"none", width:"100%", boxSizing:"border-box" };
+  const { mobile } = useViewport();
+  const [toast, showToast] = useToast();
+  const editing = editingId != null;
 
   const addUser = () => {
-    if (!newUser.username||!newUser.password||!newUser.name){alert("Completa todos los campos");return;}
+    if (!form.username||!form.password||!form.name){showToast("Completa todos los campos");return;}
     // No asignar id — saveUsers lo detecta como nuevo y deja que Supabase genere el id
-    setList(l=>[...l,{...newUser, _tempId:Date.now()}]);
-    setNewUser({username:"",password:"",name:"",role:"cocinero",sede:"",permissions:{}});
+    setList(l=>[...l,{...form, _tempId:Date.now()}]);
+    setForm(EMPTY_USER);
+    showToast("Usuario agregado · falta Guardar");
   };
   const removeUser = key => {
     if (list.find(u=>uid(u)===key)?.username==="admin"){alert("No puedes eliminar el administrador principal");return;}
     if (!confirm("¿Estás seguro de eliminar este usuario?")) return;
     setList(l=>l.filter(u=>uid(u)!==key));
+    if (editingId === key) { setEditingId(null); setForm(EMPTY_USER); }
   };
   const startEdit = (u) => {
     setEditingId(uid(u));
-    setEditForm({ name: u.name, username: u.username, password: u.password, role: u.role, sede: u.sede || "", permissions: u.permissions || {} });
+    setForm({ name: u.name, username: u.username, password: u.password, role: u.role, sede: u.sede || "", permissions: u.permissions || {} });
   };
   const saveEdit = (key) => {
-    const updated = list.map(u => uid(u) === key ? { ...u, ...editForm } : u);
+    if (!String(form.name||"").trim() || !String(form.username||"").trim()) { showToast("Completa nombre y usuario"); return; }
+    const updated = list.map(u => uid(u) === key ? { ...u, ...form } : u);
     setList(updated);
     setEditingId(null);
+    setForm(EMPTY_USER);
     const clean = updated.map(({ _tempId, permissions, ...rest }) => {
       const hasPerms = permissions && Object.keys(permissions).length > 0;
       return hasPerms ? { ...rest, permissions } : rest;
     });
     onSave(clean);
+    showToast("Usuario actualizado");
   };
-  const cancelEdit = () => setEditingId(null);
+  const cancelEdit = () => { setEditingId(null); setForm(EMPTY_USER); };
 
   // Strip _tempId antes de guardar; tambien omite `permissions` si esta vacio para
   // no enviar el campo si la columna aun no existe en DB (migracion pendiente).
   const handleSave = () => {
+    if (closing) return;
     const clean = list.map(({ _tempId, permissions, ...rest }) => {
       const hasPerms = permissions && Object.keys(permissions).length > 0;
       return hasPerms ? { ...rest, permissions } : rest;
     });
     onSave(clean);
-    onClose();
+    setClosing(true);
+    showToast("Usuarios guardados");
+    setTimeout(onClose, 700); // deja ver el toast antes de cerrar
   };
 
+  const field = { ...input, borderRadius: 13, fontWeight: 500 };
+  const rowBtn = { height: 44, minWidth: 44, borderRadius: 11, background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "inherit", flex: "none", transition: "all .2s" };
+
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:400, background:"rgba(10,15,25,0.88)", display:"flex", alignItems:"center", justifyContent:"center", padding:"16px" }}>
-      <div style={{ background:"#fff", borderRadius:"16px", width:"100%", maxWidth:"620px", maxHeight:"calc(var(--app-height, 100vh) * 0.90)", overflow:"hidden", display:"flex", flexDirection:"column", boxShadow:"0 30px 80px rgba(0,0,0,0.5)" }}>
-        <div style={{ background:"linear-gradient(135deg,var(--app-primary),var(--app-primary-dark))", padding:"18px 24px", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
-          <div>
-            <div style={{ color:"#D4721A", fontSize:"10px", fontWeight:"700", letterSpacing:"3px", fontFamily:"Georgia,serif" }}>{t.admin}</div>
-            <div style={{ color:"#fff", fontFamily:"Georgia,serif", fontSize:"17px", fontWeight:"700", marginTop:"3px" }}>{t.users.title}</div>
-          </div>
-          <button onClick={onClose} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"8px", color:"#fff", width:"34px", height:"34px", cursor:"pointer", fontSize:"18px" }}>×</button>
-        </div>
-        <div style={{ overflowY:"auto", flex:1, padding:"20px" }}>
-          {list.map(u=>(
-            <div key={uid(u)} style={{ padding:"14px", background:"#F7F3EE", borderRadius:"10px", marginBottom:"8px" }}>
-              {editingId === uid(u) ? (
-                /* MODO EDICIÓN */
-                <div>
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"8px" }}>
-                    <input style={inp} placeholder={t.users.name} value={editForm.name} onChange={e=>setEditForm(f=>({...f,name:e.target.value}))} />
-                    <input style={inp} placeholder={t.users.username} value={editForm.username} onChange={e=>setEditForm(f=>({...f,username:e.target.value}))} />
-                    <input style={inp} placeholder={t.users.password} value={editForm.password} onChange={e=>setEditForm(f=>({...f,password:e.target.value}))} />
-                    <select style={inp} value={editForm.role} onChange={e=>setEditForm(f=>({...f,role:e.target.value}))}>
-                      <option value="cocinero">{t.users.roleChef}</option>
-                      <option value="admin">{t.users.roleAdmin}</option>
-                    </select>
-                    <select style={inp} value={editForm.sede} onChange={e=>setEditForm(f=>({...f,sede:e.target.value}))}>
-                      <option value="">{t.users.sede}</option>
-                      {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
+    <>
+    <AdminShell
+      icon={Icon.users()}
+      title={txt(t.users.title)}
+      maxWidth={660}
+      onClose={onClose}
+      footer={<>
+        <FootBtn kind="gray" onClick={onClose} disabled={closing}>{txt(t.users.cancel)}</FootBtn>
+        <FootBtn kind="navy" onClick={handleSave} disabled={closing}>{txt(t.users.save)}</FootBtn>
+      </>}
+    >
+      <div className="dt-adm" style={{ display:"flex", flexDirection:"column", gap:16 }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {list.map((u, i) => {
+            const k = uid(u);
+            const admin = u.role === "admin";
+            const shown = !!rev[k];
+            return (
+              <div key={k} style={{ display:"flex", alignItems:"center", gap: mobile ? 8 : 12, padding:"10px 12px", borderRadius:16, background:"#fff", boxShadow: editingId === k ? `0 0 0 2px ${A.orange}` : "0 0 0 1px rgba(14,34,64,.06)", transition:"box-shadow .3s", animation:"dtUp .45s both", animationDelay: Math.min(i, 8) * 45 + "ms" }}>
+                <span style={{ width:44, height:44, borderRadius:"50%", background: admin ? A.navy : A.orange, color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:16, flex:"none" }}>
+                  {(String(u.name || "").trim()[0] || "?").toUpperCase()}
+                </span>
+                <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:4 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                    <span style={{ fontSize:14.5, fontWeight:800, color:A.navy, overflowWrap:"anywhere" }}>{u.name}</span>
+                    <span style={{ height:21, padding:"0 8px", borderRadius:999, background: admin ? "#E7ECF5" : A.orange1, color: admin ? A.navy : A.orange7, fontSize:11, fontWeight:800, display:"flex", alignItems:"center" }}>
+                      {admin ? t.users.roleAdminShort : t.users.roleChefShort}
+                    </span>
                   </div>
-                  {editForm.role !== "admin" && (
-                    <label style={{ display:"flex", alignItems:"center", gap:"8px", fontSize:"12px", color:"#5a3e2b", marginBottom:"10px", cursor:"pointer", padding:"6px 8px", background:"#fff", borderRadius:"6px", border:"1.5px solid #E0D8CE" }}>
-                      <input
-                        type="checkbox"
-                        checked={editForm.permissions?.bodega === true}
-                        onChange={e => setEditForm(f => ({ ...f, permissions: { ...(f.permissions||{}), bodega: e.target.checked } }))}
-                      />
-                      <span><b>Acceso a Recetas Bodega</b> (subrecetas de produccion)</span>
-                    </label>
-                  )}
-                  <div style={{ display:"flex", gap:"8px", justifyContent:"flex-end" }}>
-                    <button onClick={cancelEdit} style={{ background:"#F0ECE6", border:"none", borderRadius:"6px", padding:"6px 14px", cursor:"pointer", fontSize:"12px", fontWeight:"600", color:"#5a3e2b" }}>{t.users.cancel}</button>
-                    <button onClick={()=>saveEdit(uid(u))} style={{ background:"#27ae60", border:"none", borderRadius:"6px", padding:"6px 14px", cursor:"pointer", fontSize:"12px", fontWeight:"700", color:"#fff" }}>{t.users.save}</button>
+                  <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap", fontSize:12, color:A.muted2 }}>
+                    <span style={{ overflowWrap:"anywhere" }}>@{u.username}</span>
+                    <span>·</span>
+                    <span title={t.users.passwordShort} style={{ display:"flex", alignItems:"center", gap:4, fontVariantNumeric:"tabular-nums" }}>
+                      <Svg d={P.key} size={12} />
+                      <span style={{ overflowWrap:"anywhere" }}>{shown ? u.password : "••••••••"}</span>
+                      <button type="button" onClick={() => setRev(r => ({ ...r, [k]: !r[k] }))} aria-label={shown ? "Ocultar clave" : "Mostrar clave"} aria-pressed={shown}
+                        style={{ width:44, height:44, margin:"-14px -10px -14px -8px", border:0, background:"transparent", color: shown ? A.orange : A.muted2, cursor:"pointer", padding:0, display:"flex", alignItems:"center", justifyContent:"center", flex:"none" }}>
+                        <Svg d={shown ? P.eyeOff : P.eye} size={15} />
+                      </button>
+                    </span>
+                    {u.sede && <><span>·</span><span>{u.sede}</span></>}
                   </div>
                 </div>
-              ) : (
-                /* MODO VISUALIZACIÓN */
-                <>
-                  <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
-                    <div style={{ width:"36px", height:"36px", borderRadius:"50%", background:u.role==="admin"?"var(--app-primary)":"#D4721A", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontWeight:"700", fontSize:"14px", flexShrink:0 }}>
-                      {u.name[0].toUpperCase()}
-                    </div>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontWeight:"700", fontSize:"14px", color:"var(--app-primary)" }}>{u.name}</div>
-                      <div style={{ fontSize:"12px", color:"#888", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                        @{u.username} • {t.users.passwordShort}: {u.password} • <span style={{ color:u.role==="admin"?"var(--app-primary)":"#D4721A", fontWeight:"600" }}>{u.role==="admin"?t.users.roleAdminShort:t.users.roleChefShort}</span>
-                        {u.sede && <span> • 📍 {u.sede}</span>}
-                      </div>
-                    </div>
-                    <div style={{ display:"flex", gap:"6px", flexShrink:0 }}>
-                      <button onClick={()=>startEdit(u)} style={{ background:"none", border:"1px solid var(--app-primary)", color:"var(--app-primary)", borderRadius:"6px", padding:"5px 10px", cursor:"pointer", fontSize:"12px" }}>{t.users.edit}</button>
-                      {u.username!=="admin"&&<button onClick={()=>removeUser(uid(u))} style={{ background:"none", border:"1px solid #e74c3c", color:"#e74c3c", borderRadius:"6px", padding:"5px 10px", cursor:"pointer", fontSize:"12px" }}>🗑️</button>}
-                    </div>
-                  </div>
-                </>
-              )}
+                <button type="button" className="dt-usr-edit" onClick={() => startEdit(u)} aria-label={txt(t.users.edit)}
+                  style={{ ...rowBtn, padding: mobile ? 0 : "0 12px", border:`1.5px solid ${A.line}`, color:A.navy, fontWeight:800, fontSize:13 }}>
+                  <Svg d={P.pencil} size={15} stroke={A.orange} />
+                  {!mobile && <span>{txt(t.users.edit)}</span>}
+                </button>
+                {u.username !== "admin" && (
+                  <button type="button" className="dt-usr-del" onClick={() => removeUser(k)} aria-label="Eliminar"
+                    style={{ ...rowBtn, width:44, padding:0, border:"1.5px solid #F3C9C5", color:A.red }}>
+                    <Svg d={P.trash} size={16} />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ borderTop:"2px dashed #DCD4C7", paddingTop:16, display:"flex", flexDirection:"column", gap:10, animation:"dtUp .45s both", animationDelay: Math.min(list.length, 8) * 45 + "ms" }}>
+          <span style={eyebrow}>{editing ? "EDITAR USUARIO" : t.users.addSection}</span>
+          <div style={{ display:"grid", gridTemplateColumns:`repeat(auto-fit,minmax(${mobile ? 220 : 240}px,1fr))`, gap:8 }}>
+            <input style={field} aria-label={t.users.fullName} placeholder={t.users.fullName} value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} />
+            <input style={field} aria-label={t.users.username} placeholder={t.users.username} autoCapitalize="none" autoCorrect="off" value={form.username} onChange={e=>setForm(f=>({...f,username:e.target.value}))} />
+            <input style={field} aria-label={t.users.password} placeholder={t.users.password} autoCapitalize="none" autoCorrect="off" value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))} />
+            <select style={{ ...field, padding:"0 12px" }} aria-label="Rol" value={form.role} onChange={e=>setForm(f=>({...f,role:e.target.value}))}>
+              <option value="cocinero">{t.users.roleChef}</option>
+              <option value="admin">{t.users.roleAdmin}</option>
+            </select>
+            <select style={{ ...field, padding:"0 12px" }} aria-label={t.users.sede} value={form.sede} onChange={e=>setForm(f=>({...f,sede:e.target.value}))}>
+              <option value="">{t.users.sede}</option>
+              {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          {form.role !== "admin" && (
+            <div onClick={() => setForm(f => ({ ...f, permissions: { ...(f.permissions||{}), bodega: !(f.permissions?.bodega === true) } }))}
+              style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 14px", minHeight:52, borderRadius:13, border:`1.5px solid ${A.line}`, background:"#fff", cursor:"pointer", boxSizing:"border-box" }}>
+              <span onClick={e => e.stopPropagation()} style={{ display:"flex" }}>
+                <Switch on={form.permissions?.bodega === true} label="Acceso a Recetas Bodega"
+                  onChange={v => setForm(f => ({ ...f, permissions: { ...(f.permissions||{}), bodega: v } }))} />
+              </span>
+              <span style={{ fontSize:13.5, color:A.ink2, lineHeight:1.3 }}><strong style={{ color:A.navy }}>Acceso a Recetas Bodega</strong> · subrecetas de producción</span>
             </div>
-          ))}
-          <div style={{ borderTop:"2px dashed #E0D8CE", paddingTop:"16px", marginTop:"10px" }}>
-            <div style={{ fontSize:"12px", fontWeight:"700", color:"var(--app-primary)", letterSpacing:"1.5px", marginBottom:"12px" }}>{t.users.addSection}</div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"10px" }}>
-              <input style={inp} placeholder={t.users.fullName} value={newUser.name} onChange={e=>setNewUser(n=>({...n,name:e.target.value}))} />
-              <input style={inp} placeholder={t.users.username} value={newUser.username} onChange={e=>setNewUser(n=>({...n,username:e.target.value}))} />
-              <input style={inp} placeholder={t.users.password} value={newUser.password} onChange={e=>setNewUser(n=>({...n,password:e.target.value}))} />
-              <select style={inp} value={newUser.role} onChange={e=>setNewUser(n=>({...n,role:e.target.value}))}>
-                <option value="cocinero">{t.users.roleChef}</option>
-                <option value="admin">{t.users.roleAdmin}</option>
-              </select>
-              <select style={inp} value={newUser.sede} onChange={e=>setNewUser(n=>({...n,sede:e.target.value}))}>
-                <option value="">{t.users.sede}</option>
-                {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-            {newUser.role !== "admin" && (
-              <label style={{ display:"flex", alignItems:"center", gap:"8px", fontSize:"12px", color:"#5a3e2b", marginBottom:"10px", cursor:"pointer", padding:"6px 8px", background:"#F7F3EE", borderRadius:"6px", border:"1.5px solid #E0D8CE" }}>
-                <input
-                  type="checkbox"
-                  checked={newUser.permissions?.bodega === true}
-                  onChange={e => setNewUser(n => ({ ...n, permissions: { ...(n.permissions||{}), bodega: e.target.checked } }))}
-                />
-                <span><b>Acceso a Recetas Bodega</b> (subrecetas de produccion)</span>
-              </label>
+          )}
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+            <button type="button" className="dt-usr-add" onClick={() => editing ? saveEdit(editingId) : addUser()}
+              style={{ height:46, padding:"0 20px", borderRadius:13, border:0, background:A.orange, color:"#fff", fontWeight:800, fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", gap:8, fontFamily:"inherit", transition:"all .2s" }}>
+              <Svg d={editing ? P.check : P.plus} size={16} w={2.6} />
+              {editing ? "Guardar cambios" : txt(t.users.add)}
+            </button>
+            {editing && (
+              <button type="button" className="dt-adm-gray" onClick={cancelEdit}
+                style={{ height:46, padding:"0 18px", borderRadius:13, border:0, background:A.grayBtn, color:A.ink2, fontWeight:800, fontSize:14, cursor:"pointer", fontFamily:"inherit", transition:"background .2s" }}>
+                {txt(t.users.cancel)}
+              </button>
             )}
-            <button onClick={addUser} style={{ background:"#D4721A", border:"none", borderRadius:"8px", color:"#fff", padding:"10px 18px", cursor:"pointer", fontWeight:"700" }}>{t.users.add}</button>
           </div>
         </div>
-        <div style={{ padding:"14px 20px", borderTop:"1px solid #F0ECE6", display:"flex", justifyContent:"flex-end", gap:"10px", flexShrink:0 }}>
-          <button onClick={onClose} style={{ background:"#F0ECE6", border:"none", borderRadius:"8px", padding:"10px 16px", cursor:"pointer", fontWeight:"600", color:"#5a3e2b" }}>{t.users.cancel}</button>
-          <button onClick={handleSave} style={{ background:"var(--app-primary)", border:"none", borderRadius:"8px", padding:"10px 18px", cursor:"pointer", fontWeight:"700", color:"#fff" }}>{t.users.save}</button>
-        </div>
+        <style>{`
+          .dt-usr-edit:hover{border-color:${A.navy}!important}
+          .dt-usr-del:hover{background:${A.red}!important;color:#fff!important;border-color:${A.red}!important}
+          .dt-usr-add:hover{background:#E8832B!important;transform:translateY(-1px)}
+        `}</style>
       </div>
-    </div>
+    </AdminShell>
+    {toast}
+    </>
   );
 }

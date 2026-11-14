@@ -14,7 +14,7 @@ import { RecipeDetail } from "@/components/RecipeDetail";
 import { RecipeForm } from "@/components/RecipeForm";
 import { GlobalWatermark } from "@/components/Watermark";
 import { LoginScreen } from "@/components/LoginScreen";
-import { BannerCarousel } from "@/components/BannerCarousel";
+import { BannerCarousel, normalizeBanner } from "@/components/BannerCarousel";
 import { ConfirmModal } from "@/components/ConfirmModal";
 // ── Admin / ocasionales — lazy loaded (no bloquean bundle inicial) ─
 const UsersPanel       = dynamic(() => import("@/components/UsersPanel").then(m => ({ default: m.UsersPanel })), { ssr: false });
@@ -103,13 +103,10 @@ export default function App() {
   const [importPreview, setImportPreview] = useState(null);  // { recipes, fileName }
   const [importLoading, setImportLoading] = useState(false);
   const [importDone, setImportDone] = useState(false);
-  const [bannerActive, setBannerActive] = useState(false);
-  const [bannerImages, setBannerImages] = useState([]);
+  // Banner de novedades: { active, slides:[{tag,title,text,cta,img}] }
+  const [banner, setBanner] = useState({ active: false, slides: [] });
   const [showBanner, setShowBanner] = useState(false);
-  const [bannerSlide, setBannerSlide] = useState(0);
-  const [bannerStripPos, setBannerStripPos] = useState(1);
-  const [bannerCanTransition, setBannerCanTransition] = useState(true);
-  const [bannerUploading, setBannerUploading] = useState(false);
+  const closeBanner = useCallback(() => setShowBanner(false), []);
 
   // Perfil
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -142,8 +139,6 @@ export default function App() {
   const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
   const searchTimeoutRef = useRef(null);
   const settingsMenuRef = useRef(null);
-  const bannerIntervalRef = useRef(null);
-  const bannerStripRef = useRef(null);
   const watermarkConfigRef = useRef({ logo: null, opacity: 0.07, size: 45 });
 
   const saveWatermark = useCallback((updates) => {
@@ -194,71 +189,6 @@ export default function App() {
     }, 4000);
     return () => clearTimeout(t);
   }, []);
-
-  // Auto-slide del banner: avanza cada 8s en loop mientras esté visible
-  useEffect(() => {
-    if (!showBanner || !bannerActive || bannerImages.length <= 1) {
-      clearInterval(bannerIntervalRef.current);
-      return;
-    }
-    bannerIntervalRef.current = setInterval(() => {
-      setBannerStripPos(p => p + 1);
-      setBannerSlide(s => (s + 1) % bannerImages.length);
-    }, 8000);
-    return () => clearInterval(bannerIntervalRef.current);
-  }, [showBanner, bannerActive, bannerImages.length]);
-
-  // Loop seamless: cuando llega a un clon, salta instantáneamente al real
-  useEffect(() => {
-    if (bannerImages.length <= 1) return;
-    const total = bannerImages.length + 2;
-    let t1, t2;
-    if (bannerStripPos === total - 1) {
-      // Esperar que termine la transición (500ms) + buffer holgado
-      t1 = setTimeout(() => { setBannerCanTransition(false); setBannerStripPos(1); }, 650);
-      t2 = setTimeout(() => setBannerCanTransition(true), 700);
-      return () => { clearTimeout(t1); clearTimeout(t2); };
-    }
-    if (bannerStripPos === 0) {
-      t1 = setTimeout(() => { setBannerCanTransition(false); setBannerStripPos(bannerImages.length); }, 650);
-      t2 = setTimeout(() => setBannerCanTransition(true), 700);
-      return () => { clearTimeout(t1); clearTimeout(t2); };
-    }
-  }, [bannerStripPos, bannerImages.length]);
-
-  // Resetear posición cuando el número de imágenes cambia (ej. al borrar)
-  useEffect(() => {
-    if (bannerImages.length === 1) {
-      // Una sola imagen: posición 0, sin clones
-      setBannerStripPos(0);
-      setBannerSlide(0);
-      setBannerCanTransition(false);
-    } else if (bannerImages.length > 1) {
-      // Varias imágenes: asegurar que stripPos esté en rango válido [1, n]
-      setBannerStripPos(p => (p < 1 || p > bannerImages.length) ? 1 : p);
-      setBannerSlide(s => Math.min(s, bannerImages.length - 1));
-    }
-  }, [bannerImages.length]);
-
-  // Control directo del DOM — carrete estilo iOS (peek de slides adyacentes)
-  useLayoutEffect(() => {
-    const el = bannerStripRef.current;
-    if (!el) return;
-    const vw = window.innerWidth;
-    const slideW = vw * 0.78;          // 78vw exacto — mismo valor que usa el CSS
-    const offsetX = (vw - slideW) / 2; // margen para centrar el slide activo
-    // Si hay ≤1 imagen no hay clones — la posición siempre es 0
-    const pos = bannerImages.length > 1 ? bannerStripPos : 0;
-    const px = offsetX - pos * slideW;
-    if (!bannerCanTransition) {
-      el.style.transition = "none";
-      el.style.transform = `translateX(${px}px)`;
-      void el.offsetWidth;
-    } else {
-      el.style.transition = "transform 0.5s cubic-bezier(0.25,0.46,0.45,0.94)";
-      el.style.transform = `translateX(${px}px)`;
-    }
-  }, [bannerStripPos, bannerCanTransition, showBanner, bannerImages.length]);
 
   // Tema fijo Don Telmo (navy "ocean"). Se quito el selector de tema de color
   // para no quedar con los tonos de gabycontrol (morado).
@@ -371,10 +301,7 @@ export default function App() {
       setBrandDraft(draft);
 
       // Banner (ya cargado en paralelo)
-      if (bannerCfg) {
-        setBannerActive(bannerCfg.active ?? false);
-        setBannerImages(bannerCfg.images ?? []);
-      }
+      if (bannerCfg) setBanner(normalizeBanner(bannerCfg));
       // Perfil (ya cargado en paralelo)
       if (profCfg) {
         setProfileData(profCfg);
@@ -482,6 +409,8 @@ export default function App() {
     if (screen !== "app" || ctxReadyRef.current) return;
     ctxReadyRef.current = true;
     const c = loadCtx();
+    // Reabrir con la sesión guardada también muestra el banner, salvo que se vuelva a un trabajo en curso
+    if (!c?.modal) setShowBanner(true);
     if (c?.modal === "calc") setShowCalcPan(true);
     else if (c?.modal === "recipe") {
       const r = recipes.find(x => String(x.id) === String(c.id));
@@ -1211,13 +1140,8 @@ export default function App() {
       />
 
       {/* Banner de anuncios - mostrado al iniciar sesión */}
-      {showBanner && bannerActive && bannerImages.length > 0 && (
-        <BannerCarousel
-          bannerImages={bannerImages} bannerSlide={bannerSlide} bannerStripPos={bannerStripPos}
-          bannerStripRef={bannerStripRef} bannerCanTransition={bannerCanTransition} bannerIntervalRef={bannerIntervalRef}
-          setBannerSlide={setBannerSlide} setBannerStripPos={setBannerStripPos}
-          setBannerCanTransition={setBannerCanTransition} setShowBanner={setShowBanner}
-        />
+      {showBanner && banner.active && banner.slides.length > 0 && screen === "app" && (
+        <BannerCarousel slides={banner.slides} logo={watermarkLogo} onClose={closeBanner} />
       )}
 
       <BrandModal
@@ -1240,10 +1164,7 @@ export default function App() {
         />
         <BannerConfigModal
           show={showBannerConfig} isAdmin={isAdmin} onClose={() => setShowBannerConfig(false)}
-          bannerActive={bannerActive} setBannerActive={setBannerActive}
-          bannerImages={bannerImages} setBannerImages={setBannerImages}
-          bannerUploading={bannerUploading} setBannerUploading={setBannerUploading}
-          setBannerSlide={setBannerSlide} setShowBanner={setShowBanner}
+          banner={banner} onSaved={setBanner} logo={watermarkLogo}
         />
         <ProfileGuardModal
           show={showProfileGuard} isAdmin={isAdmin}
