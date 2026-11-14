@@ -895,7 +895,7 @@ export default function App() {
             boxShadow: navExpanded ? "24px 0 60px -20px rgba(9,24,49,.55)" : "none",
             paddingTop: drawerMode ? "env(safe-area-inset-top)" : 0, paddingBottom: "env(safe-area-inset-bottom)",
           }}>
-          <div style={{ width: drawerMode ? "min(320px, 88vw)" : 288, height: "100%", overflowY: "auto", overflowX: "hidden", padding: "14px 14px 24px", display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ width: drawerMode ? "min(320px, 88vw)" : 288, height: "100%", boxSizing: "border-box", overflowY: "auto", overflowX: "hidden", padding: "14px 14px 24px", display: "flex", flexDirection: "column", gap: 4 }}>
             {drawerMode && (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "2px 2px 10px" }}>
                 <span style={{ fontFamily: "var(--dt-serif)", fontSize: 20, fontWeight: 600 }}>Menú</span>
@@ -958,7 +958,7 @@ export default function App() {
             {isAdmin && (navExpanded || drawerMode) && (
               <button onClick={() => { setCategoryModal({ mode: "create" }); setNavOpen(false); }} style={{ ...navRow(false), color: "#F0A35E", marginTop: 4, border: "1px dashed rgba(240,163,94,.5)" }}>
                 <span style={{ width: 30, display: "flex", justifyContent: "center", flex: "none" }}><Icon.plus width={18} height={18} /></span>
-                <span>{String(t.newCategory || "Nueva categoría").replace(/^\+\s*/, "")}</span>
+                <span>{String(t.newCategory || "Nueva categoría").replace(/^[^\p{L}]+/u, "")}</span>
               </button>
             )}
           </div>

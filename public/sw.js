@@ -1,4 +1,4 @@
-const CACHE_NAME = "dontelmo-v46";
+const CACHE_NAME = "dontelmo-v47";
 // Archivos con hash de Next (/_next/static) nunca cambian: se guardan aparte y sobreviven a las versiones
 const STATIC_CACHE = "dontelmo-static-v1";
 const IMG_CACHE = "dontelmo-img-v1";
