@@ -1191,7 +1191,7 @@ export default function App() {
       <ConfirmModal confirmModal={confirmModal} profileHash={profileHash} onCancel={() => setConfirmModal(null)} />
 
       {/* Asistente de cocina (avatar flotante). Solo cuando hay ninguna ficha/modal a pantalla completa abierto. */}
-      {!showForm && !selectedRecipe && <ChefAssistant />}
+      {!showForm && !selectedRecipe && !showPizzaBuilder && <ChefAssistant />}
 
     </div>
   );
