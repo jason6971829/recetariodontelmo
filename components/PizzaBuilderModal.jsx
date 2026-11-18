@@ -6,7 +6,7 @@ import { useViewport } from "@/hooks/useViewport";
 import { normalizeIngredient } from "@/lib/ingredients";
 import { parseQty, fmtScaled, fmtGaby } from "@/lib/scaleRecipe";
 
-// ═══ Armar pizza (rediseño Don Telmo) ═══
+// ═══ Armar pizza v2 (rediseño Don Telmo) ═══
 // Solo cambia la interfaz: recetas por porción, sabores por tamaño (sufijo (c)/(m)/(p) en el nombre),
 // ingredientes × porciones, impresión térmica 80 mm y PDF siguen igual que antes.
 
@@ -111,7 +111,7 @@ function glyph(t, k) {
   }
 }
 
-// Pizza en SVG: o = { uid, px, parts, fills, flavors (nombres), labels, hover, next, interactive, nums, tints, anim, slices }
+// Pizza en SVG: o = { uid, px, parts, fills, flavors (nombres), labels, hover, next, interactive, nums, tints, anim, slices, plain (miniatura: sin tinte ni borde de sección) }
 function pizzaEl(o) {
   const C = 100, R = 84, u = o.uid, parts = o.parts || [1], total = parts.reduce((a, b) => a + b, 0);
   const pt = (a, r) => [C + r * Math.cos(a), C + r * Math.sin(a)];
@@ -154,10 +154,10 @@ function pizzaEl(o) {
       });
       kids.push(h("g", { key: "tp" + s.i + fname, clipPath: `url(#${cp})`, style: { pointerEvents: "none" } }, items));
     }
-    const op = fill ? 0.12 : isHover ? 0.5 : o.tints ? 0.38 : 0, color = fill || isHover || o.tints ? col : "#000";
+    const op = fill ? (o.plain ? 0 : 0.12) : isHover ? 0.5 : o.tints ? 0.38 : 0, color = fill || isHover || o.tints ? col : "#000";
     const props = { key: "f" + s.i, fill: color, fillOpacity: op, "data-sec": o.interactive ? String(s.i) : undefined, style: { transition: "fill-opacity .35s, transform .3s cubic-bezier(.2,.8,.2,1)", transformOrigin: "100px 100px", transform: isHover ? "scale(1.045)" : "none", cursor: o.interactive ? "pointer" : "default" } };
     kids.push(parts.length === 1 ? h("circle", { ...props, cx: C, cy: C, r: R }) : h("path", { ...props, d: d(s, R) }));
-    if (fill) kids.push(parts.length === 1 ? h("circle", { key: "ol" + s.i, cx: C, cy: C, r: R - 1.5, fill: "none", stroke: col, strokeWidth: 3.2, style: { pointerEvents: "none" } }) : h("path", { key: "ol" + s.i, d: d(s, R - 1.5), fill: "none", stroke: col, strokeWidth: 3.2, strokeLinejoin: "round", style: { pointerEvents: "none" } }));
+    if (fill && !o.plain) kids.push(parts.length === 1 ? h("circle", { key: "ol" + s.i, cx: C, cy: C, r: R - 1.5, fill: "none", stroke: col, strokeWidth: 3.2, style: { pointerEvents: "none" } }) : h("path", { key: "ol" + s.i, d: d(s, R - 1.5), fill: "none", stroke: col, strokeWidth: 3.2, strokeLinejoin: "round", style: { pointerEvents: "none" } }));
     if (o.next === s.i && !fill && !isHover) kids.push(parts.length === 1 ? h("circle", { key: "n" + s.i, cx: C, cy: C, r: R - 3, fill: "none", stroke: "#FFFFFF", strokeWidth: 2.5, strokeDasharray: "7 4", style: { animation: "pzDash 1s linear infinite", pointerEvents: "none" } }) : h("path", { key: "n" + s.i, d: d(s, R - 3), fill: "none", stroke: "#FFFFFF", strokeWidth: 2.5, strokeDasharray: "7 4", strokeLinejoin: "round", style: { animation: "pzDash 1s linear infinite", pointerEvents: "none" } }));
   });
   if (o.slices !== false) for (let k = 0; k < total; k++) { const a = -Math.PI / 2 + k / total * 2 * Math.PI, [x, y] = pt(a, 96); kids.push(h("line", { key: "l" + k, x1: C, y1: C, x2: x, y2: y, stroke: "#FFF4E0", strokeWidth: 1, opacity: 0.4, style: { pointerEvents: "none" } })); }
@@ -179,29 +179,78 @@ function pizzaEl(o) {
   return h("svg", { viewBox: "0 0 200 200", width: o.px, height: o.px, style: { display: "block", overflow: "visible", filter: `drop-shadow(0 ${o.px > 150 ? 10 : 5}px ${o.px > 150 ? 16 : 8}px rgba(70,25,0,.25))` } }, kids);
 }
 
+// Torta plana de división (v2): un tono naranja por sección + líneas de corte blancas
+const PIE_TONES = ["#F57C00", "#FFC28A", "#B85300", "#FFDDB8"];
+function pieEl(parts, px) {
+  const C = 50, R = 46, total = parts.reduce((a, b) => a + b, 0), kids = [];
+  let acc = 0;
+  parts.forEach((p, i) => {
+    const a0 = -Math.PI / 2 + acc / total * 2 * Math.PI; acc += p;
+    const a1 = -Math.PI / 2 + acc / total * 2 * Math.PI;
+    kids.push(parts.length === 1
+      ? h("circle", { key: i, cx: C, cy: C, r: R, fill: PIE_TONES[0] })
+      : h("path", { key: i, d: `M50 50L${C + R * Math.cos(a0)} ${C + R * Math.sin(a0)}A${R} ${R} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${C + R * Math.cos(a1)} ${C + R * Math.sin(a1)}Z`, fill: PIE_TONES[i % 4], style: { transformOrigin: "50px 50px", animation: `pzSlice .55s ${(i * 0.09).toFixed(2)}s cubic-bezier(.2,.8,.2,1) backwards` } }));
+  });
+  for (let k = 0; k < total; k++) { const an = -Math.PI / 2 + k / total * 2 * Math.PI; kids.push(h("line", { key: "l" + k, x1: C + 9 * Math.cos(an), y1: C + 9 * Math.sin(an), x2: C + (R - 5) * Math.cos(an), y2: C + (R - 5) * Math.sin(an), stroke: "#FFFFFF", strokeWidth: 1.6, strokeLinecap: "round", opacity: 0.92 })); }
+  kids.push(h("circle", { key: "o", cx: C, cy: C, r: R, fill: "none", stroke: "#E06A00", strokeWidth: 2 }));
+  return h("svg", { viewBox: "0 0 100 100", width: px, height: px, style: { display: "block", filter: "drop-shadow(0 7px 10px rgba(245,124,0,.32))" } }, kids);
+}
+// Miniatura de pizza de un sabor (tarjetas, filas de sección, ingredientes, fantasma)
+const mini = (name, uid, px = 36) => pizzaEl({ uid, px, parts: [1], fills: ["#D4721A"], flavors: [name], slices: false, plain: true });
+
+const EASE = "cubic-bezier(.2,.8,.2,1)";
+const FONT = "Manrope, system-ui, -apple-system, sans-serif";
+const SH_REST = "0 1px 2px rgba(60,30,0,.05), 0 12px 24px -16px rgba(60,30,0,.28)";
+const SH_ON = "0 0 0 4px rgba(245,124,0,.14), 0 20px 30px -18px rgba(245,124,0,.55)";
+const G_ORANGE = "linear-gradient(135deg,#FF9A3D,#EE6C0A)";
+const G_GREEN = "linear-gradient(135deg,#36C680,#1B8F55)";
+const CONF_COLORS = ["#F57C00", "#FFC53D", "#27ae60", "#1A6B9E", "#E0442E"];
+
+// Todas las animaciones parten de un estado inicial y terminan en el estado normal del elemento:
+// si un keyframe no corre, el contenido queda visible y en su tamaño final.
 const PZ_CSS = `
-@keyframes pzInR{from{opacity:0;transform:translateX(36px)}to{opacity:1;transform:none}}
-@keyframes pzInL{from{opacity:0;transform:translateX(-36px)}to{opacity:1;transform:none}}
+.pz-root,.pz-root *{box-sizing:border-box}
+@keyframes pzModal{0%{opacity:0;transform:translateY(26px) scale(.94)}60%{opacity:1;transform:translateY(-4px) scale(1.01)}100%{opacity:1;transform:none}}
+@keyframes pzInR{from{opacity:0;transform:translateX(44px);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
+@keyframes pzInL{from{opacity:0;transform:translateX(-44px);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
+@keyframes pzCard{0%{opacity:0;transform:translateY(16px) scale(.94)}70%{opacity:1;transform:translateY(-2px) scale(1.01)}100%{opacity:1;transform:none}}
+@keyframes pzSlice{from{opacity:0;transform:scale(.4) rotate(-50deg)}to{opacity:1;transform:none}}
+@keyframes pzSpinIn{0%{opacity:0;transform:rotate(-140deg) scale(.5)}70%{opacity:1;transform:rotate(8deg) scale(1.04)}100%{opacity:1;transform:none}}
+@keyframes pzHalo{to{transform:rotate(360deg)}}
 @keyframes pzCut{from{stroke-dashoffset:100}to{stroke-dashoffset:0}}
 @keyframes pzDrop{0%{opacity:0;transform:translateY(-18px) scale(1.6) rotate(-25deg)}60%{opacity:1;transform:translateY(1px) scale(.92)}100%{opacity:1;transform:none}}
 @keyframes pzDash{to{stroke-dashoffset:-22}}
-@keyframes pzPop{0%{opacity:0;transform:scale(.6)}70%{transform:scale(1.08)}100%{opacity:1;transform:scale(1)}}
-@keyframes pzBreath{0%,100%{box-shadow:0 0 0 0 rgba(217,115,26,0)}50%{box-shadow:0 0 0 6px rgba(217,115,26,.18)}}
-@keyframes pzDone{0%{transform:scale(1)}40%{transform:scale(1.06) rotate(4deg)}100%{transform:scale(1) rotate(0)}}
+@keyframes pzPop{0%{opacity:0;transform:scale(.5)}70%{transform:scale(1.12)}100%{opacity:1;transform:scale(1)}}
+@keyframes pzRing{0%,100%{box-shadow:0 0 0 0 rgba(245,124,0,.32)}50%{box-shadow:0 0 0 7px rgba(245,124,0,0)}}
+@keyframes pzDone{0%{transform:scale(1) rotate(0)}45%{transform:scale(1.09) rotate(200deg)}100%{transform:scale(1) rotate(360deg)}}
+@keyframes pzConf{0%{opacity:1;transform:translate(0,0) rotate(0) scale(.3)}70%{opacity:1}100%{opacity:0;transform:translate(var(--x),var(--y)) rotate(var(--r)) scale(1)}}
+@keyframes pzShimmer{0%{transform:translateX(-120%) skewX(-20deg)}60%,100%{transform:translateX(320%) skewX(-20deg)}}
 @keyframes pzToast{0%{opacity:0;transform:translate(-50%,16px)}12%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,8px)}}
-@media (hover:hover){.pz-card:hover{border-color:#0E2240 !important;transform:translateY(-2px)}.pz-chip:hover{border-color:var(--pz-hover) !important}.pz-out:hover{border-color:#0E2240 !important}}
+@media (hover:hover){
+.pz-card:hover{transform:translateY(-3px)}
+.pz-chip:hover{transform:translateY(-2px);box-shadow:0 1px 2px rgba(60,30,0,.05),0 16px 24px -14px rgba(60,30,0,.4) !important}
+.pz-close:hover{background:#1B1917 !important;color:#FFFFFF !important;transform:rotate(90deg)}
+.pz-x:hover{background:#C8423B !important;color:#FFFFFF !important}
+.pz-cancel:hover{background:#FFE2D5 !important}
+.pz-back:hover{border-color:#1B1917 !important}
+.pz-print:hover{background:#1B1917 !important;color:#FFFFFF !important;border-color:#1B1917 !important}
+.pz-pdf:hover{background:#EE6C0A !important;color:#FFFFFF !important;border-color:#EE6C0A !important}
+}
+.pz-card:active,.pz-cancel:active,.pz-back:active{transform:scale(.97)}
+.pz-prim:active{transform:scale(.98)}
+.pz-chip:active,.pz-chip[data-drag="1"]{transform:scale(.96)}
+@media (prefers-reduced-motion: reduce){.pz-root,.pz-root *{animation-duration:.01ms !important;animation-delay:0s !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}}
 `;
 
 const Ico = {
-  slice: (s = 22, w = 1.8) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={w} strokeLinecap="round" strokeLinejoin="round"><path d="M12 22L2.5 8.2A13 13 0 0 1 21.5 8.2z" /><path d="M5.2 9.6a10 10 0 0 1 13.6 0" /><circle cx="10" cy="12" r="1" /><circle cx="14" cy="15" r="1" /><circle cx="12" cy="18" r=".6" /></svg>,
-  check: (s = 13, w = 3.2) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={w} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5L20 7" /></svg>,
-  close: (s = 18) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>,
-  grip: (fill = "#C9C2B6") => <svg width="14" height="14" viewBox="0 0 24 24" fill={fill} style={{ flex: "none" }}><circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" /><circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" /><circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" /></svg>,
+  slice: (s = 23, w = 1.9) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={w} strokeLinecap="round" strokeLinejoin="round"><path d="M12 22L2.5 8.2A13 13 0 0 1 21.5 8.2z" /><path d="M5.2 9.6a10 10 0 0 1 13.6 0" /><circle cx="10" cy="12" r="1" /><circle cx="14" cy="15" r="1" /></svg>,
+  check: (s = 13, w = 3.2, style) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" style={style}><path d="M5 12l5 5L20 7" /></svg>,
+  close: (s = 16, w = 2.4) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={w} strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>,
 };
 
 export function PizzaBuilderModal({ pizzaRecipes = [], onClose }) {
   const vp = useViewport();
-  const mobile = vp.mobile, tabsMode = vp.w < 1024;
+  const mobile = vp.mobile, tabsMode = vp.w < 1024, desk = !tabsMode;
   const [step, setStep] = useState(1);
   const [dir, setDir] = useState(1);
   const [size, setSize] = useState(null);       // "c" | "m" | "p"
@@ -212,7 +261,9 @@ export function PizzaBuilderModal({ pizzaRecipes = [], onClose }) {
   const [ticket, setTicket] = useState(false);
   const [toast, setToast] = useState(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [conf, setConf] = useState(null);       // clave del confeti (solo visual); null = fuera del DOM
   const pd = useRef(null), lp = useRef(null), lastDrag = useRef(0), toastT = useRef(null), handlers = useRef({});
+  const confT = useRef(null), confN = useRef(0);
 
   const sizeObj = size ? SIZES[size] : null;
   const cfgs = size ? SIZE_CFGS[size].map(id => ALL_CFGS.find(c => c.id === id)) : [];
@@ -298,12 +349,28 @@ export function PizzaBuilderModal({ pizzaRecipes = [], onClose }) {
     finally { setPdfLoading(false); }
   };
 
+  // ── Confeti (solo visual): sale al completar y se retira del DOM al terminar ──
+  useEffect(() => {
+    clearTimeout(confT.current);
+    if (!complete) { setConf(null); return; }
+    confN.current += 1;
+    setConf(confN.current);
+    confT.current = setTimeout(() => setConf(null), 1900);
+  }, [complete, assigned]);
+  useEffect(() => () => clearTimeout(confT.current), []);
+
   // ── medidas ──
   const pad = mobile ? 14 : 22;
-  const pzPx = mobile ? 148 : tabsMode ? 220 : 268;
-  const stepAnim = `${dir > 0 ? "pzInR" : "pzInL"} .45s cubic-bezier(.2,.8,.2,1) both`;
-  const maxW = step === 1 ? 760 : step === 2 ? 780 : 1240;
+  const colPad = mobile ? 14 : 18;
+  const pzPx = mobile ? 126 : tabsMode ? 216 : 250;
+  const stepAnim = `${dir > 0 ? "pzInR" : "pzInL"} .45s ${EASE} both`;
+  const maxW = step < 3 ? 780 : desk ? 1200 : 900;
   const fullH = "var(--app-height, 100vh)";
+  const maxH = mobile ? `calc(${fullH} * .94)` : `min(calc(${fullH} * .9), 780px)`;
+  const stepNames = ["Tamaño", "División", "Sabores"];
+  const progW = step === 1 ? (size ? 20 : 5) : step === 2 ? (div != null ? 52 : 36) : complete ? 100 : 68 + filled / Math.max(nSec, 1) * 30;
+  const s3 = step === 3;
+  const fixedCols = s3 && !mobile; // paso 3 en tablet/computador: el cuerpo no hace scroll, cada columna sí
 
   // ingrediente → { code, qty, conv, name }
   const ingRow = (ing) => {
@@ -314,83 +381,87 @@ export function PizzaBuilderModal({ pizzaRecipes = [], onClose }) {
     return { code: n.code, qty: sc.main, conv: sc.sub ? ` · ${sc.sub}` : "", name: p.name };
   };
 
+  const groups = [
+    ["TRADICIONALES", "#F1EEE9", "#5C564D", flavors.filter(r => !PREMIUM.has(norm(cleanName(r.name))))],
+    ["PREMIUM", "#FFD978", "#6B4A00", flavors.filter(r => PREMIUM.has(norm(cleanName(r.name))))],
+  ].filter(g => g[3].length);
+
+  // miniaturas de las tarjetas de sabor (se calculan una vez por tamaño)
+  const chipThumbs = useMemo(() => Object.fromEntries(flavors.map((r, k) => [r.id, mini(r.name, "c" + k)])), [flavors]);
+  const orderOf = {};
+  groups.forEach(g => g[3].forEach(r => { orderOf[r.id] = Object.keys(orderOf).length; }));
+
   const chip = (r) => {
     const i = assigned.indexOf(r.id), on = i >= 0, dragged = drag && drag.id === r.id;
     const col = on ? COLORS[i % 4] : null;
     return (
-      <div key={r.id} role="button" tabIndex={0} className="pz-chip"
+      <div key={r.id} role="button" tabIndex={0} className="pz-chip" data-drag={dragged ? "1" : undefined}
         onPointerDown={(e) => down(r.id, e)}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); tap(r.id); } }}
-        style={{ "--pz-hover": on ? col[0] : "#0E2240", display: "flex", alignItems: "center", gap: 8, height: 44, padding: "0 8px 0 12px", borderRadius: 12, border: `1.5px solid ${on ? col[0] : "#E7E1D7"}`, background: on ? col[1] : "#fff", color: on ? col[0] : "#14213D", cursor: "grab", userSelect: "none", WebkitUserSelect: "none", touchAction: "pan-y", opacity: dragged ? 0.35 : 1, transform: `scale(${dragged ? 0.96 : 1})`, transition: "background .25s,border-color .25s,color .25s,opacity .2s,transform .2s" }}>
-        {on && <span style={{ flex: "none", display: "flex", animation: "pzPop .3s both" }}>{Ico.check(14, 3)}</span>}
-        <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tc(r.name)}</span>
-        {on ? <span style={{ flex: "none", height: 22, padding: "0 8px", borderRadius: 7, background: col[0], color: "#fff", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", animation: "pzPop .3s both" }}>Sec {i + 1}</span> : Ico.grip()}
+        style={{ display: "flex", alignItems: "center", gap: 10, height: 56, padding: "0 10px", borderRadius: 16, border: `1.5px solid ${on ? col[0] : "rgba(20,10,0,.07)"}`, background: on ? col[1] : "#FFFFFF", boxShadow: "0 1px 2px rgba(60,30,0,.05), 0 8px 16px -12px rgba(60,30,0,.28)", cursor: "grab", userSelect: "none", WebkitUserSelect: "none", touchAction: "pan-y", opacity: dragged ? 0.35 : 1, transition: `background .25s, border-color .25s, opacity .2s, transform .25s ${EASE}, box-shadow .25s`, animation: `pzCard .5s ${EASE} backwards`, animationDelay: `${Math.min(orderOf[r.id] || 0, 40) * 22}ms` }}>
+        <span style={{ width: 36, height: 36, flex: "none", display: "flex", pointerEvents: "none" }}>{chipThumbs[r.id]}</span>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 800, color: "#1B1917", letterSpacing: ".02em", lineHeight: 1.15, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{cleanName(r.name).toUpperCase()}</span>
+        {on && <span style={{ flex: "none", width: 24, height: 24, borderRadius: "50%", background: col[0], color: "#FFFFFF", fontSize: 12, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", animation: "pzPop .35s both" }}>{i + 1}</span>}
       </div>
     );
   };
 
-  const groups = [
-    ["PREMIUM", "#B07A00", "#F2C14E", flavors.filter(r => PREMIUM.has(norm(cleanName(r.name))))],
-    ["TRADICIONAL", "#C8423B", "none", flavors.filter(r => !PREMIUM.has(norm(cleanName(r.name))))],
-  ].filter(g => g[3].length);
-
   const ingCards = liveResults.map(r => ({ ...r, rows: r.ingredients.map(ingRow) }));
   const flavorNames = assigned.map(id => (byId[id] ? byId[id].name : null));
 
+  const primOn = s3 ? complete : canNext;
+  const primBg = s3 ? (complete ? G_GREEN : "#E9F1EA") : canNext ? G_ORANGE : "#F1EEE9";
+  const primFg = s3 ? (complete ? "#FFFFFF" : "#6F8F78") : canNext ? "#FFFFFF" : "#B3ACA0";
+  const primShadow = s3 ? (complete ? "0 14px 24px -12px rgba(27,143,85,.7)" : "none") : canNext ? "0 14px 24px -12px rgba(238,108,10,.7)" : "none";
+  const primLabel = step < 3 ? "Continuar" : complete ? "Pizza lista" : `Falta el sabor de la sección ${next + 1}`;
+  const sideFlex = mobile ? "1 1 0" : "0 0 150px";
+
   return (
-    <div className="dt-scope" onClick={(e) => { if (e.target === e.currentTarget && Date.now() - lastDrag.current > 400) close(); }}
-      style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(9,24,49,.55)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", display: "flex", alignItems: mobile ? "flex-end" : "center", justifyContent: "center", padding: mobile ? 0 : 24, animation: "dtFade .25s both", fontFamily: "var(--dt-sans)", color: "#14213D" }}>
+    <div className="dt-scope pz-root" onClick={(e) => { if (e.target === e.currentTarget && Date.now() - lastDrag.current > 400) close(); }}
+      style={{ position: "fixed", inset: 0, zIndex: 300, background: "radial-gradient(90% 70% at 50% 0%, rgba(70,48,30,.72), rgba(22,17,13,.8))", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", display: "flex", alignItems: mobile ? "flex-end" : "center", justifyContent: "center", padding: mobile ? 0 : 24, animation: "dtFade .25s both", fontFamily: FONT, color: "#1B1917" }}>
       <style>{PZ_CSS}</style>
       <div onClick={(e) => e.stopPropagation()}
-        style={{ position: "relative", width: "100%", maxWidth: mobile ? "100%" : maxW, height: mobile ? fullH : (step === 3 ? `min(calc(${fullH} * .92), 900px)` : "auto"), maxHeight: mobile ? fullH : `min(calc(${fullH} * .92), 900px)`, background: "#F6F3EE", borderRadius: mobile ? 0 : 24, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 40px 80px -20px rgba(0,0,0,.5)", transition: "max-width .45s cubic-bezier(.2,.8,.2,1), height .45s cubic-bezier(.2,.8,.2,1)", animation: mobile ? "dtSheet .42s cubic-bezier(.2,.8,.2,1) both" : "dtPop .38s cubic-bezier(.2,.8,.2,1) both" }}>
+        style={{ position: "relative", width: "100%", maxWidth: mobile ? "100%" : maxW, height: s3 ? maxH : "auto", maxHeight: maxH, background: "#FFFFFF", borderRadius: mobile ? "28px 28px 0 0" : 28, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 50px 100px -24px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.4) inset", transition: `max-width .5s ${EASE}`, animation: mobile ? `dtSheet .5s ${EASE} both` : `pzModal .5s ${EASE} both` }}>
 
-        {/* Encabezado + progreso */}
-        <div style={{ flex: "none", background: "linear-gradient(160deg,#16325A,#0E2240)", color: "#fff", padding: mobile ? "calc(14px + env(safe-area-inset-top)) 16px 14px" : "18px 24px 16px", display: "flex", flexDirection: "column", gap: mobile ? 12 : 14 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ width: 42, height: 42, borderRadius: 12, background: "rgba(217,115,26,.18)", color: "#F0A35E", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>{Ico.slice()}</span>
-            <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".24em", color: "#F0A35E", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>DON TELMO® · 1958 · COMPANY</span>
-              <span style={{ fontFamily: "var(--dt-serif)", fontSize: mobile ? 21 : 25, fontWeight: 600, lineHeight: 1.05 }}>Armar pizza</span>
+        {/* Encabezado + barra de progreso */}
+        <div style={{ flex: "none", background: "#FFFFFF" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: mobile ? "12px 14px" : "16px 20px" }}>
+            <span style={{ width: 46, height: 46, borderRadius: 14, background: "linear-gradient(145deg,#FFA24A,#EC6608)", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", flex: "none", boxShadow: "0 10px 18px -8px rgba(236,102,8,.75), inset 0 1px 0 rgba(255,255,255,.35)" }}>{Ico.slice()}</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 1, flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: 18, fontWeight: 800, color: "#1B1917", letterSpacing: "-.01em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sizeObj ? `Pizza ${sizeObj.label}` : "Armar pizza"}</span>
+              <span style={{ fontSize: 12.5, fontWeight: 500, color: "#8A847A", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sizeObj ? `${sizeObj.cm} cm · ${sizeObj.portions} porciones` : "Tamaño, división y sabores"}</span>
             </div>
-            <button onClick={close} aria-label="Cerrar" style={{ width: 42, height: 42, borderRadius: 12, border: 0, background: "rgba(255,255,255,.1)", color: "#fff", cursor: "pointer", flex: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>{Ico.close()}</button>
+            <span style={{ flex: "none", height: 30, padding: "0 12px", borderRadius: 999, background: "#FFF0E3", color: "#C85A0A", fontSize: 12, fontWeight: 800, display: "flex", alignItems: "center", whiteSpace: "nowrap" }}>{mobile ? `${step} / 3` : `Paso ${step} de 3 · ${stepNames[step - 1]}`}</span>
+            <button onClick={close} aria-label="Cerrar" className="pz-close" style={{ width: 44, height: 44, borderRadius: 13, border: 0, padding: 0, background: "#F3F1ED", color: "#3C3A36", cursor: "pointer", flex: "none", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .2s" }}>{Ico.close()}</button>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {["Tamaño", "División", "Sabores"].map((n, i) => {
-              const k = i + 1, done = k < step, cur = k === step;
-              return (
-                <div key={n} style={{ display: "flex", alignItems: "center", gap: 8, flex: i < 2 ? 1 : "none", minWidth: 0 }}>
-                  <span style={{ width: 26, height: 26, borderRadius: "50%", flex: "none", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, background: done ? "#D9731A" : cur ? "#fff" : "rgba(255,255,255,.14)", color: done ? "#fff" : cur ? "#0E2240" : "rgba(255,255,255,.6)", transition: "all .35s", boxShadow: cur ? "0 0 0 4px rgba(255,255,255,.14)" : "none" }}>{done ? Ico.check() : k}</span>
-                  {(!mobile || cur) && <span style={{ fontSize: 12.5, fontWeight: 700, color: cur ? "#fff" : done ? "rgba(255,255,255,.85)" : "rgba(255,255,255,.5)", whiteSpace: "nowrap" }}>{n}</span>}
-                  {i < 2 && <span style={{ flex: 1, minWidth: 12, height: 2, borderRadius: 2, background: "rgba(255,255,255,.16)", position: "relative", overflow: "hidden" }}><span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: done ? "100%" : "0%", background: "#D9731A", transition: "width .5s cubic-bezier(.2,.8,.2,1)" }} /></span>}
-                </div>
-              );
-            })}
+          <div style={{ height: 3, background: "#F3EEE7" }}>
+            <div style={{ height: "100%", width: `${progW}%`, background: "linear-gradient(90deg,#FFB061,#EE6C0A)", borderRadius: "0 3px 3px 0", boxShadow: "0 0 10px rgba(238,108,10,.6)", transition: `width .7s ${EASE}` }} />
           </div>
         </div>
 
         {/* Cuerpo */}
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", padding: pad, position: "relative" }}>
+        <div style={{ flex: 1, minHeight: 0, display: fixedCols ? "flex" : "block", flexDirection: "column", overflowY: fixedCols ? "hidden" : "auto", overflowX: "hidden", position: "relative" }}>
           {step === 1 && (
-            <div key="s1" style={{ display: "flex", flexDirection: "column", gap: 14, animation: stepAnim }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <span style={{ fontFamily: "var(--dt-serif)", fontSize: mobile ? 21 : 24, fontWeight: 600, color: "#0E2240" }}>¿De qué tamaño?</span>
-                <span style={{ fontSize: 13, color: "#8A847A" }}>El dibujo está a escala real entre tamaños.</span>
+            <div key="s1" style={{ display: "flex", flexDirection: "column", gap: 14, padding: pad, animation: stepAnim }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 19, fontWeight: 800, color: "#1B1917", letterSpacing: "-.01em" }}>¿De qué tamaño?</span>
+                <span style={{ fontSize: 12.5, color: "#8A847A" }}>Dibujo a escala real</span>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "repeat(3, minmax(0,1fr))", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "repeat(3, minmax(0,1fr))", gap: 12 }}>
                 {SIZE_ORDER.map((id, i) => {
                   const z = SIZES[id], on = size === id, box = mobile ? 78 : 150;
                   return (
                     <button key={id} className="pz-card" onClick={() => { if (size !== id) { setSize(id); setDiv(null); setAssigned([]); } }}
-                      style={{ position: "relative", display: "flex", flexDirection: mobile ? "row" : "column", alignItems: "center", gap: mobile ? 14 : 12, padding: mobile ? "12px 14px" : "22px 16px 18px", borderRadius: 18, border: `2px solid ${on ? "#0E2240" : "#E7E1D7"}`, background: "#fff", cursor: "pointer", textAlign: mobile ? "left" : "center", boxShadow: on ? "0 18px 34px -20px rgba(14,34,64,.55)" : "none", transition: "all .3s cubic-bezier(.2,.8,.2,1)", animation: "dtUp .45s both", animationDelay: `${i * 60}ms`, fontFamily: "inherit" }}>
-                      <span style={{ width: box, height: box, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", transform: `rotate(${on ? 24 : 0}deg) scale(${on ? 1.06 : 1})`, transition: "transform .7s cubic-bezier(.2,.8,.2,1)" }}>
+                      style={{ position: "relative", display: "flex", flexDirection: mobile ? "row" : "column", alignItems: "center", gap: mobile ? 14 : 12, padding: mobile ? "12px 14px" : "22px 16px 18px", borderRadius: 22, border: `1.5px solid ${on ? "#F57C00" : "rgba(20,10,0,.07)"}`, background: on ? "#FFF7EF" : "#FFFFFF", cursor: "pointer", textAlign: mobile ? "left" : "center", boxShadow: on ? SH_ON : SH_REST, transition: `all .35s ${EASE}`, animation: `pzCard .55s ${EASE} backwards`, animationDelay: `${i * 70}ms`, fontFamily: "inherit" }}>
+                      <span style={{ width: box, height: box, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", transform: `rotate(${on ? 45 : 0}deg) scale(${on ? 1.08 : 1})`, transition: `transform .8s ${EASE}` }}>
                         {pizzaEl({ uid: "z" + id, px: Math.round(box * z.cm / 50), parts: [z.portions], slices: true })}
                       </span>
-                      <span style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1, minWidth: 0 }}>
-                        <span style={{ fontFamily: "var(--dt-serif)", fontSize: 21, fontWeight: 600, color: "#0E2240", lineHeight: 1.1 }}>{z.label}</span>
-                        <span style={{ fontSize: 13, color: "#8A847A" }}>{z.cm} cm · {z.portions} porciones</span>
+                      <span style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: 18, fontWeight: 800, color: "#1B1917" }}>{z.label}</span>
+                        <span style={{ fontSize: 12.5, color: "#8A847A" }}>{z.cm} cm · {z.portions} porciones</span>
                       </span>
-                      <span style={{ position: mobile ? "static" : "absolute", top: 12, right: 12, width: 24, height: 24, borderRadius: "50%", flex: "none", border: `2px solid ${on ? "#0E2240" : "#D6D0C6"}`, background: on ? "#0E2240" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .25s" }}>
-                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff", transform: `scale(${on ? 1 : 0})`, transition: "transform .25s cubic-bezier(.2,.8,.2,1)" }} />
+                      <span style={{ position: mobile ? "static" : "absolute", top: 12, right: 12, width: 24, height: 24, borderRadius: "50%", flex: "none", border: `2px solid ${on ? "#EE6C0A" : "#DAD4CA"}`, background: on ? "#EE6C0A" : "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .25s" }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#FFFFFF", transform: `scale(${on ? 1 : 0})`, transition: "transform .3s cubic-bezier(.3,1.6,.5,1)" }} />
                       </span>
                     </button>
                   );
@@ -400,26 +471,23 @@ export function PizzaBuilderModal({ pizzaRecipes = [], onClose }) {
           )}
 
           {step === 2 && sizeObj && (
-            <div key="s2" style={{ display: "flex", flexDirection: "column", gap: 14, animation: stepAnim }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <span style={{ fontFamily: "var(--dt-serif)", fontSize: mobile ? 21 : 24, fontWeight: 600, color: "#0E2240" }}>¿Cómo la divides?</span>
-                <span style={{ fontSize: 13, color: "#8A847A" }}>{sizeObj.label} · {sizeObj.cm} cm · {sizeObj.portions} porciones</span>
+            <div key="s2" style={{ display: "flex", flexDirection: "column", gap: 14, padding: pad, animation: stepAnim }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 19, fontWeight: 800, color: "#1B1917", letterSpacing: "-.01em" }}>¿Cómo va dividida?</span>
+                <span style={{ fontSize: 12.5, color: "#8A847A" }}>Porciones por sabor</span>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill, minmax(${mobile ? 140 : 160}px, 1fr))`, gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill, minmax(${mobile ? 136 : 150}px, 1fr))`, gap: 12 }}>
                 {cfgs.map((c, i) => {
                   const on = div === i, p = c.p;
                   return (
                     <button key={c.id} className="pz-card" onClick={() => { if (div !== i) { setDiv(i); setAssigned(p.map(() => null)); } }}
-                      style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "16px 10px 14px", borderRadius: 18, border: `2px solid ${on ? "#0E2240" : "#E7E1D7"}`, background: "#fff", cursor: "pointer", boxShadow: on ? "0 18px 34px -20px rgba(14,34,64,.55)" : "none", transition: "all .3s cubic-bezier(.2,.8,.2,1)", animation: "dtUp .45s both", animationDelay: `${i * 45}ms`, fontFamily: "inherit" }}>
-                      {on && <span style={{ position: "absolute", top: 10, right: 10, width: 24, height: 24, borderRadius: "50%", background: "#0E2240", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", animation: "pzPop .35s both" }}>{Ico.check()}</span>}
-                      <span style={{ display: "flex", transform: `scale(${on ? 1.06 : 1})`, transition: "transform .45s cubic-bezier(.2,.8,.2,1)" }}>
-                        {pizzaEl({ uid: "d" + c.id, px: mobile ? 78 : 96, parts: p, tints: p.length > 1, anim: true })}
+                      style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, padding: "18px 10px 14px", borderRadius: 22, border: `1.5px solid ${on ? "#F57C00" : "rgba(20,10,0,.07)"}`, background: on ? "#FFF7EF" : "#FFFFFF", cursor: "pointer", boxShadow: on ? SH_ON : SH_REST, transition: `all .35s ${EASE}`, animation: `pzCard .55s ${EASE} backwards`, animationDelay: `${i * 55}ms`, fontFamily: "inherit" }}>
+                      {on && <span style={{ position: "absolute", top: 10, right: 10, width: 24, height: 24, borderRadius: "50%", background: "#EE6C0A", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", animation: "pzPop .4s both" }}>{Ico.check()}</span>}
+                      <span style={{ display: "flex", marginBottom: 6, transform: on ? "rotate(360deg) scale(1.1)" : "rotate(0deg) scale(1)", transition: `transform .8s ${EASE}` }}>
+                        {pieEl(p, mobile ? 76 : 88)}
                       </span>
-                      <span style={{ fontFamily: "var(--dt-serif)", fontSize: 19, fontWeight: 600, color: "#0E2240" }}>{p.length === 1 ? `${p[0]} porciones` : p.join(" + ")}</span>
-                      <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#8A847A" }}>
-                        <span style={{ display: "flex", gap: 3 }}>{p.map((_, k) => <span key={k} style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS[k % 4][0] }} />)}</span>
-                        {p.length === 1 ? "1 sabor" : `${p.length} sabores`}
-                      </span>
+                      <span style={{ fontSize: 18, fontWeight: 800, color: "#1B1917", letterSpacing: ".01em" }}>{p.length === 1 ? String(p[0]) : p.join(" + ")}</span>
+                      <span style={{ fontSize: 12, color: "#8A847A" }}>{p.length === 1 ? "1 sabor" : `${p.length} sabores`}</span>
                     </button>
                   );
                 })}
@@ -427,61 +495,73 @@ export function PizzaBuilderModal({ pizzaRecipes = [], onClose }) {
             </div>
           )}
 
-          {step === 3 && cfg && (
-            <div key="s3" style={{ display: "flex", flexDirection: "column", gap: 12, animation: stepAnim, minHeight: "100%" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <span style={{ display: "flex", alignItems: "center", height: 32, padding: "0 12px", borderRadius: 999, background: "#0E2240", color: "#fff", fontSize: 12.5, fontWeight: 800 }}>{sizeObj.label} · {sizeObj.cm} cm</span>
-                <span style={{ display: "flex", alignItems: "center", height: 32, padding: "0 12px", borderRadius: 999, background: "#fff", color: "#0E2240", fontSize: 12.5, fontWeight: 800, boxShadow: "0 0 0 1px #E7E1D7" }}>{nSec === 1 ? `${parts[0]} porciones` : parts.join(" + ")}</span>
-                <span style={{ marginLeft: "auto", display: "flex", alignItems: "baseline", gap: 2, height: 32, padding: "6px 12px", borderRadius: 999, background: "#fff", boxShadow: "0 0 0 1px #E7E1D7", fontSize: 12.5, fontWeight: 700, color: "#8A847A", boxSizing: "border-box" }}>
-                  <strong style={{ fontSize: 15, color: complete ? "#1F9D6B" : "#0E2240", transition: "color .3s" }}>{filled}</strong>/{nSec} sabores
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: complete ? "#E8F8EE" : "#FFF6EE", border: `1.5px solid ${complete ? "#A8E0BF" : "#F6D3B3"}`, color: complete ? "#1B7A47" : "#B85E10", fontSize: 13, fontWeight: 600, transition: "all .35s" }}>
-                {complete ? <span style={{ display: "flex", flex: "none" }}>{Ico.check(18, 2.6)}</span>
-                  : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none" }}><path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V10M12 10V4.5a1.5 1.5 0 0 1 3 0V10M15 10V6.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-.5a6 6 0 0 1-5-2.7L3 15a1.5 1.5 0 0 1 2.4-1.8L9 16V11" /></svg>}
-                <span>{complete ? <>¡Listo! <strong>Revisa los ingredientes</strong></> : <>Arrastra o toca un sabor → <strong>Sección {next + 1}</strong> — faltan {nSec - filled}</>}</span>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: mobile ? "minmax(0,1fr)" : tabsMode ? "minmax(230px,270px) minmax(0,1fr)" : "minmax(250px,300px) minmax(210px,260px) minmax(0,1fr)", gridTemplateAreas: mobile ? "'pizza' 'tabs' 'body'" : tabsMode ? "'pizza tabs' 'pizza body'" : "'pizza flav ing'", gridTemplateRows: mobile ? "auto auto 1fr" : tabsMode ? "auto 1fr" : "auto", gap: mobile ? 12 : 18, alignItems: "start", flex: 1 }}>
-                {/* Pizza + leyenda (zona para soltar) */}
-                <div style={{ gridArea: "pizza", position: "sticky", top: mobile ? -14 : 0, zIndex: 5, display: "flex", flexDirection: mobile ? "row" : "column", alignItems: "center", gap: mobile ? 12 : 16, padding: mobile ? "10px 14px" : 0, margin: mobile ? "0 -14px" : 0, background: mobile ? "rgba(246,243,238,.94)" : "transparent", boxShadow: mobile ? "0 10px 16px -14px rgba(14,34,64,.35)" : "none" }}>
-                  <div style={{ flex: "none", animation: complete ? "pzDone .7s cubic-bezier(.2,.8,.2,1) both" : "none" }}>
-                    {pizzaEl({ uid: "main", px: pzPx, parts, fills: assigned.map((f, i) => (f ? COLORS[i % 4][0] : null)), flavors: flavorNames, labels: flavorNames.map(n => (n ? tc(n) : "")), hover: drag ? drag.over : null, next: drag ? null : next, interactive: true, nums: true })}
+          {s3 && cfg && (
+            <div key="s3" style={{ display: mobile ? "block" : "grid", gridTemplateColumns: desk ? "330px minmax(0,1fr)" : "290px minmax(0,1fr)", gridTemplateRows: "minmax(0,1fr)", flex: mobile ? "none" : 1, minHeight: 0, animation: stepAnim }}>
+              {/* Panel durazno: pizza + lista de secciones (zona para soltar) */}
+              <div style={{ position: mobile ? "sticky" : "relative", top: 0, zIndex: 5, background: "linear-gradient(180deg,#FFF5EA,#FCE5D0)", padding: mobile ? "12px 14px" : "22px 18px 18px", display: "flex", flexDirection: mobile ? "row" : "column", alignItems: "center", gap: mobile ? 14 : 20, overflowY: mobile ? "visible" : "auto", overflowX: mobile ? "visible" : "hidden", minHeight: 0, boxShadow: mobile ? "0 10px 16px -14px rgba(60,30,0,.4)" : "none" }}>
+                <div style={{ position: "relative", flex: "none", margin: mobile ? 0 : "6px 0 0" }}>
+                  <div style={{ position: "absolute", inset: -12, borderRadius: "50%", background: "conic-gradient(from 0deg, rgba(245,124,0,0), rgba(245,124,0,.45), rgba(255,197,61,.35), rgba(245,124,0,0) 65%)", filter: "blur(12px)", animation: "pzHalo 7s linear infinite", pointerEvents: "none" }} />
+                  <div style={{ position: "relative", animation: `pzSpinIn .9s ${EASE} both` }}>
+                    <div style={{ animation: complete ? "pzDone 1s cubic-bezier(.3,.7,.2,1) both" : "none" }}>
+                      {pizzaEl({ uid: "main", px: pzPx, parts, fills: assigned.map((f, i) => (f ? COLORS[i % 4][0] : null)), flavors: flavorNames, labels: flavorNames.map(n => (n ? tc(n) : "")), hover: drag ? drag.over : null, next: drag ? null : next, interactive: true, nums: true })}
+                    </div>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%", minWidth: 0 }}>
-                    {parts.map((p, i) => {
-                      const f = assigned[i], isOver = drag && drag.over === i, isNext = !drag && i === next, col = COLORS[i % 4];
-                      return (
-                        <div key={i} data-sec={String(i)} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: mobile ? 34 : 40, padding: "4px 6px 4px 10px", borderRadius: 11, background: f || isOver ? col[1] : "#fff", border: `1.5px ${f ? "solid" : "dashed"} ${f || isOver || isNext ? col[0] : "#E7E1D7"}`, transition: "all .25s", animation: isNext ? "pzBreath 1.6s ease-in-out infinite" : "none" }}>
-                          <span style={{ width: 10, height: 10, borderRadius: "50%", background: col[0], flex: "none" }} />
-                          <span style={{ fontSize: mobile ? 12 : 12.5, fontWeight: 800, color: col[0], whiteSpace: "nowrap" }}>{mobile ? `S${i + 1}` : `Sección ${i + 1}`}</span>
-                          <span style={{ fontSize: 11.5, color: "#8A847A", whiteSpace: "nowrap" }}>{p} porc.</span>
-                          <span style={{ flex: 1, minWidth: 0, textAlign: "right", fontSize: mobile ? 12 : 12.5, fontWeight: 700, color: f ? col[0] : "#A39D92", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f ? tc(byId[f]?.name || "") : isOver ? "Suelta aquí" : "Vacía"}</span>
-                          {f && <button onClick={(e) => { e.stopPropagation(); const b = [...assigned]; b[i] = null; update(b); }} aria-label="Quitar sabor" style={{ width: 28, height: 28, borderRadius: 8, border: 0, background: "transparent", color: col[0], cursor: "pointer", flex: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>{Ico.close(13)}</button>}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {complete && conf != null && (
+                    <div key={"cf" + conf} aria-hidden="true" style={{ position: "absolute", left: "50%", top: "50%", width: 0, height: 0, pointerEvents: "none", zIndex: 6 }}>
+                      {Array.from({ length: 24 }, (_, k) => {
+                        const an = k / 24 * Math.PI * 2 + 0.2, dd = pzPx * 0.5 + 24 + (k % 3) * 24;
+                        return <span key={k} style={{ position: "absolute", left: -4, top: -4, width: k % 2 ? 8 : 6, height: k % 2 ? 8 : 13, borderRadius: k % 3 ? 2 : 8, background: CONF_COLORS[k % 5], "--x": `${Math.cos(an) * dd}px`, "--y": `${Math.sin(an) * dd}px`, "--r": `${k * 47 + 90}deg`, animation: `pzConf ${(0.9 + (k % 4) * 0.14).toFixed(2)}s .25s cubic-bezier(.15,.7,.3,1) both` }} />;
+                      })}
+                    </div>
+                  )}
                 </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", minWidth: 0, flex: mobile ? 1 : "none" }}>
+                  <span style={{ fontSize: 11.5, lineHeight: 1.35, fontWeight: 600, color: complete ? "#1B7A47" : "#8A6A4E", transition: "color .3s" }}>{complete ? "¡Listo! Revisa los ingredientes." : "Arrastra un sabor a la pizza, o tócalo para ponerlo en la sección activa."}</span>
+                  {parts.map((p, i) => {
+                    const f = assigned[i], isOver = !!drag && drag.over === i, isNext = !drag && i === next, act = isOver || isNext, col = COLORS[i % 4];
+                    return (
+                      <div key={i} data-sec={String(i)} style={{ display: "flex", alignItems: "center", gap: 10, minHeight: mobile ? 44 : 52, padding: "5px 6px 5px 8px", borderRadius: 15, background: isOver ? col[1] : "#FFFFFF", border: `1.5px solid ${act ? col[0] : "rgba(20,10,0,.06)"}`, boxShadow: "0 1px 2px rgba(60,30,0,.05), 0 8px 16px -12px rgba(60,30,0,.25)", transition: "background .25s, border-color .25s, transform .25s", transform: `scale(${isOver ? 1.03 : 1})`, animation: isNext && !f ? "pzRing 1.6s ease-in-out infinite" : "none" }}>
+                        {f
+                          ? <span key={"th" + f} style={{ width: 36, height: 36, borderRadius: "50%", flex: "none", display: "flex", boxShadow: `0 0 0 2px ${col[0]}`, animation: "pzPop .4s both" }}>{mini(byId[f]?.name || "", "s" + i, 36)}</span>
+                          : <span style={{ width: 34, height: 34, borderRadius: "50%", flex: "none", background: act ? col[0] : "#EDE7DE", color: act ? "#FFFFFF" : "#8A847A", fontSize: 14, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", transition: "all .25s" }}>{i + 1}</span>}
+                        <span style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
+                          <span style={{ fontSize: 10.5, fontWeight: 600, color: "#8A847A", whiteSpace: "nowrap" }}>Sección {i + 1} · {p} porc.</span>
+                          <span style={{ fontSize: 13.5, fontWeight: 800, color: isOver ? col[0] : f ? "#1B1917" : act ? col[0] : "#A39D92", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", transition: "color .25s" }}>{f ? tc(byId[f]?.name || "") : act ? "Suelta un sabor aquí" : "Vacía"}</span>
+                        </span>
+                        {f && <button onClick={(e) => { e.stopPropagation(); const b = [...assigned]; b[i] = null; update(b); }} aria-label="Quitar sabor" className="pz-x" style={{ width: 32, height: 32, borderRadius: 10, border: 0, padding: 0, background: "#F3F1ED", color: "#6E6A63", cursor: "pointer", flex: "none", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .2s" }}>{Ico.close(12, 2.8)}</button>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
 
+              {/* Derecha: pestañas (celular/tablet) o dos columnas (computador) */}
+              <div style={{ display: desk ? "grid" : "flex", flexDirection: "column", gridTemplateColumns: "minmax(0,1fr) minmax(0,1.02fr)", gridTemplateRows: desk ? "minmax(0,1fr)" : undefined, minWidth: 0, minHeight: 0, overflowY: desk ? "hidden" : mobile ? "visible" : "auto" }}>
                 {tabsMode && (
-                  <div style={{ gridArea: "tabs", position: "relative", display: "grid", gridTemplateColumns: "1fr 1fr", padding: 4, borderRadius: 14, background: "#fff", boxShadow: "0 0 0 1px #E7E1D7" }}>
-                    <span style={{ position: "absolute", top: 4, bottom: 4, left: 4, width: "calc(50% - 4px)", borderRadius: 10, background: "#0E2240", transform: `translateX(${tab === "ing" ? "100%" : "0%"})`, transition: "transform .35s cubic-bezier(.2,.8,.2,1)" }} />
-                    <button onClick={() => setTab("sab")} style={{ position: "relative", height: 40, border: 0, background: "transparent", color: tab === "sab" ? "#fff" : "#6E6A63", fontWeight: 800, fontSize: 13.5, cursor: "pointer", transition: "color .3s", fontFamily: "inherit" }}>Sabores</button>
-                    <button onClick={() => setTab("ing")} style={{ position: "relative", height: 40, border: 0, background: "transparent", color: tab === "ing" ? "#fff" : "#6E6A63", fontWeight: 800, fontSize: 13.5, cursor: "pointer", transition: "color .3s", fontFamily: "inherit" }}>Ingredientes ({ingCards.length})</button>
+                  <div style={{ flex: "none", padding: `${colPad}px ${colPad}px 0` }}>
+                    <div style={{ position: "relative", display: "grid", gridTemplateColumns: "1fr 1fr", padding: 4, borderRadius: 14, background: "#F3F1ED" }}>
+                      <span style={{ position: "absolute", top: 4, bottom: 4, left: 4, width: "calc(50% - 4px)", borderRadius: 11, background: "#FFFFFF", boxShadow: "0 2px 6px rgba(40,20,0,.14)", transform: `translateX(${tab === "ing" ? "100%" : "0%"})`, transition: "transform .4s cubic-bezier(.3,1.3,.5,1)" }} />
+                      <button onClick={() => setTab("sab")} style={{ position: "relative", height: 40, border: 0, background: "transparent", color: tab === "sab" ? "#1B1917" : "#8A847A", fontWeight: 800, fontSize: 13.5, cursor: "pointer", transition: "color .3s", fontFamily: "inherit" }}>Sabores</button>
+                      <button onClick={() => setTab("ing")} style={{ position: "relative", height: 40, border: 0, background: "transparent", color: tab === "ing" ? "#1B1917" : "#8A847A", fontWeight: 800, fontSize: 13.5, cursor: "pointer", transition: "color .3s", fontFamily: "inherit" }}>Ingredientes ({ingCards.length})</button>
+                    </div>
                   </div>
                 )}
 
                 {(!tabsMode || tab === "sab") && (
-                  <div style={{ gridArea: tabsMode ? "body" : "flav", display: "flex", flexDirection: "column", gap: 12, minWidth: 0, animation: "dtFade .3s both" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12, flex: "none", minWidth: 0, minHeight: 0, overflowY: desk ? "auto" : "visible", padding: colPad, animation: "dtFade .3s both" }}>
+                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+                      <span style={{ fontSize: 17, fontWeight: 800, color: "#1B1917" }}>Sabores</span>
+                      <span style={{ fontSize: 12, color: "#8A847A" }}>{flavors.length} {flavors.length === 1 ? "sabor" : "sabores"}</span>
+                    </div>
                     {groups.length === 0 && <div style={{ fontSize: 13, color: "#8A847A" }}>No hay sabores para este tamaño. Las recetas de pizza deben terminar en ({size}).</div>}
-                    {groups.map(([title, color, fill, items]) => (
+                    {groups.map(([title, pillBg, pillFg, items]) => (
                       <div key={title} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, fontWeight: 800, letterSpacing: ".18em", color }}>
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill={fill} stroke={color} strokeWidth="2" strokeLinejoin="round"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z" /></svg>
-                          {title}
-                        </span>
-                        <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill, minmax(${mobile ? 140 : tabsMode ? 170 : 190}px, 1fr))`, gap: 6 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ height: 22, padding: "0 9px", borderRadius: 7, background: pillBg, color: pillFg, fontSize: 10.5, fontWeight: 800, letterSpacing: ".1em", display: "flex", alignItems: "center" }}>{title}</span>
+                          <span style={{ fontSize: 11.5, color: "#8A847A", whiteSpace: "nowrap" }}>{items.length} {items.length === 1 ? "sabor" : "sabores"}</span>
+                          <span style={{ flex: 1, height: 1, background: "#F0ECE5" }} />
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill, minmax(${mobile ? 150 : desk ? 168 : 180}px, 1fr))`, gap: 8 }}>
                           {items.map(chip)}
                         </div>
                       </div>
@@ -490,33 +570,34 @@ export function PizzaBuilderModal({ pizzaRecipes = [], onClose }) {
                 )}
 
                 {(!tabsMode || tab === "ing") && (
-                  <div style={{ gridArea: tabsMode ? "body" : "ing", display: "flex", flexDirection: "column", gap: 10, minWidth: 0, animation: "dtFade .3s both" }}>
-                    {!tabsMode && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 6, borderBottom: "1.5px solid #0E2240", flexWrap: "wrap" }}>
-                        <span style={{ fontFamily: "var(--dt-serif)", fontSize: 20, fontWeight: 600, color: "#0E2240" }}>Ingredientes</span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "#8A847A" }}>en vivo · ya multiplicados por porciones</span>
-                      </div>
-                    )}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: "none", minWidth: 0, minHeight: 0, overflowY: desk ? "auto" : "visible", padding: colPad, background: desk ? "#FBF9F6" : "transparent", borderLeft: desk ? "1px solid #F0ECE5" : 0, animation: "dtFade .3s both" }}>
+                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+                      <span style={{ fontSize: 17, fontWeight: 800, color: "#1B1917" }}>Ingredientes</span>
+                      <span style={{ fontSize: 12, color: "#8A847A" }}>en vivo · por porciones</span>
+                    </div>
                     {ingCards.length === 0 && (
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "34px 16px", borderRadius: 16, border: "1.5px dashed #DCD4C7", textAlign: "center", color: "#A39D92", fontSize: 13 }}>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "34px 16px", borderRadius: 18, border: "1.5px dashed #DCD4C7", textAlign: "center", color: "#A39D92", fontSize: 13 }}>
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M9 12h6M9 16h4" /></svg>
                         Asigna un sabor y aquí verás sus ingredientes calculados.
                       </div>
                     )}
                     {ingCards.map(ic => (
-                      <div key={ic.sec + ic.name} style={{ borderRadius: 16, overflow: "hidden", background: "#fff", border: `1.5px solid ${ic.color}`, animation: "dtUp .4s both" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px 10px 14px", background: ic.color, color: "#fff" }}>
-                          <span style={{ fontSize: 11, fontWeight: 800, opacity: 0.85 }}>SEC {ic.sec + 1}</span>
-                          <span style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tc(ic.name)}</span>
-                          <span style={{ height: 24, padding: "0 9px", borderRadius: 999, background: "rgba(255,255,255,.22)", fontSize: 11.5, fontWeight: 800, display: "flex", alignItems: "center", whiteSpace: "nowrap" }}>{ic.portions} {ic.portions === 1 ? "porción" : "porciones"}</span>
+                      <div key={ic.sec + ic.name} style={{ flex: "none", borderRadius: 18, overflow: "hidden", background: "#FFFFFF", boxShadow: "0 1px 2px rgba(60,30,0,.05), 0 10px 20px -14px rgba(60,30,0,.3), 0 0 0 1px rgba(20,10,0,.05)", animation: `pzCard .5s ${EASE} backwards` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px 8px 10px", background: ic.light }}>
+                          <span style={{ width: 34, height: 34, flex: "none", display: "flex", borderRadius: "50%", boxShadow: `0 0 0 2px ${ic.color}` }}>{mini(flavorNames[ic.sec] || ic.name, "i" + ic.sec, 34)}</span>
+                          <span style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
+                            <span style={{ fontSize: 10.5, fontWeight: 700, color: ic.color }}>SECCIÓN {ic.sec + 1}</span>
+                            <span style={{ fontSize: 14, fontWeight: 800, color: "#1B1917", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tc(ic.name)}</span>
+                          </span>
+                          <span style={{ height: 24, padding: "0 10px", borderRadius: 999, background: ic.color, color: "#FFFFFF", fontSize: 11.5, fontWeight: 800, display: "flex", alignItems: "center", whiteSpace: "nowrap" }}>{ic.portions} {ic.portions === 1 ? "porción" : "porciones"}</span>
                         </div>
                         <div style={{ display: "flex", flexDirection: "column" }}>
-                          {ic.rows.length === 0 && <div style={{ padding: "10px 12px", fontSize: 13, color: "#A39D92" }}>Esta receta no tiene ingredientes cargados.</div>}
+                          {ic.rows.length === 0 && <div style={{ padding: "10px 12px", fontSize: 13, color: "#A39D92", borderTop: "1px solid #F4F0EA" }}>Esta receta no tiene ingredientes cargados.</div>}
                           {ic.rows.map((r, k) => (
-                            <div key={k} style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 38, padding: "6px 12px", background: k % 2 ? "#fff" : ic.light }}>
+                            <div key={k} style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 38, padding: "6px 12px", borderTop: "1px solid #F4F0EA" }}>
                               {r.code && <span style={{ fontFamily: "ui-monospace,Menlo,monospace", fontSize: 10.5, fontWeight: 700, color: "#B85E10", background: "#FBEBDD", padding: "2px 7px", borderRadius: 6, flex: "none" }}>{r.code}</span>}
                               <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: "#3C3A36", lineHeight: 1.3 }}>
-                                {r.qty ? <><strong style={{ color: "#0E2240", fontWeight: 800 }}>{r.qty}</strong><span style={{ fontSize: 11.5, color: "#8A847A" }}>{r.conv}</span> · {r.name}</> : r.name}
+                                {r.qty ? <><strong style={{ color: "#1B1917", fontWeight: 800 }}>{r.qty}</strong><span style={{ fontSize: 11.5, color: "#8A847A" }}>{r.conv}</span> · {r.name}</> : r.name}
                               </span>
                             </div>
                           ))}
@@ -531,31 +612,35 @@ export function PizzaBuilderModal({ pizzaRecipes = [], onClose }) {
         </div>
 
         {/* Pie */}
-        <div style={{ flex: "none", display: "flex", alignItems: "center", gap: 8, padding: `12px ${pad}px calc(12px + env(safe-area-inset-bottom))`, background: "#fff", borderTop: "1px solid #EFEAE2" }}>
+        <div style={{ flex: "none", display: "flex", flexWrap: mobile ? "wrap" : "nowrap", alignItems: "center", gap: 8, padding: `12px ${pad}px calc(12px + env(safe-area-inset-bottom))`, background: "#FFFFFF", borderTop: "1px solid #F0ECE5" }}>
+          <button onClick={close} className="pz-cancel" style={{ flex: sideFlex, height: 50, borderRadius: 15, border: "1.5px solid #FBDCD0", background: "#FFF1EA", color: "#C8421F", fontWeight: 800, fontSize: 14, cursor: "pointer", transition: "all .2s", fontFamily: "inherit" }}>Cancelar</button>
           {step > 1 && (
-            <button onClick={() => go(step - 1)} className="pz-out" style={{ height: 50, minWidth: 50, padding: mobile ? 0 : "0 20px", borderRadius: 14, border: "1.5px solid #E7E1D7", background: "#fff", color: "#0E2240", fontWeight: 800, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "inherit" }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M11 18l-6-6 6-6" /></svg>
-              {!mobile && <span>Volver</span>}
+            <button onClick={() => go(step - 1)} className="pz-back" style={{ flex: sideFlex, height: 50, borderRadius: 15, border: "1.5px solid #E7E1D7", background: "#FFFFFF", color: "#1B1917", fontWeight: 800, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "all .2s", fontFamily: "inherit" }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
+              {step === 2 ? "Tamaño" : "División"}
             </button>
           )}
-          <button onClick={primary}
-            style={{ flex: 1, height: 50, borderRadius: 14, border: step === 3 && complete ? "1.5px solid #1F9D6B" : 0, background: step === 3 ? (complete ? "#E8F8EE" : "#EFEAE2") : canNext ? "#0E2240" : "#D6D0C6", color: step === 3 ? (complete ? "#1B7A47" : "#A39D92") : "#fff", fontWeight: 800, fontSize: 15, cursor: canNext ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "all .3s cubic-bezier(.2,.8,.2,1)", fontFamily: "inherit" }}>
-            {step === 3 && complete && <span style={{ display: "flex", animation: "pzPop .35s both" }}>{Ico.check(18, 2.8)}</span>}
-            {step < 3 ? "Siguiente" : complete ? "Pizza lista" : (nSec - filled === 1 ? "Falta 1 sección" : `Faltan ${nSec - filled} secciones`)}
-            {step < 3 && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>}
-          </button>
-          {step === 3 && (
-            <>
-              <button onClick={() => setTicket(true)} aria-label="Imprimir ticket 80 mm" title="Imprimir (térmica 80 mm)" disabled={!filled}
-                style={{ width: 50, height: 50, borderRadius: 14, border: 0, background: "#0E2240", color: "#fff", cursor: "pointer", flex: "none", display: "flex", alignItems: "center", justifyContent: "center", opacity: filled ? 1 : 0.35, pointerEvents: filled ? "auto" : "none", transition: "all .25s" }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" rx="1" /></svg>
-              </button>
-              <button onClick={doPDF} aria-label="Descargar PDF" title="Descargar PDF" disabled={!filled || pdfLoading}
-                style={{ width: 50, height: 50, borderRadius: 14, border: 0, background: "#D9731A", color: "#fff", cursor: pdfLoading ? "wait" : "pointer", flex: "none", display: "flex", alignItems: "center", justifyContent: "center", opacity: filled && !pdfLoading ? 1 : 0.35, pointerEvents: filled ? "auto" : "none", transition: "all .25s" }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M12 18v-6M9 15l3 3 3-3" /></svg>
-              </button>
-            </>
-          )}
+          <div style={{ flex: mobile ? "1 1 100%" : "1 1 0", display: "flex", gap: 8, minWidth: 0 }}>
+            <button onClick={primary} className="pz-prim"
+              style={{ position: "relative", overflow: "hidden", flex: 1, minWidth: 0, height: 50, padding: "0 12px", borderRadius: 15, border: 0, background: primBg, color: primFg, boxShadow: primShadow, fontWeight: 800, fontSize: 14.5, cursor: canNext ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, transition: `all .35s ${EASE}`, fontFamily: "inherit" }}>
+              {primOn && <span style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: "35%", background: "linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.45), rgba(255,255,255,0))", transform: "translateX(-120%) skewX(-20deg)", animation: "pzShimmer 2.4s ease-in-out infinite", pointerEvents: "none" }} />}
+              {s3 && complete && Ico.check(18, 2.8, { flex: "none", animation: "pzPop .4s both" })}
+              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{primLabel}</span>
+              {step < 3 && <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none" }}><path d="M5 12h14M13 6l6 6-6 6" /></svg>}
+            </button>
+            {s3 && (
+              <>
+                <button onClick={() => setTicket(true)} aria-label="Imprimir ticket 80 mm" title="Imprimir (térmica 80 mm)" disabled={!filled} className="pz-print"
+                  style={{ width: 50, height: 50, borderRadius: 15, border: "1.5px solid #E7E1D7", padding: 0, background: "#FFFFFF", color: "#1B1917", cursor: "pointer", flex: "none", display: "flex", alignItems: "center", justifyContent: "center", opacity: filled ? 1 : 0.35, pointerEvents: filled ? "auto" : "none", transition: "all .25s" }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" rx="1" /></svg>
+                </button>
+                <button onClick={doPDF} aria-label="Descargar PDF" title="Descargar PDF" disabled={!filled || pdfLoading} className="pz-pdf"
+                  style={{ width: 50, height: 50, borderRadius: 15, border: "1.5px solid #FAD3B4", padding: 0, background: "#FFF0E3", color: "#C85A0A", cursor: pdfLoading ? "wait" : "pointer", flex: "none", display: "flex", alignItems: "center", justifyContent: "center", opacity: filled && !pdfLoading ? 1 : 0.35, pointerEvents: filled ? "auto" : "none", transition: "all .25s" }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M12 18v-6M9 15l3 3 3-3" /></svg>
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Vista previa del ticket 80 mm */}
@@ -586,8 +671,8 @@ export function PizzaBuilderModal({ pizzaRecipes = [], onClose }) {
         )}
 
         {toast && (
-          <div style={{ position: "absolute", left: "50%", bottom: 92, zIndex: 25, display: "flex", alignItems: "center", gap: 10, height: 44, padding: "0 18px", borderRadius: 999, background: "#0E2240", color: "#fff", fontSize: 13.5, fontWeight: 700, boxShadow: "0 16px 30px -12px rgba(14,34,64,.6)", whiteSpace: "nowrap", animation: "pzToast 2.4s both" }}>
-            <span style={{ width: 20, height: 20, borderRadius: "50%", background: "#1F9D6B", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>{Ico.check(12, 3.4)}</span>
+          <div style={{ position: "absolute", left: "50%", bottom: mobile ? 148 : 96, zIndex: 25, display: "flex", alignItems: "center", gap: 10, minHeight: 44, maxWidth: "calc(100% - 24px)", padding: mobile ? "8px 16px" : "0 18px", borderRadius: mobile ? 22 : 999, background: "#0E2240", color: "#FFFFFF", fontSize: 13.5, fontWeight: 700, lineHeight: 1.25, boxShadow: "0 16px 30px -12px rgba(14,34,64,.6)", whiteSpace: mobile ? "normal" : "nowrap", width: mobile ? "max-content" : "auto", animation: "pzToast 2.4s both" }}>
+            <span style={{ width: 20, height: 20, borderRadius: "50%", background: "#1F9D6B", display: "flex", alignItems: "center", justifyContent: "center", color: "#FFFFFF", flex: "none" }}>{Ico.check(12, 3.4)}</span>
             {toast}
           </div>
         )}
@@ -595,13 +680,14 @@ export function PizzaBuilderModal({ pizzaRecipes = [], onClose }) {
 
       {/* Fantasma del arrastre */}
       {drag && (() => {
-        const z = vp.zoom || 1, over = drag.over, col = over != null ? COLORS[over % 4][0] : "#0E2240";
+        const z = vp.zoom || 1, over = drag.over, col = over != null ? COLORS[over % 4][0] : "#1B1917";
+        const name = byId[drag.id]?.name || "";
         return (
-          <div style={{ position: "fixed", left: drag.x / z, top: drag.y / z, zIndex: 1000, pointerEvents: "none", transform: `translate(-50%, ${drag.touch ? "-135%" : "-60%"}) rotate(-4deg)`, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, height: 46, padding: "0 16px", borderRadius: 13, background: col, color: "#fff", fontSize: 14, fontWeight: 800, boxShadow: "0 22px 40px -12px rgba(14,34,64,.55), 0 0 0 3px rgba(255,255,255,.9)", whiteSpace: "nowrap", transition: "background .2s" }}>
-              {Ico.grip("rgba(255,255,255,.7)")}{tc(byId[drag.id]?.name || "")}
+          <div style={{ position: "fixed", left: drag.x / z, top: drag.y / z, zIndex: 1000, pointerEvents: "none", transform: `translate(-50%, ${drag.touch ? "-135%" : "-60%"}) rotate(-5deg)`, display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, height: 58, padding: "0 16px 0 10px", borderRadius: 18, background: "#FFFFFF", color: "#1B1917", fontSize: 13.5, fontWeight: 800, letterSpacing: ".02em", boxShadow: `0 28px 44px -14px rgba(40,20,0,.55), 0 0 0 2.5px ${col}`, whiteSpace: "nowrap", transition: "box-shadow .2s", animation: "pzPop .25s both" }}>
+              <span style={{ width: 40, height: 40, display: "flex", flex: "none" }}>{mini(name, "g", 40)}</span>{cleanName(name).toUpperCase()}
             </div>
-            <span style={{ height: 22, padding: "0 10px", borderRadius: 999, background: "#fff", color: over != null ? col : "#6E6A63", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", boxShadow: "0 6px 14px -6px rgba(0,0,0,.3)" }}>{over != null ? `→ Sección ${over + 1}` : "Suelta sobre la pizza"}</span>
+            <span style={{ height: 24, padding: "0 11px", borderRadius: 999, background: col, color: "#FFFFFF", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", boxShadow: "0 8px 14px -6px rgba(0,0,0,.35)", transition: "background .2s" }}>{over != null ? `→ Sección ${over + 1}` : "Suelta sobre la pizza"}</span>
           </div>
         );
       })()}
