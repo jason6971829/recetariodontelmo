@@ -357,7 +357,8 @@ function recipeFlour(rec, R) {
   return iH >= 0 ? R.grams[iH] : Math.round(R.flour);
 }
 function computeBiga(rec, R) {
-  const b = bigaFromFlour(recipeFlour(rec, R));
+  const flour = recipeFlour(rec, R);
+  const b = bigaFromFlour(flour);
   const idx = { iH: findIng(rec, "harina"), iL: findIng(rec, "liquido total", "agua"), iY: findIng(rec, "levadura") };
   const grams = R.grams.slice();
   const warn = [];
@@ -369,7 +370,8 @@ function computeBiga(rec, R) {
   take(idx.iH, b.harina, "harina");
   take(idx.iL, b.agua, "líquido");
   take(idx.iY, b.levadura, "levadura");
-  return { ...b, grams, idx, warn };
+  // prep = lo que se pesa la tarde anterior (+4 % de merma); b = lo que entra a la mojadora al día siguiente
+  return { ...b, prep: bigaPrepFromFlour(flour), grams, idx, warn };
 }
 const reducedRow = (biga, i) => !!biga && (i === biga.idx.iH || i === biga.idx.iL || i === biga.idx.iY);
 const bigaInstrHead = (b) =>
@@ -646,7 +648,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
 
   const copyRecipe = async () => {
     const txt = `${sel.name}${sel.pan && sel.pan.trim() ? " — " + sel.pan.trim() : ""}\n${fmt(R.units)} unidades × ${fmt(R.w, R.r > 0 ? 0 : 1)} g\nMasa total: ${kg(R.total)} KILO\n\n` +
-      (biga ? `— Biga (preparar el día anterior) —\nHarina: ${kg(biga.harina)} KILO\nAgua: ${kg(biga.agua)} KILO\nLevadura fresca: ${kg(biga.levadura)} KILO\nBiga madura: ${kg(biga.total)} KILO\n\n— Mojadora —\nBiga madura: ${kg(biga.total)} KILO\n` : "") +
+      (biga ? `— Biga (preparar el día anterior, incluye +4 % por merma) —\nHarina: ${kg(biga.prep.harina)} KILO\nAgua: ${kg(biga.prep.agua)} KILO\nLevadura fresca: ${kg(biga.prep.levadura)} KILO\nBiga a preparar: ${kg(biga.prep.total)} KILO\n\n— Mojadora —\nBiga madura: ${kg(biga.total)} KILO\n` : "") +
       sel.ings.map((x, i) => `${x.name}: ${kg(G[i])} KILO${reducedRow(biga, i) ? " (descontada la biga)" : ` (${fmt(num(x.pct), num(x.pct) % 1 ? 1 : 0)}%)`}`).join("\n") +
       (instrText ? `\n\n— Instrucciones —\n${instrText}` : "");
     try { await navigator.clipboard.writeText(txt); setToast("Receta copiada"); }
@@ -913,10 +915,13 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
             <div style={{ border: "1.5px solid #D5DEEA", borderRadius: 16, padding: 12, marginBottom: 16, background: "#F4F7FB", animation: "dtUp .35s both" }}>
               <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase", color: C.navy, marginBottom: 10 }}>Biga · preparar hoy en la tarde</div>
               <div style={{ display: "grid", gridTemplateColumns: vp.w < 560 ? "repeat(2, minmax(0,1fr))" : "repeat(4, minmax(0,1fr))", gap: 6 }}>
-                {kpi("Harina (30%)", kg(biga.harina) + " KILO")}
-                {kpi("Agua (50%)", kg(biga.agua) + " KILO")}
-                {kpi("Levadura (1%)", kg(biga.levadura) + " KILO")}
-                {kpi("Biga madura", kg(biga.total) + " KILO")}
+                {kpi("Harina (30% + 4%)", kg(biga.prep.harina) + " KILO")}
+                {kpi("Agua (50%)", kg(biga.prep.agua) + " KILO")}
+                {kpi("Levadura (1%)", kg(biga.prep.levadura) + " KILO")}
+                {kpi("Biga a preparar", kg(biga.prep.total) + " KILO")}
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: C.navy, marginTop: 10, lineHeight: 1.45 }}>
+                Incluye +4 % adicional por merma de fermentación y tina. Mañana a la mojadora entran {kg(biga.total)} KILO de biga madura; esa cantidad no cambia.
               </div>
               <div style={{ fontSize: 12, color: "#55606F", marginTop: 10, lineHeight: 1.45 }}>
                 Mañana se agrega la biga madura al inicio; las cantidades de abajo ya descuentan harina, líquido y levadura.
