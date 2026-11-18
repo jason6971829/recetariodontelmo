@@ -343,6 +343,15 @@ function bigaFromFlour(flour) {
   const levadura = Math.round(harina * BIGA.yeast);
   return { harina, agua, levadura, total: harina + agua + levadura };
 }
+// Biga que se PREPARA la tarde anterior (pesaje único consolidado): lleva +4 % por la merma de
+// fermentación y de la tina. Lo que cada receta toma al día siguiente (bigaFromFlour) no cambia.
+const BIGA_MERMA = 1.04;
+function bigaPrepFromFlour(flour) {
+  const harina = Math.round(flour * BIGA.flour * BIGA_MERMA);
+  const agua = Math.round(harina * BIGA.water);
+  const levadura = Math.round(harina * BIGA.yeast);
+  return { harina, agua, levadura, total: harina + agua + levadura };
+}
 function recipeFlour(rec, R) {
   const iH = findIng(rec, "harina");
   return iH >= 0 ? R.grams[iH] : Math.round(R.flour);
@@ -521,7 +530,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
   const activeRows = planRows.filter(l => l.active !== false);
   const planFlour = activeRows.reduce((a, l) => a + l.flour * l.tandas, 0);
   const planTandas = activeRows.reduce((a, l) => a + l.tandas, 0);
-  const planBiga = bigaFromFlour(planFlour);
+  const planBiga = bigaPrepFromFlour(planFlour);
   const setPlanRows = (fn) => setPlan(() => fn(planRows.map(({ id, recipeId, units, pan, active, tandas }) => ({ id, recipeId, units, pan, active: active !== false, tandas }))));
   const toggleLoteInstr = (l) => setRecipes(rs => rs.map(r => r.id === l.recipeId ? { ...r, instrOpen: !l.rec.instrOpen } : r));
   const patchLote = (id, patch) => setPlanRows(rows => rows.map(l => l.id === id ? { ...l, ...patch } : l));
@@ -766,7 +775,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {[["Harina (30% de la harina total)", planBiga.harina], ["Agua (50% de la harina de biga)", planBiga.agua], ["Levadura fresca (1% de la harina de biga)", planBiga.levadura]].map(([n, g]) => (
+                  {[["Harina (30% de la harina total + 4%)", planBiga.harina], ["Agua (50% de la harina de biga)", planBiga.agua], ["Levadura fresca (1% de la harina de biga)", planBiga.levadura]].map(([n, g]) => (
                     <tr key={n}>
                       <td style={{ padding: "8px 4px", borderBottom: "1px solid #f0ebe5", fontWeight: 600, color: C.ink }}>{n}</td>
                       <td style={{ padding: "8px 4px", borderBottom: "1px solid #f0ebe5", textAlign: "right", fontWeight: 800, fontSize: 18, color: C.navy, whiteSpace: "nowrap" }}>{kg(g)} KILO</td>
@@ -780,10 +789,13 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
                 </tbody>
               </table>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, border: `2px solid ${C.gold}`, background: "#FFF7EF", borderRadius: 10, padding: "10px 14px", marginTop: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: C.navy }}>Biga madura total (una tina)</div>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: C.navy }}>Biga total a preparar (una tina)</div>
                 <strong style={{ fontSize: 30, fontWeight: 800, color: C.gold, lineHeight: 1 }}>{kg(planBiga.total)} KILO</strong>
               </div>
-              <p style={{ fontSize: 12, color: "#8a7a6e", margin: "10px 0 0", lineHeight: 1.5 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: C.navy, margin: "10px 0 0", lineHeight: 1.5 }}>
+                Incluye +4 % adicional por merma de fermentación y tina (las cantidades de biga madura a pesar por receta al día siguiente no cambian).
+              </p>
+              <p style={{ fontSize: 12, color: "#8a7a6e", margin: "6px 0 0", lineHeight: 1.5 }}>
                 Al día siguiente, cada lote toma de la tina la cantidad de la columna <b>Biga madura</b>. Cada hoja de receta impresa ya trae la mojadora con la biga descontada.
               </p>
 
