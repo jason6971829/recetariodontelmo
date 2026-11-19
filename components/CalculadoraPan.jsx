@@ -97,6 +97,27 @@ const PRESETS = [
 ];
 const SEED = [...PRESETS, CIMPA];
 const clone = (r) => ({ ...r, ...(r.ings ? { ings: r.ings.map(i => ({ ...i })) } : {}) });
+// Pan Sandwich: lleva grasa de chicharrón en vez de margarina (mismo %). Tiene su propia fórmula,
+// copia de la CIMPA con ese cambio. Se aplica una sola vez por equipo (también en equipos nuevos).
+export const toGrasaChicharron = (ings, instr) => ({
+  ings: (ings || []).map(i => /^margarina/i.test(String(i.name).trim()) ? { ...i, name: "Grasa de Chicharrón" } : { ...i }),
+  instr: String(instr || "").replace(/\{g:Margarina\}/g, "{g:Grasa}").replace(/Margarina Astra/g, "Grasa de chicharrón")
+    .replace(/margarina Astra/g, "grasa de chicharrón").replace(/Margarina/g, "Grasa").replace(/margarina/g, "grasa"),
+});
+function sandwichGrasa(list) {
+  let flag = null;
+  try { flag = localStorage.getItem("calcpan_sandwich_grasa_v1"); } catch { /* ignore */ }
+  if (flag) return list;
+  const out = list.map(r => {
+    if (r.id !== "pan-sandwich") return r;
+    const base = r.baseId ? list.find(x => x.id === r.baseId) : r;
+    if (!base) return r;
+    const g = toGrasaChicharron(base.ings, base.instr);
+    return { ...r, baseId: undefined, ings: g.ings, instr: g.instr };
+  });
+  try { localStorage.setItem("calcpan_sandwich_grasa_v1", "1"); } catch { /* ignore */ }
+  return out;
+}
 // Une un pan con su formula base (si tiene): ings e instrucciones salen de la base
 function resolveRecipe(rec, list) {
   if (!rec) return rec;
@@ -257,13 +278,14 @@ function loadRecipes() {
         out = [...missing, ...out];
         try { localStorage.setItem("calcpan_presets_v1", "1"); } catch { /* ignore */ }
       }
+      out = sandwichGrasa(out);
       // Guardar ya el resultado: las marcas de migracion quedan puestas y, si el componente
       // se vuelve a montar antes del autoguardado, no se pierde lo migrado.
       saveRecipes(out);
       return out;
     }
   } catch { /* ignore */ }
-  return SEED.map(clone);
+  return sandwichGrasa(SEED.map(clone));
 }
 function saveRecipes(list) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(list)); } catch { /* ignore */ }
@@ -278,7 +300,7 @@ const MOJADORA_MAX = 25500;
 const normName = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 // Orden ideal de pesaje (definido en producción): secos, levadura, sal, líquido, biga, glucosa, glicerina y margarina.
 // "biga" marca dónde va la biga madura. Lo que no esté en la lista va al final, en su orden.
-const WEIGH_ORDER = ["harina", "gluten", "fecula", "dimodan", "propionato", "leche", "azucar", "levadura", "sal", "liquido total", "agua", "hielo", "biga", "glucosa", "glicerina", "margarina"];
+const WEIGH_ORDER = ["harina", "gluten", "fecula", "dimodan", "propionato", "leche", "azucar", "levadura", "sal", "liquido total", "agua", "hielo", "biga", "glucosa", "glicerina", "margarina", "grasa"];
 // Devuelve los índices de ings en orden de pesaje; -1 = fila de la biga madura
 function weighSeq(ings, hasBiga) {
   const rank = (name) => { const n = normName(name); const k = WEIGH_ORDER.findIndex(p => p !== "biga" && n.startsWith(p)); return k < 0 ? 999 : k; };
