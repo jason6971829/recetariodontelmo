@@ -43,9 +43,11 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
   // ── Calculadora: todo se ajusta en proporción al ingrediente principal ──
   const ings = useMemo(() => (recipe.ingredients || []).map(normalizeIngredient), [recipe.ingredients]);
   const parsed = useMemo(() => ings.map(n => parseQty(n.text)), [ings]);
-  const canCalc = parsed.some(Boolean);
-  // La báscula es para producción: solo en Recetas Bodega (la Calculadora de Masas tiene la suya)
-  const canPesar = canCalc && String(recipe.category || "").trim().toUpperCase() === "RECETAS BODEGA";
+  // Calcular y pesar son de producción: solo en Recetas Bodega. Las recetas del menú (Adiciones,
+  // Hamburguesas, Pizzas…) no los necesitan. La Calculadora de Masas tiene los suyos.
+  const isBodega = String(recipe.category || "").trim().toUpperCase() === "RECETAS BODEGA";
+  const canCalc = isBodega && parsed.some(Boolean);
+  const canPesar = canCalc;
   // Si la app se cerró a mitad de trabajo, se vuelve con la misma cantidad y al pesaje
   const [ui0] = useState(() => { const v = typeof window !== "undefined" ? loadUi("dt_recipe_ui") : null; return v && String(v.id) === String(recipe.id) ? v : null; });
   const [calcOn, setCalcOn] = useState(() => !!ui0?.calcOn);
@@ -56,7 +58,7 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
   useEffect(() => () => saveUi("dt_recipe_ui", null), []);
   const base = parsed[baseIdx];
   const haveNum = parseNumber(have);
-  const factor = calcOn && base && base.qty > 0 && isFinite(haveNum) && haveNum > 0 ? haveNum / base.qty : 1;
+  const factor = calcOn && canCalc && base && base.qty > 0 && isFinite(haveNum) && haveNum > 0 ? haveNum / base.qty : 1;
   const setFactor = (f) => base && setHave(fmtGaby(base.qty * f));
   const rinde = parseQty(recipe.portions);
   // Filas para pesar en la misma lista: meta en gramos de lo que va en peso; lo demás se mide o se cuenta
@@ -152,7 +154,7 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
               </div>
             </div>
 
-            {calcOn && base && (
+            {calcOn && canCalc && base && (
               <div style={{ borderRadius: 16, background: "#FFFAF5", border: "1.5px solid #F1D9C2", padding: 14, display: "flex", flexDirection: "column", gap: 10, animation: "dtUp .3s both" }}>
                 <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: ".16em", color: C.orange7 }}>INGREDIENTE PRINCIPAL</span>
