@@ -1095,7 +1095,7 @@ export default function App() {
           <SuppliesPanel onClose={()=>setShowSupplies(false)} />
         )}
         {showCalcPan && (
-          <CalculadoraPan isAdmin={isAdmin} onClose={()=>setShowCalcPan(false)} />
+          <CalculadoraPan isAdmin={isAdmin} currentUser={currentUser} onClose={()=>setShowCalcPan(false)} />
         )}
         {showCosting && isAdmin && (
           <CostingPanel recipes={recipes} onClose={()=>setShowCosting(false)} />

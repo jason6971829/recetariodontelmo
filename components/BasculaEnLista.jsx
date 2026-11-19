@@ -24,7 +24,8 @@ const Check = ({ s = 12, w = 3.4 }) => (
 );
 
 // rows: [{ code?, name, main (cantidad a mostrar), sub?, note?, grams (número o null), manual (texto si no se pesa) }]
-export function BasculaEnLista({ title, rows }) {
+// onFinish (opcional): al completar el pesaje aparece un botón principal (finishLabel) que lo llama
+export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar" }) {
   const b = useBascula();
   const { mobile: compact } = useViewport();
   const weighable = (r) => r.grams != null && r.grams > 0;
@@ -131,13 +132,14 @@ export function BasculaEnLista({ title, rows }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap, fontFamily: "var(--dt-sans)", color: "#14213D" }}>
       {allDone && (
-        <div style={{ borderRadius: 18, background: C.green100, border: "1.5px solid #9AD8BC", padding: pad, display: "flex", alignItems: "center", gap: 14, animation: "dtPop .4s both" }}>
+        <div style={{ borderRadius: 18, background: C.green100, border: "1.5px solid #9AD8BC", padding: pad, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", animation: "dtPop .4s both" }}>
           <span style={{ width: 44, height: 44, borderRadius: "50%", background: C.green, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Check s={22} w={2.6} /></span>
           <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
             <span style={{ fontSize: 16, fontWeight: 800, color: "#166E4B" }}>Pesaje completo</span>
             <span style={{ fontSize: 12.5, color: "#2F7A5A" }}>{doneCount} de {total} ingredientes listos</span>
           </span>
           <button onClick={reset} style={{ height: 40, padding: "0 14px", borderRadius: 11, border: "1.5px solid #9AD8BC", background: "#fff", color: "#166E4B", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>Reiniciar</button>
+          {onFinish && <button onClick={() => onFinish(rows.map((r, i) => ({ name: r.name, meta: r.grams, real: res[i]?.actual ?? null })))} style={{ height: 40, padding: "0 16px", borderRadius: 11, border: 0, background: C.green, color: "#fff", fontWeight: 800, fontSize: 13.5, cursor: "pointer" }}>{finishLabel}</button>}
         </div>
       )}
 

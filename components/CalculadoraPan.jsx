@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import { BasculaEnLista } from "./BasculaEnLista";
 import { useViewport } from "@/hooks/useViewport";
 import { loadUi, saveUi } from "@/lib/session";
+import { OrdenProduccion, isOpenOrder } from "./OrdenProduccion";
+import { loadProdOrders } from "@/lib/storage";
 
 // Calculadora de porcentaje panadero — herramienta independiente.
 // Harina = 100%. Reglas:
@@ -395,6 +397,31 @@ function weighOrderBlock(rec, grams, b) {
   });
   return `ORDEN DE PESAJE (pesar en este orden)\n${lines.join("\n")}\n\n`;
 }
+// Lista para el pesaje guiado, en orden de pesaje; el líquido se parte en hielo y agua helada.
+// b = biga calculada (computeBiga) o null si es sin biga; G = gramos a pesar (ya descontada la biga)
+function buildPesaje(rec, G, b) {
+  const items = [];
+  weighSeq(rec.ings, !!b).forEach((i) => {
+    if (i < 0) { items.push({ name: "Biga madura (de la tina)", grams: b.total }); return; }
+    const x = rec.ings[i];
+    const g = G[i];
+    if (!g) return;
+    if (normName(x.name).startsWith("liquido total")) {
+      const hielo = Math.floor(g / 2);
+      items.push({ name: "Hielo picado", grams: hielo, note: "En su recipiente: ponelo vacío y tocá «Cero aquí»" });
+      items.push({ name: "Agua helada", grams: g - hielo, note: "En otro recipiente: la glucosa y la glicerina se pesan después dentro de esta agua" });
+    } else {
+      items.push({ name: x.name, grams: g, note: reducedRow(b, i) ? "Restante: ya descontada la biga" : "" });
+    }
+  });
+  return items;
+}
+// Texto completo de instrucciones (orden de pesaje + biga + método) para una receta y su cálculo R
+function buildInstrText(rec, R, b) {
+  if (!rec.instr || !rec.instr.trim()) return "";
+  const G = b ? b.grams : R.grams;
+  return weighOrderBlock(rec, G, b) + (b ? bigaInstrHead(b) : "") + renderInstr(rec.instr, rec, { ...R, grams: G });
+}
 const bigaInstrHead = (b) =>
   `CON BIGA DEL DÍA ANTERIOR: incorporar ${fmt(b.total)} g de biga madura entera al inicio, junto con los secos. ` +
   `La harina, el líquido y la levadura de esta receta ya vienen descontados (la biga trae ${fmt(b.harina)} g de harina, ${fmt(b.agua)} g de agua y ${fmt(b.levadura)} g de levadura).\n\n`;
@@ -467,9 +494,12 @@ function NumInput({ value, onChange, ...props }) {
   );
 }
 
+// Lo que usa la vista de órdenes de producción (mismos cálculos que la calculadora)
+const ORDEN_CALC = { compute, computeBiga, recipeFlour, bigaPrepFromFlour, buildPesaje, buildInstrText, resolveRecipe, kg, fmt, num, C, btn, btnGold, inp, sect, SANS, SERIF, DIVISORA };
+
 // isAdmin: solo el admin puede editar, crear, duplicar o borrar fórmulas.
 // Los demás usan la calculadora (unidades, lote, biga, pesar, imprimir) pero no tocan los porcentajes.
-export function CalculadoraPan({ onClose, isAdmin = false }) {
+export function CalculadoraPan({ onClose, isAdmin = false, currentUser = null }) {
   const [recipes, setRecipes] = useState(() => (typeof window !== "undefined" ? loadRecipes() : SEED));
   // Si la app se cerró a mitad de trabajo, se vuelve al mismo pan y al pesaje
   const [ui0] = useState(() => (typeof window !== "undefined" ? loadUi("calcpan_ui") : null));
@@ -481,10 +511,12 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
   const [driverFlour, setDriverFlour] = useState(0);
   const [toast, setToast] = useState("");
   const [confirmDel, setConfirmDel] = useState(false);
-  const [view, setView] = useState("calc"); // "calc" | "plan" (biga consolidada)
+  const [view, setView] = useState(() => (ui0?.view === "orden" ? "orden" : "calc")); // "calc" | "plan" (biga consolidada) | "orden" (órdenes de producción)
+  const [openOrders, setOpenOrders] = useState(0);
+  useEffect(() => { loadProdOrders().then(r => { if (r) setOpenOrders(r.filter(isOpenOrder).length); }); }, []);
   const [plan, setPlan] = useState(() => (typeof window !== "undefined" ? loadPlan() : null));
   const [pesar, setPesar] = useState(() => !!ui0?.pesar); // pesaje guiado con la bascula
-  useEffect(() => { saveUi("calcpan_ui", { selId, pesar }); }, [selId, pesar]);
+  useEffect(() => { saveUi("calcpan_ui", { selId, pesar, view: view === "orden" ? "orden" : "calc" }); }, [selId, pesar, view]);
   useEffect(() => () => saveUi("calcpan_ui", null), []); // cerrar a propósito = empezar limpio la próxima vez
   const vp = useViewport();
   const mobile = vp.mobile;
@@ -517,26 +549,8 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
   const RI = biga ? { ...R, grams: G } : R;
   const showInstr = !!sel.instrOpen; // queda guardado por pan: si esta abierto, tambien sale en la impresion completa
   const setShowInstr = () => patchRecipe({ instrOpen: !sel.instrOpen });
-  // Lista para el pesaje guiado: biga primero, el liquido se parte en agua (con glicerina y glucosa) y hielo
-  const pesajeItems = () => {
-    const items = [];
-    weighSeq(sel.ings, !!biga).forEach((i) => {
-      if (i < 0) { items.push({ name: "Biga madura (de la tina)", grams: biga.total }); return; }
-      const x = sel.ings[i];
-      const g = G[i];
-      if (!g) return;
-      const n = normName(x.name);
-      if (n.startsWith("liquido total")) {
-        const hielo = Math.floor(g / 2);
-        items.push({ name: "Hielo picado", grams: hielo, note: "En su recipiente: ponelo vacío y tocá «Cero aquí»" });
-        items.push({ name: "Agua helada", grams: g - hielo, note: "En otro recipiente: la glucosa y la glicerina se pesan después dentro de esta agua" });
-      } else {
-        items.push({ name: x.name, grams: g, note: reducedRow(biga, i) ? "Restante: ya descontada la biga" : "" });
-      }
-    });
-    return items;
-  };
-  const instrText = (sel.instr && sel.instr.trim()) ? weighOrderBlock(sel, G, biga) + (biga ? bigaInstrHead(biga) : "") + renderInstr(sel.instr, sel, RI) : "";
+  const pesajeItems = () => buildPesaje(sel, G, biga);
+  const instrText = buildInstrText(sel, R, biga);
 
   // Consolidado: cada lote = receta + unidades; la biga se calcula sobre la harina sumada
   const planRows = (plan && plan.length ? plan : visible.map(r => ({ id: "l-" + r.id, recipeId: r.id, units: r.units || 100, pan: "", active: true })))
@@ -587,10 +601,11 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
   const td = { padding: "6px 4px", borderBottom: "1px solid #f0ebe5" };
   const box = <span style={{ display: "inline-block", width: 16, height: 16, border: `1.5px solid ${C.ink}`, borderRadius: 3 }} />;
   const renderSheet = (l, label, key) => {
-    const rec = l.rec, LR = l.LR, b = computeBiga(rec, LR);
+    // l.biga === false: orden sin biga (se pesa la fórmula completa)
+    const rec = l.rec, LR = l.LR, b = l.biga === false ? null : computeBiga(rec, LR);
+    const SG = b ? b.grams : LR.grams;
     const wTxt = fmt(LR.w, LR.r > 0 ? 0 : 1);
-    const instr = rec.instrOpen && rec.instr && rec.instr.trim()
-      ? weighOrderBlock(rec, b.grams, b) + bigaInstrHead(b) + renderInstr(rec.instr, rec, { ...LR, grams: b.grams }) : "";
+    const instr = rec.instrOpen ? buildInstrText(rec, LR, b) : "";
     return (
       <div key={key} className="calcpan-sheet" style={{ fontFamily: "'Poppins',sans-serif", color: C.ink }}>
         <div style={{ background: `linear-gradient(135deg, ${C.navy}, ${C.navyD})`, color: "#fff", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 10 }}>
@@ -619,7 +634,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
             </tr>
           </thead>
           <tbody>
-            {weighSeq(rec.ings, true).map((i) => i < 0 ? (
+            {weighSeq(rec.ings, !!b).map((i) => i < 0 ? (
             <tr key="biga" style={{ background: "#F4F7FB" }}>
               <td style={{ ...td, fontWeight: 700, color: C.navy }}>🌙 Biga madura (de la tina)</td>
               <td style={{ ...td, textAlign: "right", color: "#8a7a6e" }}>—</td>
@@ -633,7 +648,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
                   {reducedRow(b, i) && <div style={{ fontSize: 10, fontWeight: 600, color: C.navy }}>restante (ya descontada la biga)</div>}
                 </td>
                 <td style={{ ...td, textAlign: "right", color: "#8a7a6e" }}>{fmt(num(x.pct), num(x.pct) % 1 ? 1 : 0)}</td>
-                <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{kg(b.grams[i])}</td>
+                <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{kg(SG[i])}</td>
                 {Array.from({ length: CHECK_COLS }, (_, k) => <td key={k} style={{ ...td, textAlign: "center", padding: "6px 2px" }}>{box}</td>)}
               </tr>
             ))(rec.ings[i]))}
@@ -647,7 +662,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
             </tr>
           </tfoot>
         </table>
-        {b.warn.map(w => <div key={w} style={{ fontSize: 12, color: "#c0392b", fontWeight: 600, marginTop: 4 }}>⚠️ {w}</div>)}
+        {(b?.warn || []).map(w => <div key={w} style={{ fontSize: 12, color: "#c0392b", fontWeight: 600, marginTop: 4 }}>⚠️ {w}</div>)}
         {instr && (
           <div style={{ marginTop: 12 }}>
             <div style={sect}>Instrucciones / método</div>
@@ -693,14 +708,19 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
         {/* Header */}
         <div style={{ background: `linear-gradient(160deg, ${C.navy7}, ${C.navy})`, color: "#fff", padding: mobile ? `calc(12px + env(safe-area-inset-top)) 18px 12px` : `20px 28px`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".22em", color: "#F0A35E" }}>{view === "plan" ? "BIGA DEL DÍA ANTERIOR" : "PORCENTAJE PANADERO · HARINA = 100%"}</span>
-            <span style={{ fontFamily: SERIF, fontSize: mobile ? 20 : 24, fontWeight: 600 }}>{view === "plan" ? "Biga consolidada" : "Calculadora de masas"}</span>
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".22em", color: "#F0A35E" }}>{view === "plan" ? "BIGA DEL DÍA ANTERIOR" : view === "orden" ? "PANADERÍA" : "PORCENTAJE PANADERO · HARINA = 100%"}</span>
+            <span style={{ fontFamily: SERIF, fontSize: mobile ? 20 : 24, fontWeight: 600 }}>{view === "plan" ? "Biga consolidada" : view === "orden" ? "Órdenes de producción" : "Calculadora de masas"}</span>
           </div>
           <button className="calcpan-noprint" onClick={onClose} aria-label="Cerrar" style={{ width: 42, height: 42, borderRadius: 12, border: 0, background: "rgba(255,255,255,.1)", color: "#fff", cursor: "pointer", flex: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
         </div>
 
+        {view === "orden" && (
+          <div className="calcpan-noprint" style={{ display: "flex", gap: 8, alignItems: "center", padding: `10px ${mobile ? 18 : 28}px`, borderBottom: `1px solid ${C.soft}`, flexShrink: 0 }}>
+            <button style={{ ...btn, height: 38, borderRadius: 12 }} onClick={() => { saveUi("calcpan_orden_ui", null); setView("calc"); }}>← Calculadora</button>
+          </div>
+        )}
         {/* Barra de la vista Biga consolidada */}
         {view === "plan" && (
           <div className="calcpan-noprint" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", padding: `12px ${mobile ? 18 : 28}px`, borderBottom: `1px solid ${C.soft}`, flexShrink: 0 }}>
@@ -720,7 +740,10 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
 
         {/* Body */}
         <div className="calcpan-body" style={{ overflowY: "auto", flex: 1, padding: `${mobile ? 16 : 22}px ${mobile ? 18 : 28}px calc(24px + env(safe-area-inset-bottom))`, background: "#fff" }}>
-          {view === "plan" ? (
+          {view === "orden" ? (
+            <OrdenProduccion calc={ORDEN_CALC} recipes={recipes} visible={visible} currentUser={currentUser} isAdmin={isAdmin} mobile={mobile}
+              renderSheet={renderSheet} onCount={setOpenOrders} />
+          ) : view === "plan" ? (
             <div>
               <div style={sect}>Lotes del día siguiente</div>
               <p style={{ fontSize: 12, color: "#8a7a6e", margin: "0 0 10px" }}>
@@ -850,6 +873,10 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
           </div>
           <div className="calcpan-noprint dt-noscroll" style={{ display: "flex", gap: 6, overflowX: "auto", margin: `0 -${mobile ? 18 : 28}px 16px`, padding: `0 ${mobile ? 18 : 28}px 2px` }}>
             {isAdmin && <button style={edit ? { ...btn, background: C.navy, borderColor: C.navy, color: "#fff" } : btn} onClick={() => setEdit(e => !e)}>{edit ? "Listo ✓" : "Editar fórmula"}</button>}
+            <button style={{ ...btn, background: C.navy, borderColor: C.navy, color: "#fff", display: "inline-flex", alignItems: "center", gap: 6 }} onClick={() => { setConfirmDel(false); setPesar(false); setEdit(false); setView("orden"); }}>
+              Órdenes de producción
+              {openOrders > 0 && <span style={{ minWidth: 20, height: 20, borderRadius: 999, background: C.gold, color: "#fff", fontSize: 11, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 6px" }}>{openOrders}</span>}
+            </button>
             <button style={btn} onClick={() => { setConfirmDel(false); setPesar(false); setView("plan"); }}>Biga consolidada</button>
             <button style={btn} onClick={printRecipe}>Imprimir</button>
             {isAdmin && <>
