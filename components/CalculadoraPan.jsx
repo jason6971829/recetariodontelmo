@@ -274,6 +274,16 @@ const DIVISORA = 30;
 // Capacidad de la mojadora: una receta de Pan Burger (300 u x 85 g). Si una tanda pasa de esto, se avisa.
 const MOJADORA_MAX = 25500;
 const normName = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+// Orden ideal de pesaje (definido en producción): secos, levadura, sal, líquido, biga, glucosa, glicerina y margarina.
+// "biga" marca dónde va la biga madura. Lo que no esté en la lista va al final, en su orden.
+const WEIGH_ORDER = ["harina", "gluten", "fecula", "dimodan", "propionato", "leche", "azucar", "levadura", "sal", "liquido total", "agua", "hielo", "biga", "glucosa", "glicerina", "margarina"];
+// Devuelve los índices de ings en orden de pesaje; -1 = fila de la biga madura
+function weighSeq(ings, hasBiga) {
+  const rank = (name) => { const n = normName(name); const k = WEIGH_ORDER.findIndex(p => p !== "biga" && n.startsWith(p)); return k < 0 ? 999 : k; };
+  const seq = (ings || []).map((x, i) => ({ i, r: rank(x.name) }));
+  if (hasBiga) seq.push({ i: -1, r: WEIGH_ORDER.indexOf("biga") });
+  return seq.sort((a, b) => a.r - b.r || a.i - b.i).map(s => s.i);
+}
 function renderInstr(text, rec, R) {
   if (!text || !R) return text || "";
   const gramsOf = (name) => {
@@ -499,15 +509,16 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
   // Lista para el pesaje guiado: biga primero, el liquido se parte en agua (con glicerina y glucosa) y hielo
   const pesajeItems = () => {
     const items = [];
-    if (biga) items.push({ name: "Biga madura (de la tina)", grams: biga.total });
-    sel.ings.forEach((x, i) => {
+    weighSeq(sel.ings, !!biga).forEach((i) => {
+      if (i < 0) { items.push({ name: "Biga madura (de la tina)", grams: biga.total }); return; }
+      const x = sel.ings[i];
       const g = G[i];
       if (!g) return;
       const n = normName(x.name);
       if (n.startsWith("liquido total")) {
         const hielo = Math.floor(g / 2);
-        items.push({ name: "Agua helada", grams: g - hielo, note: "Echala sobre la glicerina y la glucosa (mismo recipiente)" });
-        items.push({ name: "Hielo picado", grams: hielo, note: "En otro recipiente: ponelo vacío y tocá «Cero aquí»" });
+        items.push({ name: "Hielo picado", grams: hielo, note: "En su recipiente: ponelo vacío y tocá «Cero aquí»" });
+        items.push({ name: "Agua helada", grams: g - hielo, note: "En otro recipiente: la glucosa y la glicerina se pesan después dentro de esta agua" });
       } else {
         items.push({ name: x.name, grams: g, note: reducedRow(biga, i) ? "Restante: ya descontada la biga" : "" });
       }
@@ -597,13 +608,14 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
             </tr>
           </thead>
           <tbody>
-            <tr style={{ background: "#F4F7FB" }}>
+            {weighSeq(rec.ings, true).map((i) => i < 0 ? (
+            <tr key="biga" style={{ background: "#F4F7FB" }}>
               <td style={{ ...td, fontWeight: 700, color: C.navy }}>🌙 Biga madura (de la tina)</td>
               <td style={{ ...td, textAlign: "right", color: "#8a7a6e" }}>—</td>
               <td style={{ ...td, textAlign: "right", fontWeight: 800, color: C.navy }}>{kg(b.total)}</td>
               {Array.from({ length: CHECK_COLS }, (_, k) => <td key={k} style={{ ...td, textAlign: "center", padding: "6px 2px" }}>{box}</td>)}
             </tr>
-            {rec.ings.map((x, i) => (
+            ) : ((x) => (
               <tr key={i}>
                 <td style={{ ...td, fontWeight: 600 }}>
                   {x.name}
@@ -613,7 +625,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
                 <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>{kg(b.grams[i])}</td>
                 {Array.from({ length: CHECK_COLS }, (_, k) => <td key={k} style={{ ...td, textAlign: "center", padding: "6px 2px" }}>{box}</td>)}
               </tr>
-            ))}
+            ))(rec.ings[i]))}
           </tbody>
           <tfoot>
             <tr>
@@ -648,8 +660,8 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
 
   const copyRecipe = async () => {
     const txt = `${sel.name}${sel.pan && sel.pan.trim() ? " — " + sel.pan.trim() : ""}\n${fmt(R.units)} unidades × ${fmt(R.w, R.r > 0 ? 0 : 1)} g\nMasa total: ${kg(R.total)} KILO\n\n` +
-      (biga ? `— Biga (preparar el día anterior, incluye +4 % por merma) —\nHarina: ${kg(biga.prep.harina)} KILO\nAgua: ${kg(biga.prep.agua)} KILO\nLevadura fresca: ${kg(biga.prep.levadura)} KILO\nBiga a preparar: ${kg(biga.prep.total)} KILO\n\n— Mojadora —\nBiga madura: ${kg(biga.total)} KILO\n` : "") +
-      sel.ings.map((x, i) => `${x.name}: ${kg(G[i])} KILO${reducedRow(biga, i) ? " (descontada la biga)" : ` (${fmt(num(x.pct), num(x.pct) % 1 ? 1 : 0)}%)`}`).join("\n") +
+      (biga ? `— Biga (preparar el día anterior, incluye +4 % por merma) —\nHarina: ${kg(biga.prep.harina)} KILO\nAgua: ${kg(biga.prep.agua)} KILO\nLevadura fresca: ${kg(biga.prep.levadura)} KILO\nBiga a preparar: ${kg(biga.prep.total)} KILO\n\n— Mojadora (en orden de pesaje) —\n` : "") +
+      weighSeq(sel.ings, !!biga).map((i) => i < 0 ? `Biga madura: ${kg(biga.total)} KILO` : ((x) => `${x.name}: ${kg(G[i])} KILO${reducedRow(biga, i) ? " (descontada la biga)" : ` (${fmt(num(x.pct), num(x.pct) % 1 ? 1 : 0)}%)`}`)(sel.ings[i])).join("\n") +
       (instrText ? `\n\n— Instrucciones —\n${instrText}` : "");
     try { await navigator.clipboard.writeText(txt); setToast("Receta copiada"); }
     catch { setToast("No se pudo copiar"); }
@@ -951,8 +963,9 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
                 </tr>
               </thead>
               <tbody>
-                {biga && (
-                  <tr style={{ background: "#F4F7FB" }}>
+                {/* Fuera de edición se muestra en orden de pesaje (la biga en su lugar); editando, en el orden guardado */}
+                {(edit ? [...(biga ? [-1] : []), ...sel.ings.map((_, i) => i)] : weighSeq(sel.ings, !!biga)).map((i) => i < 0 ? (
+                  <tr key="biga" style={{ background: "#F4F7FB" }}>
                     <td style={{ padding: "6px 4px", borderBottom: `1px solid ${C.soft}`, fontWeight: 700, color: C.navy, fontSize: mobile ? 13.5 : 14.5 }}>Biga madura (del día anterior)</td>
                     <td style={{ padding: "6px 4px", borderBottom: `1px solid #f0ebe5`, textAlign: "right", color: "#8a7a6e" }}>—</td>
                     <td style={{ padding: "6px 4px", borderBottom: `1px solid #f0ebe5` }}>
@@ -965,8 +978,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
                       </td>
                     ))}
                   </tr>
-                )}
-                {sel.ings.map((x, i) => (
+                ) : ((x) => (
                   <tr key={i}>
                     <td style={{ padding: "6px 4px", borderBottom: `1px solid ${C.soft}`, fontWeight: 600, color: C.ink, fontSize: mobile ? 13.5 : 14.5, lineHeight: 1.25, height: mobile ? 38 : 46 }}>
                       {edit
@@ -995,7 +1007,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
                       </td>
                     ))}
                   </tr>
-                ))}
+                ))(sel.ings[i]))}
               </tbody>
               <tfoot>
                 <tr>
