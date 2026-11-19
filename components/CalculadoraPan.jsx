@@ -384,6 +384,17 @@ function computeBiga(rec, R) {
   return { ...b, prep: bigaPrepFromFlour(flour), grams, idx, warn };
 }
 const reducedRow = (biga, i) => !!biga && (i === biga.idx.iH || i === biga.idx.iL || i === biga.idx.iY);
+// Bloque "ORDEN DE PESAJE" al inicio de las instrucciones: sale de weighSeq, así siempre coincide con la tabla
+function weighOrderBlock(rec, grams, b) {
+  const lines = weighSeq(rec.ings, !!b).map((i, k) => {
+    if (i < 0) return `${k + 1}. Biga madura (de la tina) — ${kgFromG(b.total)} KILO`;
+    const x = rec.ings[i], g = grams[i] || 0, n = normName(x.name);
+    const extra = n.startsWith("liquido total") ? ` (${kgFromG(Math.floor(g / 2))} hielo picado + ${kgFromG(g - Math.floor(g / 2))} agua helada)`
+      : reducedRow(b, i) ? " (restante, ya descontada la biga)" : "";
+    return `${k + 1}. ${x.name} — ${kgFromG(g)} KILO${extra}`;
+  });
+  return `ORDEN DE PESAJE (pesar en este orden)\n${lines.join("\n")}\n\n`;
+}
 const bigaInstrHead = (b) =>
   `CON BIGA DEL DÍA ANTERIOR: incorporar ${fmt(b.total)} g de biga madura entera al inicio, junto con los secos. ` +
   `La harina, el líquido y la levadura de esta receta ya vienen descontados (la biga trae ${fmt(b.harina)} g de harina, ${fmt(b.agua)} g de agua y ${fmt(b.levadura)} g de levadura).\n\n`;
@@ -525,7 +536,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
     });
     return items;
   };
-  const instrText = (sel.instr && sel.instr.trim()) ? (biga ? bigaInstrHead(biga) : "") + renderInstr(sel.instr, sel, RI) : "";
+  const instrText = (sel.instr && sel.instr.trim()) ? weighOrderBlock(sel, G, biga) + (biga ? bigaInstrHead(biga) : "") + renderInstr(sel.instr, sel, RI) : "";
 
   // Consolidado: cada lote = receta + unidades; la biga se calcula sobre la harina sumada
   const planRows = (plan && plan.length ? plan : visible.map(r => ({ id: "l-" + r.id, recipeId: r.id, units: r.units || 100, pan: "", active: true })))
@@ -579,7 +590,7 @@ export function CalculadoraPan({ onClose, isAdmin = false }) {
     const rec = l.rec, LR = l.LR, b = computeBiga(rec, LR);
     const wTxt = fmt(LR.w, LR.r > 0 ? 0 : 1);
     const instr = rec.instrOpen && rec.instr && rec.instr.trim()
-      ? bigaInstrHead(b) + renderInstr(rec.instr, rec, { ...LR, grams: b.grams }) : "";
+      ? weighOrderBlock(rec, b.grams, b) + bigaInstrHead(b) + renderInstr(rec.instr, rec, { ...LR, grams: b.grams }) : "";
     return (
       <div key={key} className="calcpan-sheet" style={{ fontFamily: "'Poppins',sans-serif", color: C.ink }}>
         <div style={{ background: `linear-gradient(135deg, ${C.navy}, ${C.navyD})`, color: "#fff", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 10 }}>
