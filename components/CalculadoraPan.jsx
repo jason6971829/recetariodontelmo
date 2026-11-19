@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { BasculaEnLista } from "./BasculaEnLista";
 import { useViewport } from "@/hooks/useViewport";
 import { loadUi, saveUi } from "@/lib/session";
-import { OrdenProduccion, isOpenOrder } from "./OrdenProduccion";
+import { OrdenProduccion, isOpenOrder, GabyDialog } from "./OrdenProduccion";
 import { loadProdOrders } from "@/lib/storage";
 
 // Calculadora de porcentaje panadero — herramienta independiente.
@@ -751,13 +751,13 @@ export function CalculadoraPan({ onClose, isAdmin = false, currentUser = null })
           </div>
         )}
         {confirmDel && isAdmin && (
-          <div className="calcpan-noprint" role="alertdialog" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: `12px ${mobile ? 18 : 28}px`, background: "#FDECEA", borderBottom: "1.5px solid #e8c5bf", flexShrink: 0 }}>
-            <span style={{ flex: 1, minWidth: 180, fontSize: 13, fontWeight: 600, color: "#8e2b20" }}>
-              ⚠️ ¿Seguro que querés borrar «{sel?.name}»? No se puede deshacer.
-            </span>
-            <button style={btn} onClick={() => setConfirmDel(false)}>Cancelar</button>
-            <button style={{ ...btn, background: "#c0392b", borderColor: "#c0392b", color: "#fff" }} onClick={delRecipe}>Sí, borrar</button>
-          </div>
+          <GabyDialog C={C} SANS={SANS} SERIF={SERIF} mobile={mobile} danger
+            title={`¿Seguro que querés borrar «${sel?.name}»?`}
+            text="Se borra la fórmula de la calculadora y no se puede deshacer. Las órdenes de producción que ya la tienen no cambian."
+            warn={recipes.some(x => x.baseId === selRaw.id && x.id !== selRaw.id)
+              ? `Otros panes usan esta fórmula como base (${recipes.filter(x => x.baseId === selRaw.id && x.id !== selRaw.id).map(x => x.name).join(", ")}): se quedan con una copia propia.` : ""}
+            yes="Sí, borrar" no="No, dejarla"
+            onYes={delRecipe} onNo={() => setConfirmDel(false)} />
         )}
 
         {/* Body */}
@@ -893,7 +893,7 @@ export function CalculadoraPan({ onClose, isAdmin = false, currentUser = null })
               {pesar ? "Dejar de pesar" : "Pesar"}
             </button>
           </div>
-          <div className="calcpan-noprint dt-noscroll" style={{ display: "flex", gap: 6, overflowX: "auto", margin: `0 -${mobile ? 18 : 28}px 16px`, padding: `0 ${mobile ? 18 : 28}px 2px` }}>
+          <div className="calcpan-noprint" style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
             {isAdmin && <button style={edit ? { ...btn, background: C.navy, borderColor: C.navy, color: "#fff" } : btn} onClick={() => setEdit(e => !e)}>{edit ? "Listo ✓" : "Editar fórmula"}</button>}
             <button style={{ ...btn, background: C.navy, borderColor: C.navy, color: "#fff", display: "inline-flex", alignItems: "center", gap: 6 }} onClick={() => { setConfirmDel(false); setPesar(false); setEdit(false); setView("orden"); }}>
               Órdenes de producción

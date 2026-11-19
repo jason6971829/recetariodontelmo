@@ -5,6 +5,7 @@
 // Cada línea guarda una copia de la fórmula (rec) del momento en que se pidió: así todos los
 // equipos pesan lo mismo y sirve para cualquier pan, aunque mañana haya fórmulas distintas.
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { BasculaEnLista } from "./BasculaEnLista";
 import { loadProdOrders, updateProdOrders } from "@/lib/storage";
 import { loadUi, saveUi } from "@/lib/session";
@@ -551,15 +552,16 @@ function diffOrder(a, b, { lineName, fmt, kg, orderBiga }) {
 }
 
 // ── Gaby (la asistente) pregunta antes de cancelar o guardar cambios ──
-function GabyDialog({ C, SANS, SERIF, mobile, title, text, items, warn, yes = "Sí", no = "No", danger, onYes, onNo }) {
+export function GabyDialog({ C, SANS, SERIF, mobile, title, text, items, warn, yes = "Sí", no = "No", danger, onYes, onNo }) {
   const [img, setImg] = useState(true);
   useEffect(() => {
     const k = (e) => { if (e.key === "Escape") onNo(); };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   }, [onNo]);
-  return (
-    <div className="calcpan-noprint" onClick={onNo} style={{ position: "fixed", inset: 0, zIndex: 10040, background: "rgba(9,24,49,.45)", display: "flex", alignItems: mobile ? "flex-end" : "center", justifyContent: "center", padding: mobile ? 0 : 20, animation: "dtFade .2s both", fontFamily: SANS }}>
+  // portal al <body>: así queda encima de todo aunque se abra dentro de la calculadora
+  return createPortal(
+    <div className="calcpan-noprint" onClick={(e) => { e.stopPropagation(); onNo(); }} style={{ position: "fixed", inset: 0, zIndex: 10040, background: "rgba(9,24,49,.45)", display: "flex", alignItems: mobile ? "flex-end" : "center", justifyContent: "center", padding: mobile ? 0 : 20, animation: "dtFade .2s both", fontFamily: SANS }}>
       <div role="alertdialog" aria-modal="true" aria-label={title} onClick={e => e.stopPropagation()}
         style={{ width: "100%", maxWidth: 460, background: "#fff", borderRadius: mobile ? "22px 22px 0 0" : 22, boxShadow: "0 30px 70px -20px rgba(0,0,0,.55)", padding: mobile ? "18px 16px calc(16px + env(safe-area-inset-bottom, 0px))" : 22, display: "flex", flexDirection: "column", gap: 14, animation: "dtPop .3s cubic-bezier(.2,.8,.2,1) both", maxHeight: "calc(var(--app-height, 100vh) * .9)", overflowY: "auto" }}>
         <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
@@ -580,9 +582,10 @@ function GabyDialog({ C, SANS, SERIF, mobile, title, text, items, warn, yes = "S
         {warn && <div style={{ fontSize: 13, fontWeight: 700, color: "#8e5b10", background: "#FFF6E8", border: "1px solid #F3D9AE", borderRadius: 12, padding: "9px 12px" }}>⚠️ {warn}</div>}
         <div style={{ display: "flex", gap: 10 }}>
           <button onClick={onNo} style={{ flex: 1, height: 50, borderRadius: 14, border: 0, background: "#EFEAE2", color: "#3C3A36", fontWeight: 800, fontSize: 14.5, cursor: "pointer", fontFamily: SANS }}>{no}</button>
-          <button onClick={onYes} autoFocus style={{ flex: 1.4, height: 50, borderRadius: 14, border: 0, background: danger ? "#C8423B" : C.navy, color: "#fff", fontWeight: 800, fontSize: 14.5, cursor: "pointer", fontFamily: SANS }}>{yes}</button>
+          <button onClick={onYes} autoFocus={!danger} style={{ flex: 1.4, height: 50, borderRadius: 14, border: 0, background: danger ? "#C8423B" : C.navy, color: "#fff", fontWeight: 800, fontSize: 14.5, cursor: "pointer", fontFamily: SANS }}>{yes}</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
