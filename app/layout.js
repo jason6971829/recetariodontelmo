@@ -111,6 +111,9 @@ export default function RootLayout({ children }) {
 
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
+                  // Si al abrir no había SW controlando, es la primera instalación: no hay nada que recargar
+                  let hadController = !!navigator.serviceWorker.controller;
+                  let pending = false;
                   navigator.serviceWorker.register('/sw.js').then((reg) => {
 
                     // Cuando el SW nuevo termina de instalarse
@@ -131,9 +134,20 @@ export default function RootLayout({ children }) {
 
                   }).catch(() => {});
 
-                  // Cuando el SW nuevo toma el control → recargar la página automáticamente
+                  // Versión nueva lista: NO recargar sola (sacaba al usuario en medio del trabajo).
+                  // Se muestra un aviso y la persona actualiza cuando quiera; al abrir la app de nuevo ya entra con la nueva.
                   navigator.serviceWorker.addEventListener('controllerchange', () => {
-                    window.location.reload();
+                    if (!hadController) { hadController = true; return; } // la primera toma de control no es una versión nueva
+                    if (pending) return;
+                    pending = true;
+                    if (document.getElementById('dt-update')) return;
+                    const b = document.createElement('button');
+                    b.id = 'dt-update';
+                    b.type = 'button';
+                    b.textContent = '✨ Hay una versión nueva · Tocá para actualizar';
+                    b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:2147483000;background:#0E2240;color:#fff;border:0;border-radius:999px;padding:11px 18px;font:700 13.5px Manrope,system-ui,sans-serif;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);cursor:pointer;max-width:92vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+                    b.onclick = () => window.location.reload();
+                    document.body.appendChild(b);
                   });
                 });
               }
