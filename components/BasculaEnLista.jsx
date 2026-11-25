@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { kgFromG } from "@/lib/scaleRecipe";
 import { useBascula } from "@/components/PesajeBascula";
 import { useViewport } from "@/hooks/useViewport";
-import { loadUi, saveUi } from "@/lib/session";
+import { loadUi, saveUi, keepUiOnClose } from "@/lib/session";
 import { touchActivity } from "@/lib/security";
 
 // Panel de Pesaje (rediseño): se usa dentro de la Calculadora de Masas y de la receta, sin abrir otra pantalla.
@@ -55,7 +55,7 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
   }, [sig]);
   useEffect(() => { saveUi("dt_pesaje", { sig, res, cur, base }); }, [sig, res, cur, base]);
   // al cerrar el pesaje a propósito se borra; si la app se cae, no pasa por acá y queda guardado
-  useEffect(() => () => saveUi("dt_pesaje", null), []);
+  useEffect(() => () => { if (!keepUiOnClose()) saveUi("dt_pesaje", null); }, []);
 
   // Pantalla siempre encendida mientras se pesa + la sesión no se cierra por inactividad
   useEffect(() => {
@@ -77,18 +77,6 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
   const inRange = !!row && b.stable && g > 0 && Math.abs(diff) <= tol;
   const over = diff > tol;
 
-  useEffect(() => {
-    if (inRange && !wasOk.current) {
-      try { navigator.vibrate?.(120); } catch { /* */ }
-      try {
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        const ctx = BasculaEnLista.ctx || (BasculaEnLista.ctx = new Ctx());
-        const o = ctx.createOscillator(), gn = ctx.createGain();
-        o.frequency.value = 880; gn.gain.value = 0.15; o.connect(gn); gn.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.15);
-      } catch { /* */ }
-    }
-    wasOk.current = inRange;
-  }, [inRange]);
 
   const select = (i) => { setCur(i); setBase(b.scaleG); };
   const commit = (how) => {
@@ -98,22 +86,45 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
     setBase(b.scaleG); // el siguiente arranca desde acá (mismo tazón)
     setCur(firstPending(next, cur + 1));
   };
-  // Pasa solo: si el peso queda en rango 3 segundos seguidos, se marca listo y sigue el próximo insumo.
-  // Si el peso se sale del rango antes, la cuenta se reinicia.
+  // Pasa solo: si el peso queda cerca de la meta 3 segundos, se marca listo y sigue el próximo insumo.
+  // No se exige "pesa quieta" en cada lectura: la pesa real alterna el aviso de movimiento entre
+  // lecturas y eso reiniciaba la cuenta sin fin. Salidas cortas del rango (< 0,8 s) no reinician.
+  const nearMeta = !!row && b.live && g > 0 && Math.abs(diff) <= tol;
   const [autoLeft, setAutoLeft] = useState(0);
   const commitRef = useRef(commit);
   commitRef.current = commit;
+  const nearRef = useRef(false);
+  nearRef.current = nearMeta;
+  const autoRef = useRef({ since: 0, lastOut: 0 });
+  useEffect(() => { autoRef.current = { since: 0, lastOut: 0 }; setAutoLeft(0); }, [cur]);
   useEffect(() => {
-    if (!inRange) { setAutoLeft(0); return; }
-    const start = Date.now();
-    setAutoLeft(Math.ceil(AUTO_MS / 1000));
     const iv = setInterval(() => {
-      const left = Math.ceil((AUTO_MS - (Date.now() - start)) / 1000);
-      if (left <= 0) { clearInterval(iv); setAutoLeft(0); commitRef.current("scale"); }
-      else setAutoLeft(left);
+      const a = autoRef.current, now = Date.now();
+      if (nearRef.current) { if (!a.since) a.since = now; a.lastOut = 0; }
+      else if (a.since) {
+        if (!a.lastOut) a.lastOut = now;
+        if (now - a.lastOut > 800) { a.since = 0; a.lastOut = 0; }
+      }
+      if (!a.since) { setAutoLeft(0); return; }
+      const left = Math.ceil((AUTO_MS - (now - a.since)) / 1000);
+      if (left <= 0 && nearRef.current) { autoRef.current = { since: 0, lastOut: 0 }; setAutoLeft(0); commitRef.current("scale"); }
+      else setAutoLeft(Math.max(1, left));
     }, 150);
     return () => clearInterval(iv);
-  }, [inRange, cur]);
+  }, []);
+  // pitido + vibración una vez, cuando empieza la cuenta
+  useEffect(() => {
+    if (autoLeft > 0 && !wasOk.current) {
+      try { navigator.vibrate?.(120); } catch { /* */ }
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        const ctx = BasculaEnLista.ctx || (BasculaEnLista.ctx = new Ctx());
+        const o = ctx.createOscillator(), gn = ctx.createGain();
+        o.frequency.value = 880; gn.gain.value = 0.15; o.connect(gn); gn.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.15);
+      } catch { /* */ }
+    }
+    wasOk.current = autoLeft > 0;
+  }, [autoLeft]);
   const reset = () => { setRes({}); setBase(b.scaleG); setCur(firstPending({})); };
 
   const total = rows.length;
@@ -135,14 +146,15 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
   // ── valores de presentación (tal cual el prototipo PanelPesaje) ──
   const connected = b.live;
   const pad = compact ? 14 : 18, gap = compact ? 10 : 14;
-  const readColor = !connected ? C.muted2 : inRange ? C.green : over ? C.red : C.orange;
+  const okNow = inRange || autoLeft > 0; // en rango (sin parpadeos)
+  const readColor = !connected ? C.muted2 : okNow ? C.green : over ? C.red : C.orange;
   const max = t * 1.1 || 1;
   const pill = b.conn === "on"
     ? (b.stale ? { bg: "#FDECEA", fg: C.red, label: "Sin señal", anim: "none" } : { bg: C.green100, fg: C.green, label: "Pesa conectada", anim: "dtGlow 1.6s ease-in-out infinite" })
     : b.conn === "sim" ? { bg: "#EFEAFB", fg: "#6B46C1", label: "Modo prueba", anim: "none" }
     : b.conn === "connecting" ? { bg: "#F0ECE5", fg: C.muted, label: "Conectando…", anim: "none" }
     : { bg: "#F0ECE5", fg: C.muted, label: "Pesa desconectada", anim: "none" };
-  const stateLabel = !connected ? "sin señal" : !b.stable && b.moving ? "⏳ midiendo…" : inRange ? "✓ en rango" : over ? `+${kg(diff)} KILO de más` : `faltan ${kg(-diff)} KILO`;
+  const stateLabel = !connected ? "sin señal" : okNow ? "✓ en rango" : !b.stable && b.moving ? "⏳ midiendo…" : over ? `+${kg(diff)} KILO de más` : `faltan ${kg(-diff)} KILO`;
   const btnOutline = { height: compact ? 44 : 46, borderRadius: 12, border: `1.5px solid ${C.line}`, background: "#FFFFFF", color: C.navy, fontWeight: 700, fontSize: 13.5, cursor: "pointer", whiteSpace: "nowrap" };
   const isOn = b.conn === "on" || b.conn === "sim";
 
@@ -161,7 +173,7 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
       )}
 
       {!allDone && (
-        <div style={{ position: "sticky", top: 0, zIndex: 3, borderRadius: 18, background: "#FFFFFF", border: `1.5px solid ${inRange ? C.green : C.orange}`, boxShadow: "0 18px 36px -22px rgba(217,115,26,.55)", padding: pad, display: "flex", flexDirection: "column", gap: compact ? 10 : 12, transition: "border-color .3s" }}>
+        <div style={{ position: "sticky", top: 0, zIndex: 3, borderRadius: 18, background: "#FFFFFF", border: `1.5px solid ${okNow ? C.green : C.orange}`, boxShadow: "0 18px 36px -22px rgba(217,115,26,.55)", padding: pad, display: "flex", flexDirection: "column", gap: compact ? 10 : 12, transition: "border-color .3s" }}>
           {/* 1. estado */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{ display: "flex", alignItems: "center", gap: 7, height: 28, padding: "0 11px", borderRadius: 999, background: pill.bg, color: pill.fg, fontSize: 12, fontWeight: 800 }}>
@@ -214,9 +226,9 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.3fr", gap: 8 }}>
                 <button style={{ ...btnOutline, opacity: b.stable ? 1 : 0.5 }} disabled={!b.stable} onClick={() => setBase(b.scaleG)} title="Al cambiar de recipiente: pone en cero lo que hay en la pesa">Cero</button>
                 <button style={{ ...btnOutline, opacity: b.stable && !inRange ? 1 : 0.5 }} disabled={!b.stable || inRange} onClick={() => commit("aceptado")}>Aceptar así</button>
-                <button disabled={!inRange} onClick={() => commit("scale")}
-                  style={{ height: compact ? 44 : 46, borderRadius: 12, border: 0, background: inRange ? C.green : C.navy, color: "#fff", fontWeight: 800, fontSize: 14, cursor: inRange ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: inRange ? 1 : 0.4, transition: "all .25s" }}>
-                  <Check s={16} w={2.8} />{inRange && autoLeft > 0 ? `Listo · sigue en ${autoLeft}` : "Listo"}
+                <button disabled={!inRange && !autoLeft} onClick={() => commit("scale")}
+                  style={{ height: compact ? 44 : 46, borderRadius: 12, border: 0, background: okNow ? C.green : C.navy, color: "#fff", fontWeight: 800, fontSize: 14, cursor: okNow ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: okNow ? 1 : 0.4, transition: "all .25s" }}>
+                  <Check s={16} w={2.8} />{autoLeft > 0 ? `Listo · sigue en ${autoLeft}` : "Listo"}
                 </button>
               </div>
               {b.conn === "sim" && (

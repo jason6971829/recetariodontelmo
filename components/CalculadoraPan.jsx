@@ -4,7 +4,7 @@ import { kgFromG } from "@/lib/scaleRecipe";
 import { createPortal } from "react-dom";
 import { BasculaEnLista } from "./BasculaEnLista";
 import { useViewport } from "@/hooks/useViewport";
-import { loadUi, saveUi } from "@/lib/session";
+import { loadUi, saveUi, keepUiOnClose } from "@/lib/session";
 import { OrdenProduccion, isOpenOrder, GabyDialog } from "./OrdenProduccion";
 import { loadProdOrders } from "@/lib/storage";
 
@@ -539,7 +539,7 @@ export function CalculadoraPan({ onClose, isAdmin = false, currentUser = null })
   const [plan, setPlan] = useState(() => (typeof window !== "undefined" ? loadPlan() : null));
   const [pesar, setPesar] = useState(() => !!ui0?.pesar); // pesaje guiado con la bascula
   useEffect(() => { saveUi("calcpan_ui", { selId, pesar, view: view === "orden" ? "orden" : "calc" }); }, [selId, pesar, view]);
-  useEffect(() => () => saveUi("calcpan_ui", null), []); // cerrar a propósito = empezar limpio la próxima vez
+  useEffect(() => () => { if (!keepUiOnClose()) saveUi("calcpan_ui", null); }, []); // cerrar a propósito = empezar limpio la próxima vez
   const vp = useViewport();
   const mobile = vp.mobile;
 

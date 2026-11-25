@@ -9,7 +9,7 @@ import { normalizeIngredient, ingredientToReadable } from "@/lib/ingredients";
 import { parseQty, parseNumber, fmtScaled, fmtNum, fmtGaby, defaultBaseIndex, GRAMS_PER, unitProblem } from "@/lib/scaleRecipe";
 import { BasculaEnLista } from "@/components/BasculaEnLista";
 import { useViewport } from "@/hooks/useViewport";
-import { loadUi, saveUi } from "@/lib/session";
+import { loadUi, saveUi, keepUiOnClose } from "@/lib/session";
 
 // ── Rediseño Don Telmo: detalle de receta (modal; bottom sheet en celular) ──
 const C = { navy: "#0E2240", navy7: "#16325A", orange: "#D9731A", orange4: "#E8832B", orange3: "#F0A35E", orange7: "#B85E10", orange1: "#FBEBDD", cream: "#F6F3EE", row: "#FAF8F4", line: "#E7E1D7", ink: "#14213D", ink2: "#3C3A36", muted: "#8A847A", muted2: "#A39D92", green: "#1F9D6B", red: "#C8423B" };
@@ -55,7 +55,7 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
   const [have, setHave] = useState(() => ui0?.have || "");
   const [pesar, setPesar] = useState(() => !!ui0?.pesar);
   useEffect(() => { saveUi("dt_recipe_ui", { id: recipe.id, calcOn, baseIdx, have, pesar }); }, [recipe.id, calcOn, baseIdx, have, pesar]);
-  useEffect(() => () => saveUi("dt_recipe_ui", null), []);
+  useEffect(() => () => { if (!keepUiOnClose()) saveUi("dt_recipe_ui", null); }, []);
   const base = parsed[baseIdx];
   const haveNum = parseNumber(have);
   const factor = calcOn && canCalc && base && base.qty > 0 && isFinite(haveNum) && haveNum > 0 ? haveNum / base.qty : 1;

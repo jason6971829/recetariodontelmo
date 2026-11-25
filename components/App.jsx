@@ -40,7 +40,7 @@ import { useLang, LangProvider } from "@/lib/LangContext";
 import { LANGUAGES } from "@/lib/i18n";
 import { THEMES } from "@/lib/themes";
 import { useViewport } from "@/hooks/useViewport";
-import { saveSession, loadSession, clearSession, saveCtx, loadCtx } from "@/lib/session";
+import { saveSession, loadSession, clearSession, saveCtx, loadCtx, lockSession, releaseKeepUi } from "@/lib/session";
 import { setZoom, ZOOM_OPTS } from "@/lib/viewZoom";
 import { Icon, Monogram, catColor, initialOf, titleCase } from "@/components/dt/ui";
 
@@ -375,7 +375,10 @@ export default function App() {
       const msLeft = getSessionMsLeft();
       inactivityRef.current = setTimeout(() => {
         if (isSessionExpired()) {
-          clearSession();
+          // se pide entrar de nuevo, pero se guarda dónde estaba (ventana y pesaje a mitad)
+          lockSession();
+          ctxReadyRef.current = false;
+          setShowCalcPan(false);
           setCurrentUser(null);
           setScreen("login");
           setLoginForm({ username:"", password:"" });
@@ -401,7 +404,7 @@ export default function App() {
     if (loading || currentUser) return;
     const ses = loadSession();
     if (!ses) return;
-    if (isSessionExpired()) { clearSession(); return; }
+    if (isSessionExpired()) { lockSession(); return; }
     const u = users.find(x => String(x.id) === String(ses.id) && x.username === ses.username);
     if (u) { setCurrentUser(u); setScreen("app"); }
   }, [loading, users, currentUser]);
@@ -409,6 +412,7 @@ export default function App() {
     if (screen !== "app" || ctxReadyRef.current) return;
     ctxReadyRef.current = true;
     const c = loadCtx();
+    releaseKeepUi();
     // Reabrir con la sesión guardada también muestra el banner, salvo que se vuelva a un trabajo en curso
     if (!c?.modal) setShowBanner(true);
     if (c?.modal === "calc") setShowCalcPan(true);
