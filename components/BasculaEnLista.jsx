@@ -71,7 +71,9 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
 
   const row = cur >= 0 ? rows[cur] : null;
   const t = row ? metaPesa(row.grams) : 0;
-  const tol = tolPesa(t);
+  // Solo cuenta como listo (y salta solo) con el peso exacto: la pesa marca de a 5 g, así que ± 2,5 g = exacto.
+  // Si no queda exacto, el panadero decide con "Aceptar así".
+  const tol = STEP / 2;
   const g = b.scaleG - base;
   const diff = g - t;
   const inRange = !!row && b.stable && g > 0 && Math.abs(diff) <= tol;
@@ -238,7 +240,7 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
                   <button style={{ height: 26, padding: "0 8px", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }} onClick={() => b.setSimG(base + t)}>= meta</button>
                 </div>
               )}
-              <span style={{ fontSize: 11.5, color: C.muted2, lineHeight: 1.45 }}>La pesa marca de a 5 g · en rango 4 segundos pasa solo al siguiente · toca un ingrediente para pesarlo · otro recipiente: pulsa Cero</span>
+              <span style={{ fontSize: 11.5, color: C.muted2, lineHeight: 1.45 }}>Con el peso exacto 4 segundos pasa solo al siguiente · si no queda exacto: Aceptar así · toca un ingrediente para pesarlo · otro recipiente: pulsa Cero</span>
             </>
           ) : (
             <span style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>Lo que falta va en litros o unidades: márcalo en la lista cuando lo midas.</span>
