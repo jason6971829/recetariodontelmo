@@ -67,7 +67,15 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
     const keep = setInterval(() => { try { touchActivity(); } catch { /* */ } }, 60000);
     return () => { alive = false; document.removeEventListener("visibilitychange", onVis); clearInterval(keep); try { lock?.release(); } catch { /* */ } };
   }, []);
-  const wasOk = useRef(false);
+  const beepOk = () => {
+    try { navigator.vibrate?.(120); } catch { /* */ }
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      const ctx = BasculaEnLista.ctx || (BasculaEnLista.ctx = new Ctx());
+      const o = ctx.createOscillator(), gn = ctx.createGain();
+      o.frequency.value = 880; gn.gain.value = 0.15; o.connect(gn); gn.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.15);
+    } catch { /* */ }
+  };
 
   const row = cur >= 0 ? rows[cur] : null;
   const t = row ? metaPesa(row.grams) : 0;
@@ -83,50 +91,38 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
   const select = (i) => { setCur(i); setBase(b.scaleG); };
   const commit = (how) => {
     if (cur < 0) return;
+    beepOk();
     const next = { ...res, [cur]: { actual: g, how } };
     setRes(next);
     setBase(b.scaleG); // el siguiente arranca desde acá (mismo tazón)
     setCur(firstPending(next, cur + 1));
   };
-  // Pasa solo: si el peso queda cerca de la meta 4 segundos, se marca listo y sigue el próximo insumo.
-  // No se exige "pesa quieta" en cada lectura: la pesa real alterna el aviso de movimiento entre
-  // lecturas y eso reiniciaba la cuenta sin fin. Salidas cortas del rango (< 0,8 s) no reinician.
+  // Pasa solo: el peso tiene que quedarse EXACTO 4 segundos seguidos. Cualquier lectura fuera de la meta
+  // reinicia la cuenta (ej. agua: con el chorro toca la meta un instante y luego asienta en el peso real).
+  // Además, para pasar, la pesa tiene que haber marcado "quieta" con ese peso en el último segundo y medio.
   const nearMeta = !!row && b.live && g > 0 && Math.abs(diff) <= tol;
   const [autoLeft, setAutoLeft] = useState(0);
   const commitRef = useRef(commit);
   commitRef.current = commit;
   const nearRef = useRef(false);
   nearRef.current = nearMeta;
-  const autoRef = useRef({ since: 0, lastOut: 0 });
-  useEffect(() => { autoRef.current = { since: 0, lastOut: 0 }; setAutoLeft(0); }, [cur]);
+  const stableRef = useRef(false);
+  stableRef.current = nearMeta && b.stable;
+  const autoRef = useRef({ since: 0, stableAt: 0 });
+  useEffect(() => { autoRef.current = { since: 0, stableAt: 0 }; setAutoLeft(0); }, [cur]);
   useEffect(() => {
     const iv = setInterval(() => {
       const a = autoRef.current, now = Date.now();
-      if (nearRef.current) { if (!a.since) a.since = now; a.lastOut = 0; }
-      else if (a.since) {
-        if (!a.lastOut) a.lastOut = now;
-        if (now - a.lastOut > 800) { a.since = 0; a.lastOut = 0; }
-      }
-      if (!a.since) { setAutoLeft(0); return; }
+      if (!nearRef.current) { a.since = 0; a.stableAt = 0; setAutoLeft(0); return; }
+      if (!a.since) a.since = now;
+      if (stableRef.current) a.stableAt = now;
       const left = Math.ceil((AUTO_MS - (now - a.since)) / 1000);
-      if (left <= 0 && nearRef.current) { autoRef.current = { since: 0, lastOut: 0 }; setAutoLeft(0); commitRef.current("scale"); }
-      else setAutoLeft(Math.max(1, left));
+      if (left > 0) { setAutoLeft(left); return; }
+      if (a.stableAt && now - a.stableAt < 1500) { autoRef.current = { since: 0, stableAt: 0 }; setAutoLeft(0); commitRef.current("scale"); }
+      else setAutoLeft(1); // exacto pero la pesa todavía no se quedó quieta: espera
     }, 150);
     return () => clearInterval(iv);
   }, []);
-  // pitido + vibración una vez, cuando empieza la cuenta
-  useEffect(() => {
-    if (autoLeft > 0 && !wasOk.current) {
-      try { navigator.vibrate?.(120); } catch { /* */ }
-      try {
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        const ctx = BasculaEnLista.ctx || (BasculaEnLista.ctx = new Ctx());
-        const o = ctx.createOscillator(), gn = ctx.createGain();
-        o.frequency.value = 880; gn.gain.value = 0.15; o.connect(gn); gn.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.15);
-      } catch { /* */ }
-    }
-    wasOk.current = autoLeft > 0;
-  }, [autoLeft]);
   const reset = () => { setRes({}); setBase(b.scaleG); setCur(firstPending({})); };
 
   const total = rows.length;
