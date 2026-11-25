@@ -17,6 +17,7 @@ const HIST_KEY = "calcpan_pesajes_v1";
 const STEP = 5;
 export const metaPesa = (g) => Math.max(STEP, Math.round(g / STEP) * STEP);
 // Tolerancia del diseño: máx(5 g, 1 % de la meta)
+const AUTO_MS = 3000; // tiempo en rango antes de pasar solo al siguiente insumo
 export const tolPesa = (t) => Math.max(5, t * 0.01);
 
 const Check = ({ s = 12, w = 3.4 }) => (
@@ -97,6 +98,22 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
     setBase(b.scaleG); // el siguiente arranca desde acá (mismo tazón)
     setCur(firstPending(next, cur + 1));
   };
+  // Pasa solo: si el peso queda en rango 3 segundos seguidos, se marca listo y sigue el próximo insumo.
+  // Si el peso se sale del rango antes, la cuenta se reinicia.
+  const [autoLeft, setAutoLeft] = useState(0);
+  const commitRef = useRef(commit);
+  commitRef.current = commit;
+  useEffect(() => {
+    if (!inRange) { setAutoLeft(0); return; }
+    const start = Date.now();
+    setAutoLeft(Math.ceil(AUTO_MS / 1000));
+    const iv = setInterval(() => {
+      const left = Math.ceil((AUTO_MS - (Date.now() - start)) / 1000);
+      if (left <= 0) { clearInterval(iv); setAutoLeft(0); commitRef.current("scale"); }
+      else setAutoLeft(left);
+    }, 150);
+    return () => clearInterval(iv);
+  }, [inRange, cur]);
   const reset = () => { setRes({}); setBase(b.scaleG); setCur(firstPending({})); };
 
   const total = rows.length;
@@ -199,7 +216,7 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
                 <button style={{ ...btnOutline, opacity: b.stable && !inRange ? 1 : 0.5 }} disabled={!b.stable || inRange} onClick={() => commit("aceptado")}>Aceptar así</button>
                 <button disabled={!inRange} onClick={() => commit("scale")}
                   style={{ height: compact ? 44 : 46, borderRadius: 12, border: 0, background: inRange ? C.green : C.navy, color: "#fff", fontWeight: 800, fontSize: 14, cursor: inRange ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: inRange ? 1 : 0.4, transition: "all .25s" }}>
-                  <Check s={16} w={2.8} />Listo
+                  <Check s={16} w={2.8} />{inRange && autoLeft > 0 ? `Listo · sigue en ${autoLeft}` : "Listo"}
                 </button>
               </div>
               {b.conn === "sim" && (
@@ -209,7 +226,7 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
                   <button style={{ height: 26, padding: "0 8px", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }} onClick={() => b.setSimG(base + t)}>= meta</button>
                 </div>
               )}
-              <span style={{ fontSize: 11.5, color: C.muted2, lineHeight: 1.45 }}>La pesa marca de a 5 g · toca un ingrediente para pesarlo · otro recipiente: pulsa Cero</span>
+              <span style={{ fontSize: 11.5, color: C.muted2, lineHeight: 1.45 }}>La pesa marca de a 5 g · en rango 3 segundos pasa solo al siguiente · toca un ingrediente para pesarlo · otro recipiente: pulsa Cero</span>
             </>
           ) : (
             <span style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>Lo que falta va en litros o unidades: márcalo en la lista cuando lo midas.</span>
