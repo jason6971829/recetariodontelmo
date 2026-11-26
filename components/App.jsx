@@ -40,6 +40,7 @@ import { useLang, LangProvider } from "@/lib/LangContext";
 import { LANGUAGES } from "@/lib/i18n";
 import { THEMES } from "@/lib/themes";
 import { useViewport } from "@/hooks/useViewport";
+import { avisarGabyControl } from "@/lib/gabySync";
 import { saveSession, loadSession, clearSession, saveCtx, loadCtx, lockSession, releaseKeepUi } from "@/lib/session";
 import { setZoom, ZOOM_OPTS } from "@/lib/viewZoom";
 import { Icon, Monogram, catColor, initialOf, titleCase } from "@/components/dt/ui";
@@ -523,6 +524,16 @@ export default function App() {
   const handleEdit = useCallback(r => { setEditingRecipe(r); setShowForm(true); setSelectedRecipe(null); }, []);
   // Autosave: NO cierra el modal, solo persiste. Devuelve la receta guardada
   // para que el form pueda capturar el id en altas nuevas.
+  // Aviso a GabyControl del formulario: el autoguardado corre a cada rato, así que no se avisa en
+  // cada guardado sino al cerrar el formulario o tras 1 minuto sin cambios.
+  const formDirtyRef = useRef(false);
+  const formIdleRef = useRef(null);
+  const flushFormAviso = useCallback(() => {
+    clearTimeout(formIdleRef.current);
+    if (!formDirtyRef.current) return;
+    formDirtyRef.current = false;
+    avisarGabyControl("receta guardada");
+  }, []);
   const handleSaveRecipe = useCallback(async (form) => {
     const isUpdate = !!form.id;
     if (isUpdate && editingRecipe?.image && editingRecipe.image !== form.image && editingRecipe.image.includes("supabase")) {
@@ -538,20 +549,25 @@ export default function App() {
       });
       // Mantener editingRecipe sincronizado para que el proximo save sepa la imagen anterior
       setEditingRecipe(saved);
+      formDirtyRef.current = true;
+      clearTimeout(formIdleRef.current);
+      formIdleRef.current = setTimeout(flushFormAviso, 60_000);
     }
     return saved;
-  }, [editingRecipe]);
+  }, [editingRecipe, flushFormAviso]);
 
   const handleCloseRecipeForm = useCallback(() => {
     setShowForm(false);
     setEditingRecipe(null);
-  }, []);
+    flushFormAviso();
+  }, [flushFormAviso]);
   const handleTogglePublish = useCallback(async (r) => {
     const updated = { ...r, published: !r.published };
     const saved = await upsertRecipe(updated);
     if (saved) {
       setRecipes(prev => prev.map(x => x.id === r.id ? { ...x, published: !r.published } : x));
       setSelectedRecipe(prev => prev ? { ...prev, published: !r.published } : null);
+      avisarGabyControl(r.published ? "receta despublicada" : "receta publicada");
     }
   }, []);
 
@@ -569,7 +585,7 @@ export default function App() {
           await deleteImage(r.image);
         }
         const ok = await deleteRecipeDb(r.id);
-        if (ok) setRecipes(prev => prev.filter(x => x.id !== r.id));
+        if (ok) { setRecipes(prev => prev.filter(x => x.id !== r.id)); avisarGabyControl("receta borrada"); }
         setSelectedRecipe(null);
         setConfirmModal(null);
       }
@@ -595,6 +611,7 @@ export default function App() {
           await deleteRecipeDb(r.id);
         }
         await deleteCategoryDb(catId);
+        if (catRecipes.length) avisarGabyControl("categoría borrada con sus recetas");
         setRecipes(prev => prev.filter(r => r.category !== catId));
         setDbCategories(prev => prev.filter(c => c.id !== catId));
         setSelectedCat("all");
@@ -1115,6 +1132,7 @@ export default function App() {
               // Editar: renombrar categoría en todas las recetas
               const toUpdate = recipes.filter(r => r.category === cat.oldId);
               await Promise.all(toUpdate.map(r => upsertRecipe({ ...r, category: cat.id })));
+              if (toUpdate.length) avisarGabyControl("categoría renombrada");
               setRecipes(prev => prev.map(r => r.category === cat.oldId ? { ...r, category: cat.id } : r));
               // Eliminar la vieja y crear la nueva en Supabase
               await deleteCategoryDb(cat.oldId);

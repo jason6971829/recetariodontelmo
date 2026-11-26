@@ -1,5 +1,6 @@
 "use client";
 import { insertRecipe } from "@/lib/storage";
+import { avisarGabyControl } from "@/lib/gabySync";
 import { importFromExcel } from "@/lib/importExcel";
 
 export function ImportExcelModal({ show, isAdmin, onClose, importDone, importPreview, importLoading, setImportPreview, setImportLoading, setImportDone, onRecipeAdded }) {
@@ -73,9 +74,14 @@ export function ImportExcelModal({ show, isAdmin, onClose, importDone, importPre
               <button onClick={async () => {
                 setImportLoading(true);
                 try {
-                  for (const r of importPreview.recipes) {
-                    const saved = await insertRecipe(r);
-                    if (saved) onRecipeAdded(saved);
+                  let n = 0;
+                  try {
+                    for (const r of importPreview.recipes) {
+                      const saved = await insertRecipe(r);
+                      if (saved) { onRecipeAdded(saved); n++; }
+                    }
+                  } finally {
+                    if (n) avisarGabyControl(`importación de ${n} recetas`); // un solo aviso al final
                   }
                   setImportDone(true);
                 } catch (err) {

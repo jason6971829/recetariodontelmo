@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getQueue, removeFromQueue } from "@/lib/offlineQueue";
 import { supabase } from "@/lib/supabase";
+import { avisarGabyControl } from "@/lib/gabySync";
 
 export function useOnlineStatus() {
   const [online, setOnline] = useState(true);
@@ -38,7 +39,10 @@ export function useOnlineStatus() {
     setPendingCount(getQueue().length);
     setSyncing(false);
 
-    if (synced > 0) console.log(`✅ ${synced} operaciones sincronizadas`);
+    if (synced > 0) {
+      console.log(`✅ ${synced} operaciones sincronizadas`);
+      avisarGabyControl(`cola sin conexión (${synced})`); // un solo aviso por tanda
+    }
 
     // Exponential backoff si hay fallos: 2s → 4s → 8s → … hasta 5 min
     if (failed > 0 && navigator.onLine) {
