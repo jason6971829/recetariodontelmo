@@ -6,7 +6,8 @@ import { CATEGORIES } from "@/lib/constants";
 import { uploadImage } from "@/lib/storage";
 import { useLang } from "@/lib/LangContext";
 import { normalizeIngredient, ingredientToString } from "@/lib/ingredients";
-import { unitProblem } from "@/lib/scaleRecipe";
+import { unitProblem, parseQty } from "@/lib/scaleRecipe";
+import { GabyDialog } from "@/components/OrdenProduccion";
 import { InsumoSelector } from "@/components/InsumoSelector";
 import { ProductoSelector } from "@/components/ProductoSelector";
 
@@ -16,6 +17,34 @@ const inp = { width:"100%", height:50, padding:"0 14px", border:"1.5px solid #E7
 const lbl = { fontSize:11, fontWeight:800, color:"#0E2240", letterSpacing:".16em", textTransform:"uppercase", display:"block", marginBottom:7, fontFamily:"var(--dt-sans)" };
 
 const AUTOSAVE_MS = 800;
+
+// ── Validaciones de ingredientes (avisan, no bloquean) ──
+// Número con punto decimal y sin ceros sobrantes, como lo lee gabycontrol: 0.03, 0.4, 1.25
+const fmtDot = (n) => String(Math.round(n * 100000) / 100000);
+// En un plato de venta, más de 2 KILO o 2 LITRO de un ingrediente casi siempre es un error de
+// digitación (se escribieron los gramos en el campo de kilos: 30 KILO en vez de 0.03).
+export const SUSPECT_MAX = 2;
+export function qtyProblem(text, isSale) {
+  if (!isSale) return null;
+  const p = parseQty(text);
+  if (!p || (p.unit !== "KILO" && p.unit !== "LITRO") || !(p.qty > SUSPECT_MAX)) return null;
+  const fix = fmtDot(p.qty / 1000);
+  const small = p.unit === "KILO" ? "g" : "ml";
+  return { msg: `${fmtDot(p.qty)} ${p.unit} en un plato es demasiado. ¿Quisiste decir ${fix} ${p.unit} (${fmtDot(p.qty)} ${small})?`, fix };
+}
+// Problemas de una línea (para el resumen de Gaby al cerrar)
+export function ingredientIssues(ing, isSale) {
+  const n = normalizeIngredient(ing);
+  if (!n.text) return [];
+  const out = [];
+  if (!n.code) out.push("no tiene insumo del catálogo: no descuenta inventario en GabyControl");
+  const q = qtyProblem(n.text, isSale);
+  if (q) out.push(q.msg);
+  const u = unitProblem(n.text);
+  if (u) out.push(u);
+  return out;
+}
+const GABY_C = { gold: "#D9731A", row: "#FAF8F4", navy: "#0E2240", ink: "#14213D" };
 
 export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSave, onCancel }) {
   const cats = (categories || CATEGORIES).filter(c => c.id !== "all");
@@ -30,6 +59,8 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
   });
   const [currentId, setCurrentId] = useState(initial?.id || null);
   const [editingIdx, setEditingIdx] = useState(null);
+  const [pickIdx, setPickIdx] = useState(null);      // línea sin insumo que se está reemplazando con el catálogo
+  const [closeAsk, setCloseAsk] = useState(null);    // resumen de Gaby antes de cerrar
   const [editingVal, setEditingVal] = useState("");
   const [editingCode, setEditingCode] = useState("");
   const [imagePreview, setImagePreview] = useState(initial?.image || null);
@@ -104,6 +135,25 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
     if (!ingString || !ingString.trim()) return;
     set("ingredients", [...form.ingredients, ingString.trim()]);
   };
+  const isSale = form.category !== "RECETAS BODEGA";
+  // Reemplaza una línea por otra (string canónico "texto | código")
+  const replaceIng = (i, str) => set("ingredients", form.ingredients.map((ing, idx) => idx === i ? str : ing));
+  // Corrección rápida: 30 KILO → 0.03 KILO (cambia solo el número del inicio)
+  const applyQtyFix = (i, fix) => {
+    const n = normalizeIngredient(form.ingredients[i]);
+    const text = n.text.replace(/^\s*\d+(?:[.,]\d+)*/, fix);
+    replaceIng(i, n.code ? `${text} | ${n.code}` : text);
+  };
+  // Al cerrar: si hay ingredientes para revisar, Gaby avisa (no bloquea: lo escrito ya está guardado)
+  const requestClose = () => {
+    const items = [];
+    form.ingredients.forEach((ing) => {
+      const iss = ingredientIssues(ing, isSale);
+      if (iss.length) items.push(`${normalizeIngredient(ing).text}: ${iss.join(" · ")}`);
+    });
+    if (!items.length) { onCancel(); return; }
+    setCloseAsk(items);
+  };
   const removeIng = i => set("ingredients", form.ingredients.filter((_,idx)=>idx!==i));
   const startEdit = (i, ing) => {
     const n = normalizeIngredient(ing);
@@ -152,7 +202,7 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
               }} />
               {saveLabel}
             </div>
-            <button onClick={onCancel} aria-label="Cerrar" style={{ width:42, height:42, borderRadius:12, border:0, background:"rgba(255,255,255,.1)", color:"#fff", cursor:"pointer", flex:"none", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <button onClick={requestClose} aria-label="Cerrar" style={{ width:42, height:42, borderRadius:12, border:0, background:"rgba(255,255,255,.1)", color:"#fff", cursor:"pointer", flex:"none", display:"flex", alignItems:"center", justifyContent:"center" }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
             </button>
           </div>
@@ -227,8 +277,10 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
             </div>
             {form.ingredients.map((ing,i)=>{
               const n = normalizeIngredient(ing);
+              const qp = qtyProblem(n.text, isSale);
               return (
-                <div key={i} style={{ display:"flex", gap:6, alignItems:"center", marginBottom:4 }}>
+                <div key={i} style={{ marginBottom:4 }}>
+                <div style={{ display:"flex", gap:6, alignItems:"center" }}>
                   {editingIdx === i ? (
                     <>
                       <input
@@ -258,12 +310,34 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
                       )}
                       <span style={{ minWidth:0 }}>{n.text}
                         {unitProblem(n.text) && <span style={{ display:"block", fontSize:11.5, fontWeight:700, color:"#C8423B", marginTop:2 }}>⚠ {unitProblem(n.text)}</span>}
+                        {qp && (
+                          <span style={{ display:"flex", flexWrap:"wrap", alignItems:"center", gap:8, fontSize:11.5, fontWeight:700, color:"#C8423B", marginTop:4 }}>
+                            ⚠ {qp.msg}
+                            <button type="button" onClick={e => { e.stopPropagation(); applyQtyFix(i, qp.fix); }}
+                              style={{ height:28, padding:"0 10px", borderRadius:8, border:0, background:"#C8423B", color:"#fff", fontSize:12, fontWeight:800, cursor:"pointer" }}>Cambiar a {qp.fix}</button>
+                          </span>
+                        )}
+                        {!n.code && (
+                          <span style={{ display:"flex", flexWrap:"wrap", alignItems:"center", gap:8, fontSize:11.5, fontWeight:700, color:"#B85E10", marginTop:4 }}>
+                            ⚠ No descuenta inventario en GabyControl: escogé el insumo del catálogo
+                            <button type="button" onClick={e => { e.stopPropagation(); setPickIdx(pickIdx === i ? null : i); }}
+                              style={{ height:28, padding:"0 10px", borderRadius:8, border:"1.5px solid #D9731A", background:"#fff", color:"#B85E10", fontSize:12, fontWeight:800, cursor:"pointer" }}>{pickIdx === i ? "Cancelar" : "Escoger insumo"}</button>
+                          </span>
+                        )}
                       </span>
                     </div>
                   )}
                   <button onClick={()=>removeIng(i)} aria-label="Quitar ingrediente" style={{ width:36, height:36, borderRadius:10, border:"1.5px solid #E7E1D7", background:"#fff", color:"#C8423B", cursor:"pointer", flex:"none", display:"flex", alignItems:"center", justifyContent:"center" }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
                   </button>
+                </div>
+                {pickIdx === i && (
+                  <div style={{ margin:"6px 42px 8px 0", background:"#FFFAF5", border:"1.5px solid #F1D9C2", borderRadius:14, padding:8 }}>
+                    <div style={{ fontSize:12, fontWeight:700, color:"#B85E10", margin:"0 0 6px 4px" }}>Reemplazar «{n.text}» por un insumo del catálogo:</div>
+                    <InsumoSelector key={`pick-${i}`} initialQuery={n.text.replace(/^\s*[\d.,]+\s*[a-zA-Z]*\.?\s*(de\s+)?/i, "").replace(/^-\s*/, "").slice(0, 30)}
+                      onAdd={str => { if (str && str.trim()) replaceIng(i, str.trim()); setPickIdx(null); }} />
+                  </div>
+                )}
                 </div>
               );
             })}
@@ -348,8 +422,16 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
           <span style={{ fontSize:12.5, color:"#8A847A" }}>
             Los cambios se guardan automáticamente
           </span>
-          <button onClick={onCancel} style={{ height:44, background:"#0E2240", border:0, borderRadius:12, padding:"0 22px", cursor:"pointer", fontWeight:800, color:"#fff", fontSize:14 }}>Listo</button>
+          <button onClick={requestClose} style={{ height:44, background:"#0E2240", border:0, borderRadius:12, padding:"0 22px", cursor:"pointer", fontWeight:800, color:"#fff", fontSize:14 }}>Listo</button>
         </div>
+        {closeAsk && (
+          <GabyDialog C={GABY_C} SANS="var(--dt-sans)" SERIF="var(--dt-serif)" mobile={isMobile}
+            title={closeAsk.length === 1 ? "Hay 1 ingrediente para revisar" : `Hay ${closeAsk.length} ingredientes para revisar`}
+            text={`Así como está, GabyControl va a descontar mal el inventario en cada venta. ${saveState === "blocked" ? "Ojo: la receta todavía no tiene nombre, así que no se ha guardado." : "Lo que escribiste ya quedó guardado."}`}
+            items={closeAsk}
+            yes="Cerrar igual" no="Revisar ahora"
+            onYes={() => { setCloseAsk(null); onCancel(); }} onNo={() => setCloseAsk(null)} />
+        )}
       </div>
     </div>
   );

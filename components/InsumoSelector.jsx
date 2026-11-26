@@ -37,19 +37,20 @@ function normalize(s) {
  * @param {function} onAdd        — callback(stringIngrediente)
  * @param {object}   [initial]    — { codigo, nombre, qty, unit } para modo edicion
  * @param {function} [onCancel]   — solo en modo edicion
+ * @param {string}   [initialQuery] — texto con el que arranca la busqueda (ej. al reemplazar un texto libre)
  */
-export function InsumoSelector({ onAdd, initial, onCancel }) {
+export function InsumoSelector({ onAdd, initial, onCancel, initialQuery = "" }) {
   const [insumos, setInsumos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [selected, setSelected] = useState(initial ? {
     id: null, codigo: initial.codigo || "", nombre: initial.nombre || "", unidad: initial.unit || "",
   } : null);
   const [qty, setQty] = useState(initial?.qty != null ? String(initial.qty) : "");
   const [unit, setUnit] = useState(initial?.unit || "");
-  const [showList, setShowList] = useState(false);
+  const [showList, setShowList] = useState(!!initialQuery);
   const inputRef = useRef(null);
   const listRef = useRef(null);
 
