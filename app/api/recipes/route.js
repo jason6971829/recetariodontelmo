@@ -45,7 +45,8 @@ export async function GET(req) {
 
   const { data, error } = await supabase
     .from("recipes")
-    .select("id, name, category, portions, ingredients, published, created_at, barcode, description, preparation, recommendations, sales_pitch, image_url, video, prep_time, cook_time")
+    // "*" (no lista fija): asi no falla si la columna updated_at todavia no existe en la tabla
+    .select("*")
     .order("id");
 
   if (error) {
@@ -80,8 +81,9 @@ export async function GET(req) {
     video_url: txt(r.video),
     prep_time: txt(r.prep_time),
     cook_time: txt(r.cook_time),
-    // recipes no tiene updated_at, usamos created_at como proxy
-    updated_at: r.created_at,
+    // updated_at real (lo pone un trigger en cada guardado); las recetas que no se han
+    // tocado desde que existe la columna la tienen vacia y usan created_at como antes
+    updated_at: r.updated_at || r.created_at,
   }));
 
   return NextResponse.json(out, {
