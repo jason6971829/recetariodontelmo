@@ -521,11 +521,12 @@ const ORDEN_CALC = { compute, computeBiga, recipeFlour, bigaPrepFromFlour, build
 
 // isAdmin: solo el admin puede editar, crear, duplicar o borrar fórmulas.
 // Los demás usan la calculadora (unidades, lote, biga, pesar, imprimir) pero no tocan los porcentajes.
-export function CalculadoraPan({ onClose, isAdmin = false, currentUser = null }) {
+export function CalculadoraPan({ onClose, isAdmin = false, currentUser = null, initialSelId = null }) {
   const [recipes, setRecipes] = useState(() => (typeof window !== "undefined" ? loadRecipes() : SEED));
   // Si la app se cerró a mitad de trabajo, se vuelve al mismo pan y al pesaje
   const [ui0] = useState(() => (typeof window !== "undefined" ? loadUi("calcpan_ui") : null));
-  const [selId, setSelId] = useState(() => (ui0?.selId && recipes.some(r => r.id === ui0.selId) ? ui0.selId : (recipes[0]?.id ?? SEED[0].id)));
+  // initialSelId: se abre desde la receta de bodega de un pan, directo en ese pan
+  const [selId, setSelId] = useState(() => (initialSelId && recipes.some(r => r.id === initialSelId) ? initialSelId : ui0?.selId && recipes.some(r => r.id === ui0.selId) ? ui0.selId : (recipes[0]?.id ?? SEED[0].id)));
   const [editRaw, setEdit] = useState(false);
   const edit = editRaw && isAdmin; // solo el admin edita la fórmula
   const [drive, setDrive] = useState("units");
@@ -533,11 +534,11 @@ export function CalculadoraPan({ onClose, isAdmin = false, currentUser = null })
   const [driverFlour, setDriverFlour] = useState(0);
   const [toast, setToast] = useState("");
   const [confirmDel, setConfirmDel] = useState(false);
-  const [view, setView] = useState(() => (ui0?.view === "orden" ? "orden" : "calc")); // "calc" | "plan" (biga consolidada) | "orden" (órdenes de producción)
+  const [view, setView] = useState(() => (!initialSelId && ui0?.view === "orden" ? "orden" : "calc")); // "calc" | "plan" (biga consolidada) | "orden" (órdenes de producción)
   const [openOrders, setOpenOrders] = useState(0);
   useEffect(() => { loadProdOrders().then(r => { if (r) setOpenOrders(r.filter(isOpenOrder).length); }); }, []);
   const [plan, setPlan] = useState(() => (typeof window !== "undefined" ? loadPlan() : null));
-  const [pesar, setPesar] = useState(() => !!ui0?.pesar); // pesaje guiado con la bascula
+  const [pesar, setPesar] = useState(() => !initialSelId && !!ui0?.pesar); // pesaje guiado con la bascula
   useEffect(() => { saveUi("calcpan_ui", { selId, pesar, view: view === "orden" ? "orden" : "calc" }); }, [selId, pesar, view]);
   useEffect(() => () => { if (!keepUiOnClose()) saveUi("calcpan_ui", null); }, []); // cerrar a propósito = empezar limpio la próxima vez
   const vp = useViewport();

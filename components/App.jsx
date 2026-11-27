@@ -11,6 +11,7 @@ import { exportTemplate } from "@/lib/exportTemplate";
 import dynamic from "next/dynamic";
 // ── Core — siempre en el bundle inicial ──────────────────────────
 import { RecipeDetail } from "@/components/RecipeDetail";
+import { BodegaRegistros } from "@/components/BodegaExtras";
 import { RecipeForm } from "@/components/RecipeForm";
 import { GlobalWatermark } from "@/components/Watermark";
 import { LoginScreen } from "@/components/LoginScreen";
@@ -99,6 +100,8 @@ export default function App() {
   const [showSupplies, setShowSupplies] = useState(false);
   const [showCosting, setShowCosting] = useState(false);
   const [showCalcPan, setShowCalcPan] = useState(false);
+  const [calcSel, setCalcSel] = useState(null);       // pan con el que se abre la calculadora (desde su receta de bodega)
+  const [showBodegaReg, setShowBodegaReg] = useState(false); // órdenes, producciones y mermas de bodega
   const [showBannerConfig, setShowBannerConfig] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importPreview, setImportPreview] = useState(null);  // { recipes, fileName }
@@ -999,6 +1002,9 @@ export default function App() {
                 {String(selectedCat || "").toLowerCase().includes("pizza") && (
                   <button onClick={() => setShowPizzaBuilder(true)} style={{ height: 40, padding: "0 16px", borderRadius: 12, border: 0, background: "#C8423B", color: "#fff", fontWeight: 800, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}><Icon.pizza width={16} height={16} />Armar pizza</button>
                 )}
+                {isBodegaView && (
+                  <button onClick={() => setShowBodegaReg(true)} style={{ height: 40, padding: "0 16px", borderRadius: 12, border: "1.5px solid #0E2240", background: "#fff", color: "#0E2240", fontWeight: 800, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>Órdenes y mermas</button>
+                )}
                 {isBodegaView && isAdmin && (
                   <button onClick={handleCreateBodega} style={{ height: 40, padding: "0 16px", borderRadius: 12, border: 0, background: "#3F5E8C", color: "#fff", fontWeight: 800, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}><Icon.plus width={16} height={16} />Nueva receta bodega</button>
                 )}
@@ -1094,7 +1100,11 @@ export default function App() {
         </Suspense>
       )}
       {selectedRecipe && !showForm && (
-        <RecipeDetail key={selectedRecipe.id} recipe={selectedRecipe} currentUser={currentUser} onClose={()=>setSelectedRecipe(null)} onEdit={()=>handleEdit(selectedRecipe)} onDelete={()=>handleDelete(selectedRecipe)} onTogglePublish={()=>handleTogglePublish(selectedRecipe)} pizzaRecipes={recipes.filter(r=>r.category?.toLowerCase().includes("pizza"))} brandLabel={brandLabel} brandName={brandName} companyTagline={companyTagline} />
+        <RecipeDetail key={selectedRecipe.id} recipe={selectedRecipe} currentUser={currentUser} onOpenCalc={(id)=>{ setCalcSel(id); setSelectedRecipe(null); setShowCalcPan(true); }} onClose={()=>setSelectedRecipe(null)} onEdit={()=>handleEdit(selectedRecipe)} onDelete={()=>handleDelete(selectedRecipe)} onTogglePublish={()=>handleTogglePublish(selectedRecipe)} pizzaRecipes={recipes.filter(r=>r.category?.toLowerCase().includes("pizza"))} brandLabel={brandLabel} brandName={brandName} companyTagline={companyTagline} />
+      )}
+      {showBodegaReg && (
+        <BodegaRegistros isAdmin={isAdmin} onClose={() => setShowBodegaReg(false)}
+          onOpenRecipe={(id) => { const r = recipes.find(x => String(x.id) === String(id)); if (r) { setShowBodegaReg(false); setSelectedRecipe(r); } }} />
       )}
       {showForm && (
         <RecipeForm initial={editingRecipe} categories={allCategories} bodegaSubcategories={bodegaSubList} onSave={handleSaveRecipe} onCancel={handleCloseRecipeForm} />
@@ -1116,7 +1126,7 @@ export default function App() {
           <SuppliesPanel onClose={()=>setShowSupplies(false)} />
         )}
         {showCalcPan && (
-          <CalculadoraPan isAdmin={isAdmin} currentUser={currentUser} onClose={()=>setShowCalcPan(false)} />
+          <CalculadoraPan key={calcSel || "calc"} isAdmin={isAdmin} currentUser={currentUser} initialSelId={calcSel} onClose={()=>{ setShowCalcPan(false); setCalcSel(null); }} />
         )}
         {showCosting && isAdmin && (
           <CostingPanel recipes={recipes} onClose={()=>setShowCosting(false)} />

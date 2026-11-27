@@ -24,9 +24,15 @@ const Check = ({ s = 12, w = 3.4 }) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={w} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5L20 7" /></svg>
 );
 
-// rows: [{ code?, name, main (cantidad a mostrar), sub?, note?, grams (número o null), manual (texto si no se pesa) }]
+// Tolerancia de una fila: exacto = ± 2,5 g (la pesa marca de a 5 g); con rango = ± tolPct % de la meta
+export const tolFila = (r, t) => (r && r.tipo === "rango" ? Math.max(STEP / 2, (t * (r.tolPct || 5)) / 100) : STEP / 2);
+
+// rows: [{ code?, name, main (cantidad a mostrar), sub?, note?, grams (número o null), manual (texto si no se pesa),
+//          tipo?: "principal" | "rango" | "exacto", tolPct? }]
+// tipo "principal": no tiene meta. Se pesa lo que llegó (en una o varias pesadas que se suman) y onPrincipal(gramos)
+//   avisa el peso real para que quien llama recalcule el resto de la receta.
 // onFinish (opcional): al completar el pesaje aparece un botón principal (finishLabel) que lo llama
-export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar" }) {
+export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar", onPrincipal }) {
   const b = useBascula();
   const { mobile: compact } = useViewport();
   const weighable = (r) => r.grams != null && r.grams > 0;
@@ -38,22 +44,25 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
     return -1;
   };
   // Progreso guardado: si la app se cierra o se recarga a mitad del pesaje, vuelve donde iba
-  const sig = `${title}|${rows.map(r => `${r.name}:${r.grams ?? r.manual}`).join(",")}`;
+  // (si hay producto principal la firma no lleva los gramos: cambian cuando se pesa el principal)
+  const hasPrin = rows.some(r => r.tipo === "principal");
+  const sig = `${title}|${rows.map(r => (hasPrin ? r.name : `${r.name}:${r.grams ?? r.manual}`)).join(",")}`;
   const [savedRef] = useState(() => ({ v: typeof window !== "undefined" ? loadUi("dt_pesaje") : null })); // copia tomada al abrir
   const saved0 = savedRef.v && savedRef.v.sig === sig ? savedRef.v : null;
   const [res, setRes] = useState(() => saved0?.res || {}); // i -> { actual, how }
   const [cur, setCur] = useState(() => (saved0 && saved0.cur != null ? saved0.cur : firstPending({})));
   const [base, setBase] = useState(() => saved0?.base || 0);
+  const [acc, setAcc] = useState(() => saved0?.acc || 0); // principal: gramos ya sumados de pesadas anteriores
   // la receta puede terminar de cargar un instante después (ej. unidades): si ahí coincide lo guardado, se recupera
   useEffect(() => {
     const v = savedRef.v;
     if (v && v.sig === sig && Object.keys(res).length === 0 && Object.keys(v.res || {}).length > 0) {
-      setRes(v.res); setCur(v.cur != null ? v.cur : firstPending(v.res)); setBase(v.base || 0);
+      setRes(v.res); setCur(v.cur != null ? v.cur : firstPending(v.res)); setBase(v.base || 0); setAcc(v.acc || 0);
       savedRef.v = null;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sig]);
-  useEffect(() => { saveUi("dt_pesaje", { sig, res, cur, base }); }, [sig, res, cur, base]);
+  useEffect(() => { saveUi("dt_pesaje", { sig, res, cur, base, acc }); }, [sig, res, cur, base, acc]);
   // al cerrar el pesaje a propósito se borra; si la app se cae, no pasa por acá y queda guardado
   useEffect(() => () => { if (!keepUiOnClose()) saveUi("dt_pesaje", null); }, []);
 
@@ -81,14 +90,18 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
   const t = row ? metaPesa(row.grams) : 0;
   // Solo cuenta como listo (y salta solo) con el peso exacto: la pesa marca de a 5 g, así que ± 2,5 g = exacto.
   // Si no queda exacto, el panadero decide con "Aceptar así".
-  const tol = STEP / 2;
+  // Los insumos "con rango" (verduras, carnes…) aceptan un margen; el principal no tiene meta.
+  const isPrin = !!row && row.tipo === "principal";
+  const isRango = !!row && row.tipo === "rango";
+  const tol = tolFila(row, t);
   const g = b.scaleG - base;
   const diff = g - t;
-  const inRange = !!row && b.stable && g > 0 && Math.abs(diff) <= tol;
-  const over = diff > tol;
+  const inRange = !!row && !isPrin && b.stable && g > 0 && Math.abs(diff) <= tol;
+  const over = !isPrin && diff > tol;
+  const prinTotal = acc + Math.max(0, g); // principal: lo sumado + lo que hay ahora en la pesa
 
 
-  const select = (i) => { setCur(i); setBase(b.scaleG); };
+  const select = (i) => { setCur(i); setBase(b.scaleG); setAcc(0); };
   const commit = (how) => {
     if (cur < 0) return;
     beepOk();
@@ -97,10 +110,20 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
     setBase(b.scaleG); // el siguiente arranca desde acá (mismo tazón)
     setCur(firstPending(next, cur + 1));
   };
+  // Principal: "Sumar pesada" guarda lo que hay en la pesa y deja seguir con otra canastilla
+  const sumarPesada = () => { if (g > 0) { setAcc(a => a + g); setBase(b.scaleG); } };
+  const commitPrincipal = (grams, how) => {
+    if (cur < 0 || !(grams > 0)) return;
+    beepOk();
+    const next = { ...res, [cur]: { actual: grams, how } };
+    setRes(next); setAcc(0); setBase(b.scaleG);
+    setCur(firstPending(next, cur + 1));
+    onPrincipal?.(grams);
+  };
   // Pasa solo: el peso tiene que quedarse EXACTO 4 segundos seguidos. Cualquier lectura fuera de la meta
   // reinicia la cuenta (ej. agua: con el chorro toca la meta un instante y luego asienta en el peso real).
   // Además, para pasar, la pesa tiene que haber marcado "quieta" con ese peso en el último segundo y medio.
-  const nearMeta = !!row && b.live && g > 0 && Math.abs(diff) <= tol;
+  const nearMeta = !!row && !isPrin && b.live && g > 0 && Math.abs(diff) <= tol;
   const [autoLeft, setAutoLeft] = useState(0);
   const commitRef = useRef(commit);
   commitRef.current = commit;
@@ -123,7 +146,7 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
     }, 150);
     return () => clearInterval(iv);
   }, []);
-  const reset = () => { setRes({}); setBase(b.scaleG); setCur(firstPending({})); };
+  const reset = () => { setRes({}); setAcc(0); setBase(b.scaleG); setCur(firstPending({})); };
 
   const total = rows.length;
   const doneCount = Object.keys(res).length;
@@ -145,14 +168,14 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
   const connected = b.live;
   const pad = compact ? 14 : 18, gap = compact ? 10 : 14;
   const okNow = inRange || autoLeft > 0; // en rango (sin parpadeos)
-  const readColor = !connected ? C.muted2 : okNow ? C.green : over ? C.red : C.orange;
+  const readColor = !connected ? C.muted2 : isPrin ? C.navy : okNow ? C.green : over ? C.red : C.orange;
   const max = t * 1.1 || 1;
   const pill = b.conn === "on"
     ? (b.stale ? { bg: "#FDECEA", fg: C.red, label: "Sin señal", anim: "none" } : { bg: C.green100, fg: C.green, label: "Pesa conectada", anim: "dtGlow 1.6s ease-in-out infinite" })
     : b.conn === "sim" ? { bg: "#EFEAFB", fg: "#6B46C1", label: "Modo prueba", anim: "none" }
     : b.conn === "connecting" ? { bg: "#F0ECE5", fg: C.muted, label: "Conectando…", anim: "none" }
     : { bg: "#F0ECE5", fg: C.muted, label: "Pesa desconectada", anim: "none" };
-  const stateLabel = !connected ? "sin señal" : okNow ? "✓ en rango" : !b.stable && b.moving ? "⏳ midiendo…" : over ? `+${kg(diff)} KILO de más` : `faltan ${kg(-diff)} KILO`;
+  const stateLabel = !connected ? "sin señal" : isPrin ? (acc > 0 ? `ya sumado ${kg(acc)}` : "pesá lo que llegó") : okNow ? "✓ en rango" : !b.stable && b.moving ? "⏳ midiendo…" : over ? `+${kg(diff)} KILO de más` : `faltan ${kg(-diff)} KILO`;
   const btnOutline = { height: compact ? 44 : 46, borderRadius: 12, border: `1.5px solid ${C.line}`, background: "#FFFFFF", color: C.navy, fontWeight: 700, fontSize: 13.5, cursor: "pointer", whiteSpace: "nowrap" };
   const isOn = b.conn === "on" || b.conn === "sim";
 
@@ -166,7 +189,7 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
             <span style={{ fontSize: 12.5, color: "#2F7A5A" }}>{doneCount} de {total} ingredientes listos</span>
           </span>
           <button onClick={reset} style={{ height: 40, padding: "0 14px", borderRadius: 11, border: "1.5px solid #9AD8BC", background: "#fff", color: "#166E4B", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>Reiniciar</button>
-          {onFinish && <button onClick={() => onFinish(rows.map((r, i) => ({ name: r.name, meta: r.grams, real: res[i]?.actual ?? null })))} style={{ height: 40, padding: "0 16px", borderRadius: 11, border: 0, background: C.green, color: "#fff", fontWeight: 800, fontSize: 13.5, cursor: "pointer" }}>{finishLabel}</button>}
+          {onFinish && <button onClick={() => onFinish(rows.map((r, i) => ({ code: r.code || "", name: r.name, tipo: r.tipo || "exacto", meta: r.grams, real: res[i]?.actual ?? null, how: res[i]?.how || "", manual: r.manual || "" })))} style={{ height: 40, padding: "0 16px", borderRadius: 11, border: 0, background: C.green, color: "#fff", fontWeight: 800, fontSize: 13.5, cursor: "pointer" }}>{finishLabel}</button>}
         </div>
       )}
 
@@ -198,29 +221,43 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
             <>
               {/* 2. pesando */}
               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: ".2em", color: C.muted2 }}>PESANDO</span>
+                <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: ".16em", color: isPrin ? C.orange700 : C.muted2 }}>{isPrin ? "★ PRODUCTO PRINCIPAL · LO QUE PESE SE USA" : isRango ? `PESANDO · CON RANGO ± ${row.tolPct || 5} %` : "PESANDO · EXACTO"}</span>
                 <span style={{ fontSize: compact ? 16 : 19, fontWeight: 800, color: C.navy, lineHeight: 1.2 }}>{row.name}</span>
                 {row.note && <span style={{ fontSize: 12, fontWeight: 600, color: C.orange700 }}>{row.note}</span>}
               </div>
               {/* 3. lectura */}
               <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10, padding: "12px 14px", borderRadius: 14, background: C.cream }}>
                 <span style={{ display: "flex", alignItems: "baseline", gap: 4, fontVariantNumeric: "tabular-nums", opacity: connected ? (b.moving ? 0.75 : 1) : 0.5 }}>
-                  <span style={{ fontSize: compact ? 44 : 56, fontWeight: 800, lineHeight: 0.9, color: readColor, letterSpacing: "-.02em", transition: "color .25s" }}>{connected ? kg(g) : "0,000"}</span>
+                  <span style={{ fontSize: compact ? 44 : 56, fontWeight: 800, lineHeight: 0.9, color: readColor, letterSpacing: "-.02em", transition: "color .25s" }}>{connected ? kg(isPrin ? prinTotal : g) : "0,000"}</span>
                   <span style={{ fontSize: 16, fontWeight: 700, color: C.muted }}>KILO</span>
                 </span>
                 <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, textAlign: "right" }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>meta <strong style={{ color: C.navy, fontSize: 14 }}>{kg(t)} KILO</strong></span>
-                  {t !== row.grams && <span style={{ fontSize: 10.5, color: C.muted2 }}>receta {kg(row.grams)} KILO</span>}
+                  <span style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>{isPrin ? "planeado" : "meta"} <strong style={{ color: C.navy, fontSize: 14 }}>{kg(t)} KILO</strong></span>
+                  {isRango && <span style={{ fontSize: 10.5, color: C.muted2 }}>sirve de {kg(Math.max(0, t - tol))} a {kg(t + tol)}</span>}
+                  {!isPrin && !isRango && t !== row.grams && <span style={{ fontSize: 10.5, color: C.muted2 }}>receta {kg(row.grams)} KILO</span>}
                   <span style={{ fontSize: 14, fontWeight: 800, color: readColor }}>{stateLabel}</span>
                 </span>
               </div>
               {/* 4. barra: escala = meta × 1,1; banda verde = ± tolerancia; línea navy en la meta */}
-              <div style={{ position: "relative", height: 10, borderRadius: 999, background: C.track, overflow: "hidden" }}>
+              {!isPrin && <div style={{ position: "relative", height: 10, borderRadius: 999, background: C.track, overflow: "hidden" }}>
                 <div style={{ position: "absolute", top: 0, bottom: 0, left: `${((t - tol) / max) * 100}%`, width: `${((tol * 2) / max) * 100}%`, background: "rgba(31,157,107,.22)" }} />
                 <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${Math.max(0, Math.min(100, (g / max) * 100))}%`, borderRadius: 999, background: readColor, transition: "width .14s linear, background .25s" }} />
                 <div style={{ position: "absolute", top: -2, bottom: -2, left: `${(t / max) * 100}%`, width: 2, background: C.navy }} />
-              </div>
+              </div>}
               {/* 5. botones */}
+              {isPrin ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr 1.5fr", gap: 8 }}>
+                    <button style={{ ...btnOutline, opacity: b.stable ? 1 : 0.5 }} disabled={!b.stable} onClick={() => setBase(b.scaleG)} title="Pone en cero lo que hay en la pesa (recipiente vacío)">Cero</button>
+                    <button style={{ ...btnOutline, opacity: b.stable && g > 0 ? 1 : 0.5 }} disabled={!b.stable || !(g > 0)} onClick={sumarPesada} title="Guarda esta pesada y deja pesar otra canastilla">+ Sumar pesada</button>
+                    <button disabled={!(prinTotal > 0) || (g > 0 && !b.stable)} onClick={() => commitPrincipal(prinTotal, "principal")}
+                      style={{ height: compact ? 44 : 46, borderRadius: 12, border: 0, background: C.green, color: "#fff", fontWeight: 800, fontSize: 13.5, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: prinTotal > 0 && !(g > 0 && !b.stable) ? 1 : 0.4 }}>
+                      <Check s={16} w={2.8} />Usar {kg(prinTotal)}
+                    </button>
+                  </div>
+                  <button onClick={() => commitPrincipal(row.grams, "planeado")} style={{ ...btnOutline, height: 38, fontSize: 12.5, color: C.muted }}>Ya está pesado: usar lo planeado ({kg(row.grams)} KILO)</button>
+                </div>
+              ) : (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.3fr", gap: 8 }}>
                 <button style={{ ...btnOutline, opacity: b.stable ? 1 : 0.5 }} disabled={!b.stable} onClick={() => setBase(b.scaleG)} title="Al cambiar de recipiente: pone en cero lo que hay en la pesa">Cero</button>
                 <button style={{ ...btnOutline, opacity: b.stable && !inRange ? 1 : 0.5 }} disabled={!b.stable || inRange} onClick={() => commit("aceptado")}>Aceptar así</button>
@@ -229,6 +266,7 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
                   <Check s={16} w={2.8} />{autoLeft > 0 ? `Listo · sigue en ${autoLeft}` : "Listo"}
                 </button>
               </div>
+              )}
               {b.conn === "sim" && (
                 <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
                   <span style={{ fontSize: 11, color: "#6B46C1", fontWeight: 700 }}>Simular:</span>
@@ -236,7 +274,7 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
                   <button style={{ height: 26, padding: "0 8px", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }} onClick={() => b.setSimG(base + t)}>= meta</button>
                 </div>
               )}
-              <span style={{ fontSize: 11.5, color: C.muted2, lineHeight: 1.45 }}>Con el peso exacto 4 segundos pasa solo al siguiente · si no queda exacto: Aceptar así · toca un ingrediente para pesarlo · otro recipiente: pulsa Cero</span>
+              <span style={{ fontSize: 11.5, color: C.muted2, lineHeight: 1.45 }}>{isPrin ? "Pesá todo lo que llegó: si no cabe de una, «+ Sumar pesada» y seguí con la otra canastilla (Cero con el recipiente vacío). Al usar el peso, el resto de la receta se recalcula solo." : isRango ? `Insumo con rango: con el peso dentro del ± ${row.tolPct || 5} % durante 4 segundos pasa solo · fuera del rango: Aceptar así (queda anotado)` : "Con el peso exacto 4 segundos pasa solo al siguiente · si no queda exacto: Aceptar así · toca un ingrediente para pesarlo · otro recipiente: pulsa Cero"}</span>
             </>
           ) : (
             <span style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>Lo que falta va en litros o unidades: márcalo en la lista cuando lo midas.</span>
@@ -268,9 +306,9 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
           if (unit) { right = hecho ? "medido" : "marcar"; rightColor = hecho ? C.green : C.muted; }
           else if (hecho) {
             const dv = d.actual - metaPesa(r.grams);
-            const bad = Math.abs(dv) > tolPesa(metaPesa(r.grams));
+            const bad = r.tipo !== "principal" && Math.abs(dv) > Math.max(tolPesa(metaPesa(r.grams)), tolFila(r, metaPesa(r.grams)));
             right = `${kg(d.actual)}${bad ? ` (${dv > 0 ? "+" : ""}${kg(dv)})` : ""}`; rightColor = bad ? C.red : C.green;
-          } else if (isCur) { right = connected ? kg(g) : "—"; rightColor = C.orange; }
+          } else if (isCur) { right = connected ? kg(r.tipo === "principal" ? prinTotal : g) : "—"; rightColor = C.orange; }
           else { right = "—"; rightColor = "#C9C2B6"; }
           return (
             <div key={i} onClick={tap}
@@ -283,6 +321,8 @@ export function BasculaEnLista({ title, rows, onFinish, finishLabel = "Terminar"
                 <span style={{ fontSize: compact ? 13 : 14, color: C.ink2, lineHeight: 1.3 }}><strong style={{ color: C.navy, fontWeight: 800 }}>{r.main}</strong>{r.sub && <span style={{ fontSize: 11.5, color: C.muted }}> · {r.sub}</span>} · {r.name}</span>
                 {r.note && <span style={{ fontSize: 11, fontWeight: 600, color: C.orange700 }}>{r.note}</span>}
               </span>
+              {r.tipo === "principal" && <span style={{ fontSize: 10, fontWeight: 800, color: C.orange, flex: "none" }}>★</span>}
+              {r.tipo === "rango" && <span style={{ fontSize: 10, fontWeight: 800, color: "#3F5E8C", background: "#EAF0F8", padding: "2px 6px", borderRadius: 6, flex: "none" }}>± {r.tolPct || 5} %</span>}
               <span style={{ fontSize: 13, fontWeight: 800, color: rightColor, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{right}</span>
             </div>
           );
