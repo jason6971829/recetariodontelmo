@@ -9,6 +9,8 @@ import { normalizeIngredient, ingredientToString } from "@/lib/ingredients";
 import { unitProblem, parseQty } from "@/lib/scaleRecipe";
 import { GabyDialog } from "@/components/OrdenProduccion";
 import { InsumoSelector } from "@/components/InsumoSelector";
+import { useBodegaConfig, useInsumoCats, ingKey, tipoDe, rangoPct, panDeCalculadora } from "@/lib/bodega";
+import { defaultBaseIndex, GRAMS_PER } from "@/lib/scaleRecipe";
 import { ProductoSelector } from "@/components/ProductoSelector";
 
 // Constantes de estilo a nivel de módulo — no se recrean en cada render
@@ -136,6 +138,29 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
     set("ingredients", [...form.ingredients, ingString.trim()]);
   };
   const isSale = form.category !== "RECETAS BODEGA";
+  // ── Bodega: producto principal y tipo de cada insumo (exacto / con rango). Se guarda aparte de la receta. ──
+  const isBodegaForm = !isSale && !panDeCalculadora(form.name);
+  const [bodCfgAll, patchBodCfg] = useBodegaConfig(isBodegaForm);
+  const insCats = useInsumoCats(isBodegaForm);
+  const bodCfg = (currentId && bodCfgAll[currentId]) || {};
+  const bodNorm = isBodegaForm ? form.ingredients.map(normalizeIngredient) : [];
+  const bodParsed = bodNorm.map(n => parseQty(n.text));
+  const bodKeys = bodNorm.map((n, i) => ingKey(n.code, bodParsed[i]?.name || n.text));
+  const bodCfgIdx = bodCfg.principal ? bodKeys.findIndex((k, i) => k === bodCfg.principal && bodParsed[i]) : -1;
+  const bodBase = bodCfgIdx >= 0 ? bodCfgIdx : defaultBaseIndex(bodParsed);
+  const bodPct = rangoPct(bodCfg);
+  const bodTipo = (i) => (i === bodBase ? "principal" : tipoDe(bodCfg, bodKeys[i], insCats[bodNorm[i]?.code]));
+  const setBodTipo = (i, t) => {
+    if (!currentId) return;
+    const key = bodKeys[i];
+    patchBodCfg(currentId, c => {
+      if (t === "principal") return { ...c, principal: key };
+      const next = { ...c, tipos: { ...(c.tipos || {}), [key]: t } };
+      // si era el principal y se pasa a exacto/rango, el principal vuelve a ser el de mayor peso
+      if (i === bodBase) { const rest = bodParsed.map((p, k) => (k === i ? null : p)); const d = defaultBaseIndex(rest); next.principal = d >= 0 ? bodKeys[d] : undefined; }
+      return next;
+    });
+  };
   // Reemplaza una línea por otra (string canónico "texto | código")
   const replaceIng = (i, str) => set("ingredients", form.ingredients.map((ing, idx) => idx === i ? str : ing));
   // Corrección rápida: 30 KILO → 0.03 KILO (cambia solo el número del inicio)
@@ -275,6 +300,12 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
             <div style={{ marginBottom: 10, background:"#FFFAF5", border:"1.5px solid #F1D9C2", borderRadius:16, padding:10 }}>
               <InsumoSelector onAdd={addIngFromSelector} />
             </div>
+            {isBodegaForm && form.ingredients.length > 0 && (
+              <div style={{ margin:"0 0 10px", fontSize:12, color:"#8A847A", lineHeight:1.45 }}>
+                Marcá cómo se pesa cada insumo: <strong style={{ color:"#D9731A" }}>★ Principal</strong> (uno solo: se pesa primero y con lo que llegó se recalcula todo) · <strong style={{ color:"#0E2240" }}>Exacto</strong> (solo pasa con el peso justo) · <strong style={{ color:"#3F5E8C" }}>Con rango</strong> (acepta un poco más o un poco menos).
+                {!currentId && " Se habilita cuando la receta tenga nombre y quede guardada."}
+              </div>
+            )}
             {form.ingredients.map((ing,i)=>{
               const n = normalizeIngredient(ing);
               const qp = qtyProblem(n.text, isSale);
@@ -286,10 +317,10 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
                       <input
                         style={{...inp, width:92, height:44, padding:"0 8px", textAlign:"center", fontWeight:800, color:"#B85E10", fontFamily:"ui-monospace,Menlo,monospace"}}
                         value={editingCode}
-                        onChange={e=>setEditingCode(e.target.value.replace(/[^0-9]/g,""))}
+                        onChange={e=>setEditingCode(e.target.value.replace(/[^0-9A-Za-z-]/g,"").toUpperCase())}
                         onKeyDown={e=>{ if(e.key==="Enter") saveEdit(); if(e.key==="Escape") setEditingIdx(null); }}
                         placeholder="ID"
-                        maxLength={5}
+                        maxLength={14}
                       />
                       <input
                         autoFocus
@@ -331,6 +362,22 @@ export function RecipeForm({ initial, categories, bodegaSubcategories = [], onSa
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
                   </button>
                 </div>
+                {isBodegaForm && editingIdx !== i && bodParsed[i] && (() => {
+                  const tp = bodTipo(i);
+                  const pesa = !!GRAMS_PER[bodParsed[i].unit];
+                  const opts = [["principal", "★ Principal"], ...(pesa ? [["exacto", "Exacto"], ["rango", `Con rango ± ${bodPct} %`]] : [])];
+                  return (
+                    <div style={{ display:"flex", alignItems:"center", gap:5, flexWrap:"wrap", margin:"4px 0 6px 2px" }}>
+                      {opts.map(([k, label]) => {
+                        const on = tp === k;
+                        const col = k === "principal" ? "#D9731A" : k === "rango" ? "#3F5E8C" : "#0E2240";
+                        return <button key={k} type="button" disabled={!currentId} onClick={() => !on && setBodTipo(i, k)}
+                          style={{ height:28, padding:"0 10px", borderRadius:999, border:`1.5px solid ${on ? col : "#E7E1D7"}`, background: on ? col : "#fff", color: on ? "#fff" : "#8A847A", fontSize:11.5, fontWeight:800, cursor: currentId ? "pointer" : "not-allowed", opacity: currentId ? 1 : 0.5 }}>{label}</button>;
+                      })}
+                      {!pesa && tp !== "principal" && <span style={{ fontSize:11, color:"#A39D92" }}>va por {bodParsed[i].unit === "UNIDAD" ? "unidades" : "litros"}: se mide o se cuenta</span>}
+                    </div>
+                  );
+                })()}
                 {pickIdx === i && (
                   <div style={{ margin:"6px 42px 8px 0", background:"#FFFAF5", border:"1.5px solid #F1D9C2", borderRadius:14, padding:8 }}>
                     <div style={{ fontSize:12, fontWeight:700, color:"#B85E10", margin:"0 0 6px 4px" }}>Reemplazar «{n.text}» por un insumo del catálogo:</div>
