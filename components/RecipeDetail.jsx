@@ -318,9 +318,9 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
               <div style={{ color: C.muted2, fontSize: 13, fontStyle: "italic" }}>{t.detail.noIngredients}</div>
             )}
             {canCalc && !pesar && <span style={{ fontSize: 11.5, color: C.muted2, lineHeight: 1.45 }}>★ principal: se pesa primero y con lo que llegó se recalcula todo · «exacto»: solo pasa con el peso justo · «± {tolPct} %»: acepta ese margen.{isAdmin ? " Tocá la etiqueta de un insumo para cambiarla." : ""} Lo calculado no cambia la receta guardada.</span>}
-            {isBodega && <BodegaPrint recipe={recipe} factor={factor} tolPct={tolPct} despiece={despiece} principal={canCalc && base ? base.name : ""}
-              rindeTxt={despiece ? "" : rinde ? fmtScaled(rinde, factor).main : recipe.portions}
-              rows={ings.map((n, i) => { const p = parsed[i]; const sc = p ? fmtScaled(p, factor) : null; return { code: n.code, name: p?.name || n.text, main: sc ? sc.main : "", sub: sc ? sc.sub : "", tipo: canCalc && p ? (i === baseIdx || GRAMS_PER[p.unit] ? tipoOf(i) : "") : "" }; })} />}
+            {isBodega && <BodegaPrint recipe={recipe} factor={factor} tolPct={tolPct} despiece={despiece} rinde={rinde}
+              principalIdx={(canCalc || despiece) && base ? baseIdx : -1}
+              rows={ings.map((n, i) => { const p = parsed[i]; return { code: n.code, name: p?.name || n.text, qty: p ? p.qty * factor : null, unit: p?.unit, unitRaw: p?.unitRaw, tipo: canCalc && p ? (i === baseIdx ? "principal" : GRAMS_PER[p.unit] ? tipoOf(i) : "") : "" }; })} />}
             {modal === "pedido" && <PedidoModal recipeName={recipe.name} rindeTxt={rinde ? `rinde ${fmtScaled(rinde, factor).main}` : ""} lines={ings.map((n, i) => { const p = parsed[i]; return p ? { main: fmtScaled(p, factor).main, name: p.name, code: n.code } : { main: "", name: n.text, code: n.code }; })} onClose={() => setModal(null)} />}
             {modal === "cierre" && <CierreModal recipeName={recipe.name} planQty={rinde ? Math.round(rinde.qty * factor * 1000) / 1000 : 0} unit={rinde?.unitRaw || ""} resumen={base ? `★ ${base.name}: ${fmtGaby(base.qty * factor)} ${base.unitRaw}${prinPlan != null && Math.abs(prinPlan - base.qty * factor) > 0.0005 ? ` (se había planeado ${fmtGaby(prinPlan)})` : ""}` : ""} onSave={guardarCierre} onClose={() => setModal(null)} />}
           </div>

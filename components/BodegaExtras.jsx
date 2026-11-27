@@ -356,81 +356,234 @@ export function BodegaRegistros({ isAdmin, onClose, onOpenRecipe }) {
   );
 }
 
-// ═════════════ HOJA PARA IMPRESORA NORMAL (carta) ═════════════
-// Solo existe al imprimir: en pantalla no se ve. rows: [{ code, name, main, sub, tipo }]
+// ═════════════ HOJA DE PESAJE PARA IMPRESORA NORMAL (carta) ═════════════
+// Diseño "hoja de pesaje (Carta)". Solo existe al imprimir: en pantalla no se ve.
+// rows: [{ code, name, qty, unit ("KILO"|"GR"|"LITRO"|"ML"|"UNIDAD"|…), unitRaw, tipo: "principal"|"exacto"|"rango"|"" }]
 const PRINT_CSS = `
 .bodega-print-root { display: none; }
 @media print {
-  @page { size: letter portrait; margin: 12mm; }
+  @page { size: letter portrait; margin: 11mm 12mm; }
   html, body { background: #fff !important; height: auto !important; overflow: visible !important; }
   body > *:not(.bodega-print-root) { display: none !important; }
-  .bodega-print-root { display: block !important; position: static !important; color: #000; font-family: Arial, Helvetica, sans-serif; }
-  .bodega-print-root * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .bodega-print-root tr { break-inside: avoid; }
+  .bodega-print-root { display: block !important; position: static !important; }
+  .bodega-print-root, .bodega-print-root * { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box; }
+  .bodega-print-root .bp-keep { break-inside: avoid; page-break-inside: avoid; }
 }`;
-export function BodegaPrint({ recipe, rows, factor = 1, rindeTxt, principal, tolPct = 5, despiece }) {
-  const th = { textAlign: "left", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: "#555", padding: "6px 6px", borderBottom: "2px solid #000" };
-  const td = { padding: "8px 6px", borderBottom: "1px solid #bbb", fontSize: 13, verticalAlign: "middle" };
-  const box = <span style={{ display: "inline-block", width: 16, height: 16, border: "1.5px solid #000", borderRadius: 3 }} />;
-  const line = (w) => <span style={{ display: "inline-block", width: w, borderBottom: "1px solid #000", height: 16 }} />;
-  const tipoTxt = (t) => (t === "principal" ? "★ PRINCIPAL" : t === "rango" ? `± ${tolPct} %` : t === "exacto" ? "exacto" : "");
+const P = { ink: "#16181d", mid: "#555b65", soft: "#5f6570", label: "#3f444c", line: "#d5d8dd", line2: "#e4e6ea", head: "#f3f4f6", accent: "#B4231F", accentSoft: "#B4231F12" };
+const MONO = "'JetBrains Mono', ui-monospace, Menlo, monospace";
+const nf = (v, d = 3) => Number(v).toLocaleString("es-CO", { maximumFractionDigits: d, minimumFractionDigits: 0 });
+const k3 = (v) => Number(v).toLocaleString("es-CO", { maximumFractionDigits: 5, minimumFractionDigits: 3 });
+// Cantidad para la hoja: lo grande arriba (lo que se lee en la pesa) y la equivalencia debajo
+function qtyParts(qty, unit, unitRaw) {
+  const U = String(unit || "").toUpperCase();
+  if (U === "KILO" || U === "GR") {
+    const g = U === "KILO" ? qty * 1000 : qty;
+    if (g >= 10000) return { main: `${k3(g / 1000)} kg`, sub: `${nf(g, 0)} g`, box: "kg", g };
+    return { main: `${nf(g, g < 10 ? 2 : 0)} g`, sub: `${k3(g / 1000)} kilo`, box: "g", g };
+  }
+  if (U === "LITRO" || U === "ML") {
+    const ml = U === "LITRO" ? qty * 1000 : qty;
+    if (ml >= 10000) return { main: `${k3(ml / 1000)} L`, sub: `${nf(ml, 0)} ml`, box: "L" };
+    return { main: `${nf(ml, ml < 10 ? 2 : 0)} ml`, sub: `${k3(ml / 1000)} litro`, box: "ml" };
+  }
+  if (U === "UNIDAD") return { main: `${nf(qty, 3)} unid.`, sub: "", box: "unid." };
+  return { main: `${nf(qty, 3)} ${String(unitRaw || unit || "").toLowerCase()}`, sub: "", box: "" };
+}
+const titleCase = (t) => String(t || "").toLowerCase().replace(/(^|[\s(·/-])([a-záéíóúñ])/g, (m, a, b) => a + b.toUpperCase());
+
+export function BodegaPrint({ recipe, rows, factor = 1, rinde, principalIdx = -1, tolPct = 5, despiece }) {
   const hoy = new Date().toLocaleDateString("es-CO", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const lab = { fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: P.soft };
+  const cap = { fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: P.label };
+  const check = (sz = 24) => <span aria-hidden="true" style={{ flex: "none", display: "inline-block", width: sz, height: sz, border: `2px solid ${P.ink}`, borderRadius: 6, background: "#fff" }} />;
+  const realBox = (unit, h = 38) => <div style={{ height: h, border: `1.5px solid ${P.ink}`, borderRadius: 8, background: "#fff", display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "0 10px", fontSize: 14, fontWeight: 600, color: P.soft }}>{unit}</div>;
+  const prin = principalIdx >= 0 ? rows[principalIdx] : null;
+  const rest = rows.filter((_, i) => i !== principalIdx);
+  const nameLen = String(recipe.name || "").length;
+  const h1 = nameLen <= 16 ? 46 : nameLen <= 24 ? 38 : nameLen <= 34 ? 30 : 25;
+  const dense = rest.length > 9;            // muchas filas: un poco más compactas para que quepa en una hoja
+  const rowPad = dense ? "8px 20px" : "14px 20px";
+  const nEx = rest.filter(r => r.tipo === "exacto").length, nRg = rest.filter(r => r.tipo === "rango").length;
+  const resumen = [`${rest.length} ${rest.length === 1 ? "insumo" : "insumos"}`, nRg === 0 && nEx > 0 && nEx === rest.length ? "todos de pesaje exacto" : null, nRg > 0 ? `${nRg} con rango ± ${tolPct} %` : null, nRg > 0 && nEx > 0 ? `${nEx} ${nEx === 1 ? "exacto" : "exactos"}` : null].filter(Boolean).join(" · ");
+  const rindeP = rinde ? qtyParts(rinde.qty * factor, rinde.unit, rinde.unitRaw) : null;
+  const prinP = prin ? qtyParts(prin.qty, prin.unit, prin.unitRaw) : null;
+  const small = rest.some(r => { const q = qtyParts(r.qty, r.unit, r.unitRaw); return q.g != null && q.g < 5; });
+  const grid = "44px minmax(0, 1fr) 150px 150px";
+  const tipoTag = (r) => {
+    if (r.tipo !== "rango") return null;
+    const q = qtyParts(r.qty, r.unit, r.unitRaw);
+    const rng = q.g != null ? ` · sirve de ${nf(q.g * (1 - tolPct / 100), 0)} a ${nf(q.g * (1 + tolPct / 100), 0)} g` : "";
+    return <span style={{ fontSize: 11, fontWeight: 700, color: P.accent }}>rango ± {tolPct} %{rng}</span>;
+  };
+  const steps = despiece
+    ? [<><b>Pese todo</b> lo que entra y anótelo.</>, <>Haga el despiece y <b>pese cada cosa</b> que sale; lo que va por unidades, cuéntelo.</>, <>La <b>merma</b> es lo que entró menos lo que salió. Regístrelo en la app.</>]
+    : [<><b>Pese primero</b> el producto principal.</>, <>Si llegó más o menos, <b>anote el peso real</b> y recalcule en la app.</>, <>Pese cada insumo y <b>marque la casilla</b> al terminar.</>];
+
   return createPortal(
     <div className="bodega-print-root">
       <style>{PRINT_CSS}</style>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", borderBottom: "3px solid #000", paddingBottom: 8, marginBottom: 10 }}>
-        <div>
-          <div style={{ fontSize: 10, letterSpacing: 3, fontWeight: 700 }}>DON TELMO® · RECETAS BODEGA{recipe.subcategory ? ` · ${String(recipe.subcategory).toUpperCase()}` : ""}</div>
-          <div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.1 }}>{recipe.name}</div>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+      <div style={{ background: "#fff", color: P.ink, fontFamily: "Inter, Manrope, system-ui, sans-serif", display: "flex", flexDirection: "column", gap: dense ? 16 : 22, fontVariantNumeric: "tabular-nums" }}>
+
+        {/* Encabezado */}
+        <div className="bp-keep" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 24, paddingBottom: 20, borderBottom: `2px solid ${P.ink}` }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.14em" }}>DON TELMO®</span>
+              <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#9aa0a8" }} />
+              <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", color: P.mid }}>RECETAS BODEGA</span>
+            </div>
+            <h1 style={{ margin: 0, fontSize: h1, lineHeight: 1, fontWeight: 800, letterSpacing: "-0.02em" }}>{titleCase(recipe.name)}</h1>
+            {recipe.subcategory && <div style={{ display: "flex", gap: 8 }}><span style={{ fontSize: 12, fontWeight: 600, padding: "5px 10px", borderRadius: 999, background: P.accentSoft, color: P.accent }}>{recipe.subcategory}</span></div>}
+          </div>
+          <div style={{ display: "flex", gap: 10, flex: "none" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "10px 14px", border: `1px solid ${P.line}`, borderRadius: 10, minWidth: 112 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", color: P.soft }}>IMPRESO</span>
+              <span style={{ fontSize: 17, fontWeight: 700 }}>{hoy}</span>
+            </div>
+            {Math.abs(factor - 1) > 1e-9 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "10px 14px", border: `1px solid ${P.line}`, borderRadius: 10, minWidth: 90 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", color: P.soft }}>RECETA</span>
+                <span style={{ fontSize: 17, fontWeight: 700 }}>× {nf(factor, 2)}</span>
+              </div>
+            )}
+            {rindeP && !despiece && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "10px 14px", borderRadius: 10, minWidth: 112, background: P.ink, color: "#fff" }}>
+                <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", color: "#c9ccd2" }}>RINDE</span>
+                <span style={{ fontSize: 17, fontWeight: 700, whiteSpace: "nowrap" }}>{rinde.unit === "KILO" ? `${k3(rinde.qty * factor)} kg` : rindeP.main}</span>
+              </div>
+            )}
+          </div>
         </div>
-        <div style={{ textAlign: "right", fontSize: 12, lineHeight: 1.5 }}>
-          <div>Impreso: <strong>{hoy}</strong></div>
-          {rindeTxt && <div>Rinde: <strong>{rindeTxt}</strong></div>}
-          {Math.abs(factor - 1) > 1e-9 && <div>Receta × <strong>{fmtNum(factor, 2)}</strong></div>}
-        </div>
-      </div>
-      {principal && !despiece && <div style={{ fontSize: 12.5, marginBottom: 8 }}>★ Producto principal: <strong>{principal}</strong>. Se pesa primero; si llegó más o menos, anotar el peso real y recalcular el resto en la app.</div>}
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead><tr>
-          <th style={{ ...th, width: 26 }}>✓</th><th style={{ ...th, width: 86 }}>Código</th><th style={th}>Insumo</th>
-          <th style={{ ...th, textAlign: "right", width: 150 }}>Cantidad</th><th style={{ ...th, width: 86 }}>Se pesa</th><th style={{ ...th, width: 110 }}>Peso real</th>
-        </tr></thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={i} style={r.tipo === "principal" ? { background: "#eee" } : undefined}>
-              <td style={td}>{box}</td>
-              <td style={{ ...td, fontFamily: "monospace", fontSize: 11 }}>{r.code}</td>
-              <td style={{ ...td, fontWeight: r.tipo === "principal" ? 800 : 500 }}>{r.name}</td>
-              <td style={{ ...td, textAlign: "right", fontWeight: 800, whiteSpace: "nowrap" }}>{r.main}{r.sub ? <span style={{ fontWeight: 400, fontSize: 11, color: "#444" }}> · {r.sub}</span> : null}</td>
-              <td style={{ ...td, fontSize: 11, fontWeight: 700 }}>{tipoTxt(r.tipo)}</td>
-              <td style={td}>{line(96)}</td>
-            </tr>
+
+        {/* Cómo usar */}
+        <div className="bp-keep" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
+          {steps.map((t, i) => (
+            <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <span style={{ flex: "none", width: 26, height: 26, borderRadius: "50%", background: P.accent, color: "#fff", fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
+              <span style={{ fontSize: 13, lineHeight: 1.4, color: "#2b2f36" }}>{t}</span>
+            </div>
           ))}
-        </tbody>
-      </table>
-      {despiece?.salidas?.length > 0 && (<>
-        <div style={{ fontSize: 15, fontWeight: 800, margin: "16px 0 4px" }}>Lo que sale</div>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead><tr><th style={{ ...th, width: 86 }}>Código</th><th style={th}>Producto</th><th style={{ ...th, width: 150 }}>Se espera</th><th style={{ ...th, width: 110 }}>Peso real (kg)</th><th style={{ ...th, width: 90 }}>Unidades</th></tr></thead>
-          <tbody>
-            {despiece.salidas.map((s, i) => (
-              <tr key={i}><td style={{ ...td, fontFamily: "monospace", fontSize: 11 }}>{s.code}</td><td style={{ ...td, fontWeight: 700 }}>{s.name}</td>
-                <td style={td}>{fmtNum(Number(s.pct) || 0, 1)} %{s.gU > 0 ? ` · ${fmtNum(s.gU, 0)} g c/u` : ""}</td><td style={td}>{line(96)}</td><td style={td}>{s.unit === "UNIDAD" ? line(76) : "—"}</td></tr>
+        </div>
+
+        {/* Producto principal */}
+        {prin && (
+          <div className="bp-keep" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <span style={lab}>{despiece ? "LO QUE ENTRA" : "PRODUCTO PRINCIPAL"}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 18, padding: "18px 20px", border: `2px solid ${P.accent}`, borderRadius: 14, background: P.accentSoft }}>
+              {check(28)}
+              <div style={{ flex: "1 1 auto", display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+                <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.01em" }}>{titleCase(prin.name)}</span>
+                {prin.code && <span style={{ fontFamily: MONO, fontSize: 12, color: P.mid }}>Cód. {prin.code}</span>}
+              </div>
+              {!despiece && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+                  <span style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>{prinP.main}</span>
+                  {prinP.sub && <span style={{ fontSize: 12, color: P.mid }}>{prinP.sub}</span>}
+                </div>
+              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, width: 150, flex: "none" }}>
+                <span style={cap}>PESO REAL</span>
+                {realBox(despiece ? "kg" : prinP.box, 40)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Insumos */}
+        {rest.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+              <span style={lab}>INSUMOS{prin && prinP ? ` · PARA ${prinP.main.toUpperCase()} DE PRINCIPAL` : ""}</span>
+              <span style={{ fontSize: 12, color: P.soft }}>{resumen}</span>
+            </div>
+            <div style={{ border: `1px solid ${P.line}`, borderRadius: 14, overflow: "hidden" }}>
+              <div style={{ display: "grid", gridTemplateColumns: grid, alignItems: "center", padding: "10px 20px", background: P.head, borderBottom: `1px solid ${P.line}`, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#4a4f58" }}>
+                <span>✓</span><span>INSUMO</span><span style={{ textAlign: "right", paddingRight: 24 }}>CANTIDAD</span><span>PESO REAL</span>
+              </div>
+              {rest.map((r, i) => {
+                const q = r.qty != null ? qtyParts(r.qty, r.unit, r.unitRaw) : null;
+                return (
+                  <div key={i} className="bp-keep" style={{ display: "grid", gridTemplateColumns: grid, alignItems: "center", padding: rowPad, borderBottom: i === rest.length - 1 ? 0 : `1px solid ${P.line2}` }}>
+                    {check(dense ? 20 : 24)}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+                      <span style={{ fontSize: dense ? 14.5 : 16, fontWeight: 600 }}>{titleCase(r.name)}</span>
+                      <span style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+                        {r.code && <span style={{ fontFamily: MONO, fontSize: 12, color: P.soft }}>Cód. {r.code}</span>}
+                        {tipoTag(r)}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, paddingRight: 24 }}>
+                      <span style={{ fontSize: dense ? 19 : 22, fontWeight: 800, lineHeight: 1, whiteSpace: "nowrap" }}>{q ? q.main : ""}</span>
+                      {q?.sub && <span style={{ fontSize: 12, color: P.soft }}>{q.sub}</span>}
+                    </div>
+                    {realBox(q ? q.box : "", dense ? 32 : 38)}
+                  </div>
+                );
+              })}
+            </div>
+            {small && <span style={{ fontSize: 12, color: "#4a4f58" }}>Cantidades menores a 5 g: usar balanza de precisión.</span>}
+          </div>
+        )}
+
+        {/* Despiece: lo que sale */}
+        {despiece?.salidas?.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <span style={lab}>LO QUE SALE</span>
+              <span style={{ fontSize: 12, color: P.soft }}>{despiece.salidas.length} productos · el % es sobre el peso que entra</span>
+            </div>
+            <div style={{ border: `1px solid ${P.line}`, borderRadius: 14, overflow: "hidden" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 130px 130px 110px", gap: 12, alignItems: "center", padding: "10px 20px", background: P.head, borderBottom: `1px solid ${P.line}`, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#4a4f58" }}>
+                <span>PRODUCTO</span><span style={{ textAlign: "right" }}>SE ESPERA</span><span>PESO REAL</span><span>UNIDADES</span>
+              </div>
+              {despiece.salidas.map((s, i) => (
+                <div key={i} className="bp-keep" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 130px 130px 110px", gap: 12, alignItems: "center", padding: "14px 20px", borderBottom: `1px solid ${P.line2}` }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+                    <span style={{ fontSize: 16, fontWeight: 600 }}>{titleCase(s.name)}</span>
+                    {s.code && <span style={{ fontFamily: MONO, fontSize: 12, color: P.soft }}>Cód. {s.code}</span>}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+                    <span style={{ fontSize: 22, fontWeight: 800, lineHeight: 1 }}>{nf(Number(s.pct) || 0, 1)} %</span>
+                    {s.gU > 0 && <span style={{ fontSize: 12, color: P.soft }}>{nf(s.gU, 0)} g por unidad</span>}
+                  </div>
+                  {realBox("kg")}
+                  {s.unit === "UNIDAD" ? realBox("unid.") : <span style={{ fontSize: 13, color: "#9aa0a8", textAlign: "center" }}>—</span>}
+                </div>
+              ))}
+              <div className="bp-keep" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 130px 130px 110px", gap: 12, alignItems: "center", padding: "14px 20px", background: P.accentSoft }}>
+                <span style={{ fontSize: 16, fontWeight: 800 }}>Merma <span style={{ fontWeight: 500, fontSize: 12, color: P.mid }}>(entró − salió)</span></span>
+                <span />{realBox("kg")}{realBox("%")}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Preparación */}
+        {recipe.preparation && !despiece && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <span style={lab}>PREPARACIÓN</span>
+            <div style={{ fontSize: 13, lineHeight: 1.55, color: "#2b2f36", whiteSpace: "pre-wrap", border: `1px solid ${P.line}`, borderRadius: 14, padding: "14px 20px" }}>{recipe.preparation}</div>
+          </div>
+        )}
+
+        {/* Control */}
+        <div className="bp-keep" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <span style={lab}>CONTROL DE PRODUCCIÓN</span>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", border: `1px solid ${P.line}`, borderRadius: 14, overflow: "hidden" }}>
+            {[["FECHA", <span key="f" style={{ fontSize: 14, color: "#9aa0a8" }}>___ / ___ / ______</span>],
+              [despiece ? "MERMA" : "RINDE REAL", <span key="r" style={{ fontSize: 13, color: P.soft, textAlign: "right" }}>{despiece ? "kg" : rindeP ? rindeP.box || "" : ""}</span>],
+              ["HECHO POR", <span key="h" style={{ fontSize: 12, color: P.soft }}>Nombre y firma</span>],
+              ["REVISÓ", <span key="v" style={{ fontSize: 12, color: P.soft }}>Nombre y firma</span>]].map(([t, c], i) => (
+              <div key={t} style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: 86, padding: "12px 14px", borderRight: i < 3 ? `1px solid ${P.line}` : 0 }}>
+                <span style={cap}>{t}</span>{c}
+              </div>
             ))}
-            <tr><td style={td} /><td style={{ ...td, fontWeight: 800 }}>MERMA (entró − salió)</td><td style={td} /><td style={td}>{line(96)}</td><td style={td} /></tr>
-          </tbody>
-        </table>
-      </>)}
-      {recipe.preparation && (<>
-        <div style={{ fontSize: 15, fontWeight: 800, margin: "16px 0 4px" }}>Preparación</div>
-        <div style={{ fontSize: 12.5, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{recipe.preparation}</div>
-      </>)}
-      {recipe.recommendations && (<>
-        <div style={{ fontSize: 15, fontWeight: 800, margin: "14px 0 4px" }}>Recomendaciones</div>
-        <div style={{ fontSize: 12.5, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{recipe.recommendations}</div>
-      </>)}
-      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginTop: 26, fontSize: 12.5, breakInside: "avoid" }}>
-        <span>Fecha: {line(110)}</span>{!despiece && <span>Salió (rinde real): {line(120)}</span>}<span>Hecho por: {line(150)}</span><span>Revisó: {line(130)}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: P.soft, paddingTop: 4 }}>
+            <span>Recetario Don Telmo · Bodega</span><span>{recipe.name} · {hoy}</span>
+          </div>
+        </div>
       </div>
     </div>, document.body);
 }
