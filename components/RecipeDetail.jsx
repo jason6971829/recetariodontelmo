@@ -11,7 +11,7 @@ import { BasculaEnLista } from "@/components/BasculaEnLista";
 import { useViewport } from "@/hooks/useViewport";
 import { loadUi, saveUi, keepUiOnClose } from "@/lib/session";
 import { useBodegaConfig, useInsumoCats, ingKey, tipoDe, rangoPct, panDeCalculadora, loadRegistros, addRegistro, patchRegistro, fmtFecha, uid } from "@/lib/bodega";
-import { PedidoModal, CierreModal, DespiecePanel } from "@/components/BodegaExtras";
+import { PedidoModal, CierreModal, DespiecePanel, BodegaPrint } from "@/components/BodegaExtras";
 
 // ── Rediseño Don Telmo: detalle de receta (modal; bottom sheet en celular) ──
 const C = { navy: "#0E2240", navy7: "#16325A", orange: "#D9731A", orange4: "#E8832B", orange3: "#F0A35E", orange7: "#B85E10", orange1: "#FBEBDD", cream: "#F6F3EE", row: "#FAF8F4", line: "#E7E1D7", ink: "#14213D", ink2: "#3C3A36", muted: "#8A847A", muted2: "#A39D92", green: "#1F9D6B", red: "#C8423B" };
@@ -179,6 +179,7 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
                 <button onClick={onEdit} style={{ height: 40, padding: "0 14px", borderRadius: 11, border: 0, background: C.orange, color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>{Ico.edit}Editar</button>
               </>
             )}
+            {isBodega && <button onClick={() => window.print()} title="Imprimir en impresora normal (hoja carta), con las cantidades que se ven ahora" style={{ height: 40, padding: "0 14px", borderRadius: 11, border: 0, background: "#fff", color: C.navy, fontWeight: 800, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>{Ico.print}Imprimir hoja</button>}
             <button aria-label="Imprimir" title="Imprimir en impresora térmica 80mm" onClick={() => printRecipeThermal(recipe, { label: brandLabel, name: brandName, tagline: companyTagline })} style={iconBtn()}>{Ico.print}</button>
             <button aria-label="PDF" title="Descargar PDF" onClick={handleDownloadPDF} disabled={downloading} style={iconBtn({ opacity: downloading ? 0.5 : 1, cursor: downloading ? "wait" : "pointer" })}>{Ico.pdf}</button>
             {isAdmin && <button aria-label="Eliminar" title="Eliminar" onClick={onDelete} style={iconBtn({ background: "rgba(200,66,59,.22)", color: "#FFB1AB" })}>{Ico.trash}</button>}
@@ -317,6 +318,9 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
               <div style={{ color: C.muted2, fontSize: 13, fontStyle: "italic" }}>{t.detail.noIngredients}</div>
             )}
             {canCalc && !pesar && <span style={{ fontSize: 11.5, color: C.muted2, lineHeight: 1.45 }}>★ principal: se pesa primero y con lo que llegó se recalcula todo · «exacto»: solo pasa con el peso justo · «± {tolPct} %»: acepta ese margen.{isAdmin ? " Tocá la etiqueta de un insumo para cambiarla." : ""} Lo calculado no cambia la receta guardada.</span>}
+            {isBodega && <BodegaPrint recipe={recipe} factor={factor} tolPct={tolPct} despiece={despiece} principal={canCalc && base ? base.name : ""}
+              rindeTxt={despiece ? "" : rinde ? fmtScaled(rinde, factor).main : recipe.portions}
+              rows={ings.map((n, i) => { const p = parsed[i]; const sc = p ? fmtScaled(p, factor) : null; return { code: n.code, name: p?.name || n.text, main: sc ? sc.main : "", sub: sc ? sc.sub : "", tipo: canCalc && p ? (i === baseIdx || GRAMS_PER[p.unit] ? tipoOf(i) : "") : "" }; })} />}
             {modal === "pedido" && <PedidoModal recipeName={recipe.name} rindeTxt={rinde ? `rinde ${fmtScaled(rinde, factor).main}` : ""} lines={ings.map((n, i) => { const p = parsed[i]; return p ? { main: fmtScaled(p, factor).main, name: p.name, code: n.code } : { main: "", name: n.text, code: n.code }; })} onClose={() => setModal(null)} />}
             {modal === "cierre" && <CierreModal recipeName={recipe.name} planQty={rinde ? Math.round(rinde.qty * factor * 1000) / 1000 : 0} unit={rinde?.unitRaw || ""} resumen={base ? `★ ${base.name}: ${fmtGaby(base.qty * factor)} ${base.unitRaw}${prinPlan != null && Math.abs(prinPlan - base.qty * factor) > 0.0005 ? ` (se había planeado ${fmtGaby(prinPlan)})` : ""}` : ""} onSave={guardarCierre} onClose={() => setModal(null)} />}
           </div>

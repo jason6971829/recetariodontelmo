@@ -355,3 +355,82 @@ export function BodegaRegistros({ isAdmin, onClose, onOpenRecipe }) {
     </Sheet>
   );
 }
+
+// ═════════════ HOJA PARA IMPRESORA NORMAL (carta) ═════════════
+// Solo existe al imprimir: en pantalla no se ve. rows: [{ code, name, main, sub, tipo }]
+const PRINT_CSS = `
+.bodega-print-root { display: none; }
+@media print {
+  @page { size: letter portrait; margin: 12mm; }
+  html, body { background: #fff !important; height: auto !important; overflow: visible !important; }
+  body > *:not(.bodega-print-root) { display: none !important; }
+  .bodega-print-root { display: block !important; position: static !important; color: #000; font-family: Arial, Helvetica, sans-serif; }
+  .bodega-print-root * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .bodega-print-root tr { break-inside: avoid; }
+}`;
+export function BodegaPrint({ recipe, rows, factor = 1, rindeTxt, principal, tolPct = 5, despiece }) {
+  const th = { textAlign: "left", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: "#555", padding: "6px 6px", borderBottom: "2px solid #000" };
+  const td = { padding: "8px 6px", borderBottom: "1px solid #bbb", fontSize: 13, verticalAlign: "middle" };
+  const box = <span style={{ display: "inline-block", width: 16, height: 16, border: "1.5px solid #000", borderRadius: 3 }} />;
+  const line = (w) => <span style={{ display: "inline-block", width: w, borderBottom: "1px solid #000", height: 16 }} />;
+  const tipoTxt = (t) => (t === "principal" ? "★ PRINCIPAL" : t === "rango" ? `± ${tolPct} %` : t === "exacto" ? "exacto" : "");
+  const hoy = new Date().toLocaleDateString("es-CO", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return createPortal(
+    <div className="bodega-print-root">
+      <style>{PRINT_CSS}</style>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", borderBottom: "3px solid #000", paddingBottom: 8, marginBottom: 10 }}>
+        <div>
+          <div style={{ fontSize: 10, letterSpacing: 3, fontWeight: 700 }}>DON TELMO® · RECETAS BODEGA{recipe.subcategory ? ` · ${String(recipe.subcategory).toUpperCase()}` : ""}</div>
+          <div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.1 }}>{recipe.name}</div>
+        </div>
+        <div style={{ textAlign: "right", fontSize: 12, lineHeight: 1.5 }}>
+          <div>Impreso: <strong>{hoy}</strong></div>
+          {rindeTxt && <div>Rinde: <strong>{rindeTxt}</strong></div>}
+          {Math.abs(factor - 1) > 1e-9 && <div>Receta × <strong>{fmtNum(factor, 2)}</strong></div>}
+        </div>
+      </div>
+      {principal && !despiece && <div style={{ fontSize: 12.5, marginBottom: 8 }}>★ Producto principal: <strong>{principal}</strong>. Se pesa primero; si llegó más o menos, anotar el peso real y recalcular el resto en la app.</div>}
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead><tr>
+          <th style={{ ...th, width: 26 }}>✓</th><th style={{ ...th, width: 86 }}>Código</th><th style={th}>Insumo</th>
+          <th style={{ ...th, textAlign: "right", width: 150 }}>Cantidad</th><th style={{ ...th, width: 86 }}>Se pesa</th><th style={{ ...th, width: 110 }}>Peso real</th>
+        </tr></thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i} style={r.tipo === "principal" ? { background: "#eee" } : undefined}>
+              <td style={td}>{box}</td>
+              <td style={{ ...td, fontFamily: "monospace", fontSize: 11 }}>{r.code}</td>
+              <td style={{ ...td, fontWeight: r.tipo === "principal" ? 800 : 500 }}>{r.name}</td>
+              <td style={{ ...td, textAlign: "right", fontWeight: 800, whiteSpace: "nowrap" }}>{r.main}{r.sub ? <span style={{ fontWeight: 400, fontSize: 11, color: "#444" }}> · {r.sub}</span> : null}</td>
+              <td style={{ ...td, fontSize: 11, fontWeight: 700 }}>{tipoTxt(r.tipo)}</td>
+              <td style={td}>{line(96)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {despiece?.salidas?.length > 0 && (<>
+        <div style={{ fontSize: 15, fontWeight: 800, margin: "16px 0 4px" }}>Lo que sale</div>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead><tr><th style={{ ...th, width: 86 }}>Código</th><th style={th}>Producto</th><th style={{ ...th, width: 150 }}>Se espera</th><th style={{ ...th, width: 110 }}>Peso real (kg)</th><th style={{ ...th, width: 90 }}>Unidades</th></tr></thead>
+          <tbody>
+            {despiece.salidas.map((s, i) => (
+              <tr key={i}><td style={{ ...td, fontFamily: "monospace", fontSize: 11 }}>{s.code}</td><td style={{ ...td, fontWeight: 700 }}>{s.name}</td>
+                <td style={td}>{fmtNum(Number(s.pct) || 0, 1)} %{s.gU > 0 ? ` · ${fmtNum(s.gU, 0)} g c/u` : ""}</td><td style={td}>{line(96)}</td><td style={td}>{s.unit === "UNIDAD" ? line(76) : "—"}</td></tr>
+            ))}
+            <tr><td style={td} /><td style={{ ...td, fontWeight: 800 }}>MERMA (entró − salió)</td><td style={td} /><td style={td}>{line(96)}</td><td style={td} /></tr>
+          </tbody>
+        </table>
+      </>)}
+      {recipe.preparation && (<>
+        <div style={{ fontSize: 15, fontWeight: 800, margin: "16px 0 4px" }}>Preparación</div>
+        <div style={{ fontSize: 12.5, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{recipe.preparation}</div>
+      </>)}
+      {recipe.recommendations && (<>
+        <div style={{ fontSize: 15, fontWeight: 800, margin: "14px 0 4px" }}>Recomendaciones</div>
+        <div style={{ fontSize: 12.5, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{recipe.recommendations}</div>
+      </>)}
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginTop: 26, fontSize: 12.5, breakInside: "avoid" }}>
+        <span>Fecha: {line(110)}</span>{!despiece && <span>Salió (rinde real): {line(120)}</span>}<span>Hecho por: {line(150)}</span><span>Revisó: {line(130)}</span>
+      </div>
+    </div>, document.body);
+}
