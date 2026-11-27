@@ -11,7 +11,7 @@ import { BasculaEnLista } from "@/components/BasculaEnLista";
 import { useViewport } from "@/hooks/useViewport";
 import { loadUi, saveUi, keepUiOnClose } from "@/lib/session";
 import { useBodegaConfig, useInsumoCats, ingKey, tipoDe, rangoPct, panDeCalculadora, loadRegistros, addRegistro, patchRegistro, fmtFecha, uid } from "@/lib/bodega";
-import { PedidoModal, CierreModal, DespiecePanel, BodegaPrint, printHojaBodega } from "@/components/BodegaExtras";
+import { PedidoModal, CierreModal, DespiecePanel, RepartoPanel, BodegaPrint, printHojaBodega } from "@/components/BodegaExtras";
 
 // ── Rediseño Don Telmo: detalle de receta (modal; bottom sheet en celular) ──
 const C = { navy: "#0E2240", navy7: "#16325A", orange: "#D9731A", orange4: "#E8832B", orange3: "#F0A35E", orange7: "#B85E10", orange1: "#FBEBDD", cream: "#F6F3EE", row: "#FAF8F4", line: "#E7E1D7", ink: "#14213D", ink2: "#3C3A36", muted: "#8A847A", muted2: "#A39D92", green: "#1F9D6B", red: "#C8423B" };
@@ -284,6 +284,8 @@ export const RecipeDetail = memo(function RecipeDetail({ recipe, onClose, onEdit
 
             {canPesar && pesar && ings.length > 0 ? (
               <BasculaEnLista title={recipe.name} rows={pesoRows} onPrincipal={onPrincipal} finishLabel="Cerrar producción" onFinish={(items) => { setCierreItems(items); setModal("cierre"); }} />
+            ) : despiece && despiece.unit === "UNIDAD" ? (
+              <RepartoPanel recipe={recipe} principal={base ? { code: ings[baseIdx]?.code || "", name: base.name } : null} despiece={despiece} currentUser={currentUser} />
             ) : despiece ? (
               <DespiecePanel recipe={recipe} principal={base ? { code: ings[baseIdx]?.code || "", name: base.name } : null} despiece={despiece} currentUser={currentUser} />
             ) : ings.length > 0 ? (

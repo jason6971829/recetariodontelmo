@@ -258,6 +258,116 @@ export function DespiecePanel({ recipe, principal, despiece, currentUser }) {
   );
 }
 
+// ═════════════ FICHA DE REPARTO (lo que entra se cuenta por UNIDADES) ═════════════
+// despiece: { unit: "UNIDAD", salidas: [{ code, name, unit: "UNIDAD"|"KILO", pct (de las unidades que entran), por (cantidad que sale por cada unidad que entra) }] }
+export function RepartoPanel({ recipe, principal, despiece, currentUser }) {
+  const b = useBascula();
+  const salidas = despiece?.salidas || [];
+  const hayKilos = salidas.some(s => s.unit !== "UNIDAD");
+  const [d0] = useState(() => { const v = typeof window !== "undefined" ? loadUi("dt_despiece") : null; return v && String(v.id) === String(recipe.id) ? v : null; });
+  const [entra, setEntra] = useState(d0?.entra || "");
+  const [vals, setVals] = useState(() => d0?.vals || salidas.map(() => ""));
+  const [base, setBase] = useState(0);
+  const [nota, setNota] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(null);
+  const [err, setErr] = useState("");
+  useEffect(() => { saveUi("dt_despiece", { id: recipe.id, entra, vals }); }, [recipe.id, entra, vals]);
+  const g = b.scaleG - base;
+  const canAdd = b.stable && g > 0;
+  const isOn = b.conn === "on" || b.conn === "sim";
+  const setVal = (i, v) => setVals(a => a.map((x, k) => (k === i ? numIn(v) : x)));
+  const sumKg = (i) => { if (canAdd) { setVals(a => a.map((x, k) => (k === i ? fmtGaby((isFinite(parseNumber(x)) ? parseNumber(x) : 0) + g / 1000) : x))); setBase(b.scaleG); } };
+  const E = parseNumber(entra); const hasE = isFinite(E) && E > 0;
+  const rows = salidas.map((s, i) => { const q = parseNumber(vals[i]); return { ...s, q: isFinite(q) ? q : 0, esp: hasE ? E * (Number(s.por) || 0) : 0 }; });
+  const alguna = rows.some(r => r.q > 0);
+  // la merma solo se puede sacar en unidades cuando todo lo que sale también va por unidades
+  const soloUnd = !hayKilos;
+  const saleU = rows.reduce((a, r) => a + (r.unit === "UNIDAD" ? r.q : 0), 0);
+  const mermaU = soloUnd && hasE ? E - saleU : null;
+  const mermaPct = mermaU != null && E > 0 ? (mermaU / E) * 100 : 0;
+  const mColor = mermaU == null ? C.muted2 : mermaU < 0 ? C.red : mermaPct > 5 ? C.red : mermaPct > 2 ? C.orange7 : C.green;
+  const uTxt = (u) => (u === "UNIDAD" ? "UND" : "KILO");
+  const qTxt = (q, u) => (u === "UNIDAD" ? `${fmtNum(q, 2)} UNIDAD` : `${kg3(q)} KILO`);
+
+  const guardar = async () => {
+    if (!hasE || !alguna) return;
+    setBusy(true); setErr("");
+    const reg = { id: uid(), kind: "despiece", unit: "UNIDAD", at: new Date().toISOString(), by: currentUser?.username || "", recipeId: recipe.id, name: recipe.name, nota: nota.trim(),
+      entra: { code: principal?.code || "", name: principal?.name || "", und: E },
+      salidas: rows.map(r => ({ code: r.code || "", name: r.name, unit: r.unit, q: Math.round(r.q * 1000) / 1000, esp: Math.round(r.esp * 1000) / 1000 })),
+      merma: mermaU != null ? { und: Math.round(mermaU * 100) / 100, pct: Math.round(mermaPct * 10) / 10 } : null };
+    const ok = await addRegistro(reg);
+    setBusy(false);
+    if (!ok) { setErr("No se pudo guardar (revisá la conexión) y volvé a intentar."); return; }
+    setSaved(reg); saveUi("dt_despiece", null);
+  };
+  const nuevo = () => { setSaved(null); setEntra(""); setVals(salidas.map(() => "")); setNota(""); };
+
+  if (saved) {
+    return (
+      <div style={{ borderRadius: 16, background: C.green1, border: "1.5px solid #9AD8BC", padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+        <span style={{ fontSize: 16, fontWeight: 800, color: "#166E4B" }}>✓ Reparto guardado</span>
+        <span style={{ fontSize: 13, color: "#2F7A5A" }}>Entraron {fmtNum(saved.entra.und, 2)} UNIDAD de {saved.entra.name}{saved.merma ? <> · merma <strong>{fmtNum(saved.merma.und, 2)} UNIDAD ({pct1(saved.merma.pct)})</strong></> : null}</span>
+        {saved.salidas.filter(s => s.q > 0).map((s, i) => <span key={i} style={{ fontSize: 13.5, color: C.ink2 }}>→ <strong style={{ color: C.navy }}>{qTxt(s.q, s.unit)}</strong> · {s.name}</span>)}
+        <button onClick={nuevo} style={btn("#fff", "#166E4B", { alignSelf: "flex-start", border: "1.5px solid #9AD8BC" })}>Hacer otro reparto</button>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {hayKilos && (
+        <div style={{ borderRadius: 16, background: "#fff", border: `1.5px solid ${C.orange}`, padding: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ display: "flex", alignItems: "baseline", gap: 4, fontVariantNumeric: "tabular-nums", opacity: b.live ? (b.moving ? 0.7 : 1) : 0.45 }}>
+            <span style={{ fontSize: 30, fontWeight: 800, color: C.navy, lineHeight: 1 }}>{b.live ? kg3(g / 1000) : "0,000"}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: C.muted }}>KILO</span>
+          </span>
+          <span style={{ fontSize: 11.5, fontWeight: 700, color: b.live ? C.green : C.muted }}>{b.conn === "sim" ? "modo prueba" : b.live ? "pesa conectada" : "pesa desconectada"}</span>
+          <span style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {b.live && <button onClick={() => setBase(b.scaleG)} disabled={!b.stable} style={btn("#fff", C.navy, { height: 36, padding: "0 12px", fontSize: 12.5, opacity: b.stable ? 1 : 0.5 })}>Cero</button>}
+            {!isOn && b.conn !== "connecting" && <button onClick={b.startSim} style={btn("#fff", C.muted, { height: 36, padding: "0 10px", fontSize: 12 })}>Probar</button>}
+            <button onClick={() => (isOn ? b.stop() : b.connect("auto"))} style={btn(isOn ? "#fff" : C.orange, isOn ? C.muted : "#fff", { height: 36, padding: "0 12px", fontSize: 12.5 })}>{isOn ? "Desconectar" : "Conectar pesa"}</button>
+          </span>
+          {b.conn === "sim" && <span style={{ display: "flex", gap: 4, width: "100%" }}>{[-500, 100, 1000, 5000].map(d => <button key={d} onClick={() => b.setSimG(x => Math.max(0, x + d))} style={{ height: 26, padding: "0 8px", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{d > 0 ? "+" : ""}{d}</button>)}</span>}
+        </div>
+      )}
+      <div style={{ borderRadius: 14, background: "#FFF6EE", border: `1.5px solid ${C.orange}`, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+        <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: ".16em", color: C.orange7 }}>★ ENTRA · {String(principal?.name || "").toUpperCase()}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input inputMode="decimal" value={entra} placeholder="0" onChange={e => setEntra(numIn(e.target.value))} style={{ ...inp, height: 50, fontSize: 21, border: `2px solid ${C.orange}` }} />
+          <span style={{ fontSize: 13, fontWeight: 800, color: C.navy }}>UNIDADES</span>
+        </div>
+        <span style={{ fontSize: 11.5, color: C.muted }}>Contá cuántas unidades vas a repartir.</span>
+      </div>
+      <span style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 600, color: C.navy }}>Lo que sale</span>
+      {rows.map((r, i) => (
+        <div key={i} style={{ borderRadius: 14, background: i % 2 ? "#fff" : C.row, border: `1px solid ${C.line}`, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+            {r.code && <span style={{ fontFamily: "ui-monospace,Menlo,monospace", fontSize: 10.5, fontWeight: 700, color: C.orange7, background: C.orange1, padding: "3px 7px", borderRadius: 6 }}>{r.code}</span>}
+            <span style={{ fontSize: 14.5, fontWeight: 800, color: C.navy }}>{r.name}</span>
+            <span style={{ marginLeft: "auto", fontSize: 11.5, color: C.muted }}>se espera {hasE ? qTxt(r.esp, r.unit) : r.unit === "UNIDAD" ? pct1(Number(r.pct) || 0) : `${fmtNum((Number(r.por) || 0) * 1000, 0)} g por unidad`}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input inputMode="decimal" value={vals[i] || ""} placeholder={r.unit === "UNIDAD" ? "0" : "0,000"} onChange={e => setVal(i, e.target.value)} style={inp} />
+            <span style={{ fontSize: 12, fontWeight: 800, color: C.navy }}>{uTxt(r.unit)}</span>
+            {r.unit !== "UNIDAD" && <button onClick={() => sumKg(i)} disabled={!canAdd} style={btn(C.navy, "#fff", { opacity: canAdd ? 1 : 0.4, padding: "0 12px" })}>+ pesa</button>}
+          </div>
+        </div>
+      ))}
+      <div style={{ borderRadius: 14, background: C.cream, padding: 14, display: "flex", flexDirection: "column", gap: 2 }}>
+        <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: ".16em", color: C.muted }}>{soloUnd ? "DIFERENCIA (LO QUE ENTRÓ − LO QUE SALIÓ)" : "CONTROL"}</span>
+        {soloUnd
+          ? <span style={{ fontSize: 24, fontWeight: 800, color: hasE && alguna ? mColor : C.muted2, fontVariantNumeric: "tabular-nums" }}>{hasE && alguna ? `${fmtNum(mermaU, 2)} UNIDAD · ${pct1(mermaPct)}` : "—"}</span>
+          : <span style={{ fontSize: 13, color: C.ink2 }}>Como una parte sale en kilos y otra en unidades, no se calcula una merma única: queda guardado lo que salió de cada cosa frente a lo esperado.</span>}
+        {soloUnd && hasE && alguna && mermaU < 0 && <span style={{ fontSize: 12, fontWeight: 700, color: C.red }}>Sale más de lo que entró: revisá las cantidades.</span>}
+      </div>
+      <input value={nota} onChange={e => setNota(e.target.value)} placeholder="Nota (opcional)…" style={{ ...inp, textAlign: "left", fontSize: 14, fontWeight: 600 }} />
+      {err && <span style={{ fontSize: 12.5, fontWeight: 700, color: C.red }}>{err}</span>}
+      <button onClick={guardar} disabled={busy || !hasE || !alguna} style={btn(C.green, "#fff", { height: 50, fontSize: 15, opacity: busy || !hasE || !alguna ? 0.45 : 1 })}>{busy ? "Guardando…" : "Guardar reparto"}</button>
+    </div>
+  );
+}
+
 // ═════════════ PANEL: ÓRDENES, PRODUCCIONES Y MERMAS ═════════════
 // Insumos de varias órdenes sumados: cada receta se escala a lo que pide su orden y lo igual se suma
 // (KILO y GRAMOS se suman en kilos; LITRO y ML en litros; lo demás por su unidad).
@@ -306,7 +416,7 @@ export function BodegaRegistros({ isAdmin, onClose, onOpenRecipe, recipes = [] }
   // promedio de merma por producto
   const porProd = useMemo(() => {
     const m = {};
-    desp.forEach(d => { const k = d.entra?.name || d.name; const a = (m[k] = m[k] || { n: 0, entra: 0, merma: 0 }); a.n++; a.entra += d.entra?.kg || 0; a.merma += d.merma?.kg || 0; });
+    desp.filter(d => d.unit !== "UNIDAD").forEach(d => { const k = d.entra?.name || d.name; const a = (m[k] = m[k] || { n: 0, entra: 0, merma: 0 }); a.n++; a.entra += d.entra?.kg || 0; a.merma += d.merma?.kg || 0; });
     return Object.entries(m).map(([name, a]) => ({ name, ...a, pct: a.entra > 0 ? (a.merma / a.entra) * 100 : 0 }));
   }, [desp]);
   // estabilidad de rendimiento por receta
@@ -397,7 +507,15 @@ export function BodegaRegistros({ isAdmin, onClose, onOpenRecipe, recipes = [] }
           </div>
         )}
         {desp.length === 0 ? <span style={small}>Todavía no hay despieces. Se hacen desde las fichas «T. DESPIECE …» de Recetas Bodega.</span>
-          : desp.map(d => (
+          : desp.map(d => d.unit === "UNIDAD" ? (
+            <div key={d.id} style={card}>
+              <span style={{ fontSize: 15, fontWeight: 800, color: C.navy }}>{d.name}</span>
+              <span style={{ fontSize: 13.5, color: C.ink2 }}>Entraron <strong>{fmtNum(d.entra?.und || 0, 2)} UNIDAD</strong> de {d.entra?.name}{d.merma ? <> · diferencia <strong style={{ color: d.merma.pct > 5 || d.merma.und < 0 ? C.red : C.green }}>{fmtNum(d.merma.und, 2)} UNIDAD ({pct1(d.merma.pct)})</strong></> : null}</span>
+              {(d.salidas || []).filter(s => s.q > 0).map((s, i) => <span key={i} style={{ fontSize: 12.5, color: C.ink2 }}>→ {s.name}: {s.unit === "UNIDAD" ? `${fmtNum(s.q, 2)} UNIDAD` : `${kg3(s.q)} KILO`} <span style={{ color: C.muted2 }}>(se esperaba {s.unit === "UNIDAD" ? fmtNum(s.esp, 1) : kg3(s.esp)})</span></span>)}
+              <span style={small}>{d.by || "—"} · {fmtFecha(d.at)}{d.nota ? ` · ${d.nota}` : ""}</span>
+              {delBtn(d.id)}
+            </div>
+          ) : (
             <div key={d.id} style={card}>
               <span style={{ fontSize: 15, fontWeight: 800, color: C.navy }}>{d.name}</span>
               <span style={{ fontSize: 13.5, color: C.ink2 }}>Entraron <strong>{kg3(d.entra?.kg)} KILO</strong> de {d.entra?.name} · merma <strong style={{ color: (d.merma?.pct || 0) > 5 || (d.merma?.kg || 0) < 0 ? C.red : C.green }}>{kg3(d.merma?.kg)} KILO ({pct1(d.merma?.pct || 0)})</strong></span>
@@ -495,7 +613,10 @@ export function BodegaPrint({ recipe, rows, factor = 1, rinde, principalIdx = -1
     const rng = q.g != null ? ` · sirve de ${nf(q.g * (1 - tolPct / 100), 0)} a ${nf(q.g * (1 + tolPct / 100), 0)} g` : "";
     return <span style={{ fontSize: 11, fontWeight: 700, color: P.accent }}>rango ± {tolPct} %{rng}</span>;
   };
-  const steps = despiece
+  const porUnd = despiece?.unit === "UNIDAD";
+  const steps = porUnd
+    ? [<><b>Cuente</b> las unidades que entran y anótelas.</>, <>Haga el reparto y <b>cuente o pese</b> cada cosa que sale.</>, <>Anote la <b>diferencia</b> y regístrelo en la app.</>]
+    : despiece
     ? [<><b>Pese todo</b> lo que entra y anótelo.</>, <>Haga el despiece y <b>pese cada cosa</b> que sale; lo que va por unidades, cuéntelo.</>, <>La <b>merma</b> es lo que entró menos lo que salió. Regístrelo en la app.</>]
     : [<><b>Pese primero</b> el producto principal.</>, <>Si llegó más o menos, <b>anote el peso real</b> y recalcule en la app.</>, <>Pese cada insumo y <b>marque la casilla</b> al terminar.</>];
 
@@ -563,8 +684,8 @@ export function BodegaPrint({ recipe, rows, factor = 1, rinde, principalIdx = -1
                 </div>
               )}
               <div style={{ display: "flex", flexDirection: "column", gap: 4, width: 150, flex: "none" }}>
-                <span style={cap}>PESO REAL</span>
-                {realBox(despiece ? "kg" : prinP.box, 40)}
+                <span style={cap}>{porUnd ? "CANTIDAD" : "PESO REAL"}</span>
+                {realBox(porUnd ? "unid." : despiece ? "kg" : prinP.box, 40)}
               </div>
             </div>
           </div>
@@ -611,7 +732,7 @@ export function BodegaPrint({ recipe, rows, factor = 1, rinde, principalIdx = -1
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
               <span style={lab}>LO QUE SALE</span>
-              <span style={{ fontSize: 12, color: P.soft }}>{despiece.salidas.length} productos · el % es sobre el peso que entra</span>
+              <span style={{ fontSize: 12, color: P.soft }}>{despiece.salidas.length} {despiece.salidas.length === 1 ? "producto" : "productos"}{porUnd ? "" : " · el % es sobre el peso que entra"}</span>
             </div>
             <div style={{ border: `1px solid ${P.line}`, borderRadius: 14, overflow: "hidden" }}>
               <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 130px 130px 110px", gap: 12, alignItems: "center", padding: "10px 20px", background: P.head, borderBottom: `1px solid ${P.line}`, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#4a4f58" }}>
@@ -624,16 +745,17 @@ export function BodegaPrint({ recipe, rows, factor = 1, rinde, principalIdx = -1
                     {s.code && <span style={{ fontFamily: MONO, fontSize: 12, color: P.soft }}>Cód. {s.code}</span>}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
-                    <span style={{ fontSize: 22, fontWeight: 800, lineHeight: 1 }}>{nf(Number(s.pct) || 0, 1)} %</span>
+                    <span style={{ fontSize: 22, fontWeight: 800, lineHeight: 1 }}>{porUnd && s.unit !== "UNIDAD" ? `${nf((Number(s.por) || 0) * 1000, 0)} g` : `${nf(Number(s.pct) || 0, 1)} %`}</span>
+                    {porUnd && s.unit !== "UNIDAD" && <span style={{ fontSize: 12, color: P.soft }}>por cada unidad</span>}
                     {s.gU > 0 && <span style={{ fontSize: 12, color: P.soft }}>{nf(s.gU, 0)} g por unidad</span>}
                   </div>
-                  {realBox("kg")}
+                  {porUnd && s.unit === "UNIDAD" ? <span style={{ fontSize: 13, color: "#9aa0a8", textAlign: "center" }}>—</span> : realBox("kg")}
                   {s.unit === "UNIDAD" ? realBox("unid.") : <span style={{ fontSize: 13, color: "#9aa0a8", textAlign: "center" }}>—</span>}
                 </div>
               ))}
               <div className="bp-keep" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 130px 130px 110px", gap: 12, alignItems: "center", padding: "14px 20px", background: P.accentSoft }}>
-                <span style={{ fontSize: 16, fontWeight: 800 }}>Merma <span style={{ fontWeight: 500, fontSize: 12, color: P.mid }}>(entró − salió)</span></span>
-                <span />{realBox("kg")}{realBox("%")}
+                <span style={{ fontSize: 16, fontWeight: 800 }}>{porUnd ? "Diferencia" : "Merma"} <span style={{ fontWeight: 500, fontSize: 12, color: P.mid }}>(entró − salió)</span></span>
+                <span />{realBox(porUnd ? "unid." : "kg")}{realBox("%")}
               </div>
             </div>
           </div>
@@ -652,7 +774,7 @@ export function BodegaPrint({ recipe, rows, factor = 1, rinde, principalIdx = -1
           <span style={lab}>CONTROL DE PRODUCCIÓN</span>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", border: `1px solid ${P.line}`, borderRadius: 14, overflow: "hidden" }}>
             {[["FECHA", <span key="f" style={{ fontSize: 14, color: "#9aa0a8" }}>___ / ___ / ______</span>],
-              [despiece ? "MERMA" : "RINDE REAL", <span key="r" style={{ fontSize: 13, color: P.soft, textAlign: "right" }}>{despiece ? "kg" : rindeP ? rindeP.box || "" : ""}</span>],
+              [porUnd ? "DIFERENCIA" : despiece ? "MERMA" : "RINDE REAL", <span key="r" style={{ fontSize: 13, color: P.soft, textAlign: "right" }}>{porUnd ? "unid." : despiece ? "kg" : rindeP ? rindeP.box || "" : ""}</span>],
               ["HECHO POR", <span key="h" style={{ fontSize: 12, color: P.soft }}>Nombre y firma</span>],
               ["REVISÓ", <span key="v" style={{ fontSize: 12, color: P.soft }}>Nombre y firma</span>]].map(([t, c], i) => (
               <div key={t} style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: 86, padding: "12px 14px", borderRight: i < 3 ? `1px solid ${P.line}` : 0 }}>
