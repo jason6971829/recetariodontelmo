@@ -368,7 +368,32 @@ const PRINT_CSS = `
   .bodega-print-root { display: block !important; position: static !important; }
   .bodega-print-root, .bodega-print-root * { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box; }
   .bodega-print-root .bp-keep { break-inside: avoid; page-break-inside: avoid; }
+  .bodega-print-root .bp-box { break-inside: avoid; page-break-inside: avoid; }
 }`;
+// Área útil de una hoja carta con los márgenes de @page (11 mm arriba/abajo, 12 mm a los lados), en px CSS
+const PAGE_W = 725, PAGE_H = 955;
+// Imprime SIEMPRE en una sola hoja: si la receta es larga, la hoja completa se reduce hasta que quepa.
+export function printHojaBodega() {
+  const root = document.querySelector(".bodega-print-root");
+  const box = root?.querySelector(".bp-box"), sheet = root?.querySelector(".bp-sheet");
+  if (!root || !box || !sheet) { window.print(); return; }
+  // medir fuera de pantalla, al ancho real de la hoja
+  root.style.cssText = `display:block;position:absolute;left:-10000px;top:0;width:${PAGE_W}px;visibility:hidden`;
+  box.style.cssText = ""; sheet.style.transform = ""; sheet.style.transformOrigin = "top left";
+  let s = 1;
+  for (let k = 0; k < 40; k++) {
+    sheet.style.width = `${PAGE_W / s}px`;
+    if (sheet.offsetHeight * s <= PAGE_H) break;
+    s *= 0.97;
+  }
+  const h = sheet.offsetHeight;
+  if (s < 1) { sheet.style.transform = `scale(${s})`; box.style.cssText = `width:${PAGE_W}px;height:${Math.ceil(h * s)}px;overflow:hidden`; }
+  else { sheet.style.width = ""; }
+  root.style.cssText = "";
+  const done = () => { window.removeEventListener("afterprint", done); box.style.cssText = ""; sheet.style.transform = ""; sheet.style.width = ""; };
+  window.addEventListener("afterprint", done);
+  setTimeout(() => window.print(), 60);
+}
 const P = { ink: "#16181d", mid: "#555b65", soft: "#5f6570", label: "#3f444c", line: "#d5d8dd", line2: "#e4e6ea", head: "#f3f4f6", accent: "#B4231F", accentSoft: "#B4231F12" };
 const MONO = "'JetBrains Mono', ui-monospace, Menlo, monospace";
 const nf = (v, d = 3) => Number(v).toLocaleString("es-CO", { maximumFractionDigits: d, minimumFractionDigits: 0 });
@@ -423,7 +448,7 @@ export function BodegaPrint({ recipe, rows, factor = 1, rinde, principalIdx = -1
     <div className="bodega-print-root">
       <style>{PRINT_CSS}</style>
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
-      <div style={{ background: "#fff", color: P.ink, fontFamily: "Inter, Manrope, system-ui, sans-serif", display: "flex", flexDirection: "column", gap: dense ? 16 : 22, fontVariantNumeric: "tabular-nums" }}>
+      <div className="bp-box"><div className="bp-sheet" style={{ background: "#fff", color: P.ink, fontFamily: "Inter, Manrope, system-ui, sans-serif", display: "flex", flexDirection: "column", gap: dense ? 16 : 22, fontVariantNumeric: "tabular-nums" }}>
 
         {/* Encabezado */}
         <div className="bp-keep" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 24, paddingBottom: 20, borderBottom: `2px solid ${P.ink}` }}>
@@ -584,6 +609,6 @@ export function BodegaPrint({ recipe, rows, factor = 1, rinde, principalIdx = -1
             <span>Recetario Don Telmo · Bodega</span><span>{recipe.name} · {hoy}</span>
           </div>
         </div>
-      </div>
+      </div></div>
     </div>, document.body);
 }
