@@ -3,9 +3,10 @@ import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useBascula } from "@/components/PesajeBascula";
 import { useViewport } from "@/hooks/useViewport";
-import { parseNumber, fmtGaby, fmtNum } from "@/lib/scaleRecipe";
+import { parseNumber, parseQty, fmtGaby, fmtNum } from "@/lib/scaleRecipe";
+import { normalizeIngredient } from "@/lib/ingredients";
 import { loadUi, saveUi } from "@/lib/session";
-import { loadRegistros, addRegistro, updateRegistros, mermaDespiece, fmtFecha, uid } from "@/lib/bodega";
+import { loadRegistros, addRegistro, updateRegistros, mermaDespiece, fmtFecha, uid, ingKey } from "@/lib/bodega";
 
 // Piezas de producción de bodega: lista de pedido, cierre de producción (rendimiento real),
 // ficha de despiece con merma y el panel de órdenes / registros / mermas.
@@ -258,8 +259,37 @@ export function DespiecePanel({ recipe, principal, despiece, currentUser }) {
 }
 
 // ═════════════ PANEL: ÓRDENES, PRODUCCIONES Y MERMAS ═════════════
-export function BodegaRegistros({ isAdmin, onClose, onOpenRecipe }) {
+// Insumos de varias órdenes sumados: cada receta se escala a lo que pide su orden y lo igual se suma
+// (KILO y GRAMOS se suman en kilos; LITRO y ML en litros; lo demás por su unidad).
+export function consolidarOrdenes(ordenes, recipes) {
+  const acc = new Map(); const sin = [];
+  (ordenes || []).forEach(o => {
+    const rec = (recipes || []).find(r => String(r.id) === String(o.recipeId));
+    if (!rec) { sin.push(o.name); return; }
+    const ings = (rec.ingredients || []).map(normalizeIngredient);
+    const parsed = ings.map(n => parseQty(n.text));
+    // factor de la orden: lo pedido del principal / lo que dice la receta
+    let bi = parsed.findIndex((p, i) => p && o.principal?.code && ings[i].code === o.principal.code);
+    if (bi < 0) bi = parsed.findIndex(p => p && String(p.name).toUpperCase() === String(o.principal?.name || "").toUpperCase());
+    const f = bi >= 0 && parsed[bi].qty > 0 && o.principal?.plan > 0 ? o.principal.plan / parsed[bi].qty : 1;
+    parsed.forEach((p, i) => {
+      if (!p) return;
+      let unit = p.unitRaw || p.unit, qty = p.qty * f;
+      if (p.unit === "KILO" || p.unit === "GR") { unit = "KILO"; qty = p.unit === "GR" ? qty / 1000 : qty; }
+      else if (p.unit === "LITRO" || p.unit === "ML") { unit = "LITRO"; qty = p.unit === "ML" ? qty / 1000 : qty; }
+      const key = ingKey(ings[i].code, p.name) + "|" + unit;
+      const a = acc.get(key) || { code: ings[i].code, name: p.name, unit, qty: 0, de: [] };
+      a.qty += qty; if (!a.de.includes(o.name)) a.de.push(o.name);
+      acc.set(key, a);
+    });
+  });
+  const lines = [...acc.values()].sort((a, b) => a.name.localeCompare(b.name, "es"));
+  return { lines, sin };
+}
+
+export function BodegaRegistros({ isAdmin, onClose, onOpenRecipe, recipes = [] }) {
   const [list, setList] = useState(null);
+  const [pedido, setPedido] = useState(false);
   const [tab, setTab] = useState("ordenes");
   const [busy, setBusy] = useState(false);
   const refresh = () => loadRegistros().then(r => setList(r || []));
@@ -285,6 +315,8 @@ export function BodegaRegistros({ isAdmin, onClose, onOpenRecipe }) {
     prods.forEach(p => { if (!(p.rinde?.plan > 0) || !(p.rinde?.real > 0)) return; const a = (m[p.name] = m[p.name] || { n: 0, difs: [] }); a.n++; a.difs.push(((p.rinde.real - p.rinde.plan) / p.rinde.plan) * 100); });
     return Object.entries(m).map(([name, a]) => ({ name, n: a.n, prom: a.difs.reduce((x, y) => x + y, 0) / a.n, min: Math.min(...a.difs), max: Math.max(...a.difs) }));
   }, [prods]);
+  const cons = useMemo(() => consolidarOrdenes(ordenes, recipes), [list, recipes]); // eslint-disable-line react-hooks/exhaustive-deps
+  const consLine = (l) => ({ main: `${fmtGaby(Math.round(l.qty * 1000) / 1000)} ${l.unit}`, name: titleCase(l.name), code: l.code });
   const tabs = [["ordenes", `Órdenes pendientes (${ordenes.length})`], ["prod", `Producciones (${prods.length})`], ["desp", `Despieces y mermas (${desp.length})`]];
   const card = { borderRadius: 14, border: `1px solid ${C.line}`, background: "#fff", padding: 12, display: "flex", flexDirection: "column", gap: 5 };
   const small = { fontSize: 12, color: C.muted };
@@ -298,7 +330,30 @@ export function BodegaRegistros({ isAdmin, onClose, onOpenRecipe }) {
 
       {list != null && tab === "ordenes" && (ordenes.length === 0
         ? <span style={small}>No hay órdenes pendientes. Se crean desde una receta de bodega: Calcular → «Crear orden».</span>
-        : ordenes.map(o => (
+        : <>
+        {cons.lines.length > 0 && (
+          <div style={{ ...card, background: "#FFFAF5", border: "1.5px solid #F1D9C2", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ flex: 1, minWidth: 180, display: "flex", flexDirection: "column", gap: 2 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".14em", color: C.orange7 }}>INSUMOS PARA {ordenes.length === 1 ? "LA ORDEN" : `LAS ${ordenes.length} ÓRDENES`}</span>
+                <span style={{ fontSize: 12, color: C.muted }}>Lo que se repite entre recetas ya está sumado.</span>
+              </span>
+              <button onClick={() => setPedido(true)} style={btn(C.navy, "#fff", { height: 38, fontSize: 13 })}>Hacer pedido (copiar / WhatsApp)</button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {cons.lines.map((l, i) => { const c = consLine(l); return (
+                <div key={i} style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "6px 8px", borderRadius: 9, background: i % 2 ? "transparent" : "#fff" }}>
+                  <strong style={{ fontSize: 13.5, color: C.navy, minWidth: 118, textAlign: "right", fontVariantNumeric: "tabular-nums", flex: "none" }}>{c.main}</strong>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: C.ink2 }}>{c.name}{l.de.length > 1 && <span style={{ fontSize: 11, fontWeight: 700, color: C.blue }}> · suma de {l.de.length} recetas</span>}</span>
+                  {l.code && <span style={{ fontFamily: "ui-monospace,Menlo,monospace", fontSize: 10.5, color: C.muted2, flex: "none" }}>{l.code}</span>}
+                </div>
+              ); })}
+            </div>
+            {cons.sin.length > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: C.red }}>No encontré la receta de: {cons.sin.join(", ")} (no está sumada).</span>}
+          </div>
+        )}
+        {pedido && <PedidoModal recipeName={ordenes.length === 1 ? ordenes[0].name : `${ordenes.length} órdenes: ${ordenes.map(o => o.name).join(", ")}`} rindeTxt="" lines={cons.lines.map(consLine)} onClose={() => setPedido(false)} />}
+        {ordenes.map(o => (
           <div key={o.id} style={card}>
             <span style={{ fontSize: 15, fontWeight: 800, color: C.navy }}>{o.name}</span>
             <span style={{ fontSize: 13.5, color: C.ink2 }}><strong>{fmtGaby(o.principal?.plan || 0)} {o.principal?.unit}</strong> de {o.principal?.name}{o.rinde?.plan > 0 ? ` · rinde ${fmtGaby(o.rinde.plan)} ${o.rinde.unit}` : ""}</span>
@@ -308,7 +363,7 @@ export function BodegaRegistros({ isAdmin, onClose, onOpenRecipe }) {
               {delBtn(o.id)}
             </div>
           </div>
-        )))}
+        ))}</>)}
 
       {list != null && tab === "prod" && (<>
         {porRec.length > 0 && (

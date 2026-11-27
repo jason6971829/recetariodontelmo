@@ -1103,7 +1103,7 @@ export default function App() {
         <RecipeDetail key={selectedRecipe.id} recipe={selectedRecipe} currentUser={currentUser} onOpenCalc={(id)=>{ setCalcSel(id); setSelectedRecipe(null); setShowCalcPan(true); }} onClose={()=>setSelectedRecipe(null)} onEdit={()=>handleEdit(selectedRecipe)} onDelete={()=>handleDelete(selectedRecipe)} onTogglePublish={()=>handleTogglePublish(selectedRecipe)} pizzaRecipes={recipes.filter(r=>r.category?.toLowerCase().includes("pizza"))} brandLabel={brandLabel} brandName={brandName} companyTagline={companyTagline} />
       )}
       {showBodegaReg && (
-        <BodegaRegistros isAdmin={isAdmin} onClose={() => setShowBodegaReg(false)}
+        <BodegaRegistros isAdmin={isAdmin} recipes={recipes} onClose={() => setShowBodegaReg(false)}
           onOpenRecipe={(id) => { const r = recipes.find(x => String(x.id) === String(id)); if (r) { setShowBodegaReg(false); setSelectedRecipe(r); } }} />
       )}
       {showForm && (
