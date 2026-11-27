@@ -3,10 +3,10 @@ import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useBascula } from "@/components/PesajeBascula";
 import { useViewport } from "@/hooks/useViewport";
-import { parseNumber, parseQty, fmtGaby, fmtNum } from "@/lib/scaleRecipe";
+import { parseNumber, parseQty, fmtGaby, fmtNum, defaultBaseIndex, GRAMS_PER } from "@/lib/scaleRecipe";
 import { normalizeIngredient } from "@/lib/ingredients";
 import { loadUi, saveUi } from "@/lib/session";
-import { loadRegistros, addRegistro, updateRegistros, mermaDespiece, fmtFecha, uid, ingKey } from "@/lib/bodega";
+import { loadRegistros, addRegistro, updateRegistros, mermaDespiece, fmtFecha, uid, ingKey, useBodegaConfig, useInsumoCats, tipoDe, rangoPct } from "@/lib/bodega";
 
 // Piezas de producción de bodega: lista de pedido, cierre de producción (rendimiento real),
 // ficha de despiece con merma y el panel de órdenes / registros / mermas.
@@ -397,7 +397,31 @@ export function consolidarOrdenes(ordenes, recipes) {
   return { lines, sin };
 }
 
+// Hoja de pesaje de una orden: la receta escalada a lo que pide la orden, con su principal y tipos de pesaje
+export function hojaDeOrden(o, recipes, cfgAll, cats) {
+  const recipe = (recipes || []).find(r => String(r.id) === String(o.recipeId));
+  if (!recipe) return null;
+  const cfg = (cfgAll || {})[recipe.id] || {};
+  const ings = (recipe.ingredients || []).map(normalizeIngredient);
+  const parsed = ings.map(n => parseQty(n.text));
+  const keys = ings.map((n, i) => ingKey(n.code, parsed[i]?.name || n.text));
+  let bi = cfg.principal ? keys.findIndex((k, i) => k === cfg.principal && parsed[i]) : -1;
+  if (bi < 0 && o.principal?.code) bi = parsed.findIndex((p, i) => p && ings[i].code === o.principal.code);
+  if (bi < 0) bi = defaultBaseIndex(parsed);
+  // el factor sale del insumo que la orden guardó como principal
+  let oi = parsed.findIndex((p, i) => p && o.principal?.code && ings[i].code === o.principal.code);
+  if (oi < 0) oi = parsed.findIndex(p => p && String(p.name).toUpperCase() === String(o.principal?.name || "").toUpperCase());
+  const factor = oi >= 0 && parsed[oi].qty > 0 && o.principal?.plan > 0 ? o.principal.plan / parsed[oi].qty : 1;
+  const tolPct = rangoPct(cfg);
+  return {
+    recipe, factor, tolPct, rinde: parseQty(recipe.portions), principalIdx: bi,
+    rows: ings.map((n, i) => { const p = parsed[i]; return { code: n.code, name: p?.name || n.text, qty: p ? p.qty * factor : null, unit: p?.unit, unitRaw: p?.unitRaw, tipo: p ? (i === bi ? "principal" : GRAMS_PER[p.unit] ? tipoDe(cfg, keys[i], (cats || {})[n.code]) : "") : "" }; }),
+  };
+}
+
 export function BodegaRegistros({ isAdmin, onClose, onOpenRecipe, recipes = [] }) {
+  const [cfgAll] = useBodegaConfig(true);
+  const insCats = useInsumoCats(true);
   const [list, setList] = useState(null);
   const [pedido, setPedido] = useState(false);
   const [tab, setTab] = useState("ordenes");
@@ -427,6 +451,7 @@ export function BodegaRegistros({ isAdmin, onClose, onOpenRecipe, recipes = [] }
   }, [prods]);
   const cons = useMemo(() => consolidarOrdenes(ordenes, recipes), [list, recipes]); // eslint-disable-line react-hooks/exhaustive-deps
   const consLine = (l) => ({ main: `${fmtGaby(Math.round(l.qty * 1000) / 1000)} ${l.unit}`, name: titleCase(l.name), code: l.code });
+  const hojas = useMemo(() => ordenes.map(o => hojaDeOrden(o, recipes, cfgAll, insCats)).filter(Boolean), [list, recipes, cfgAll, insCats]); // eslint-disable-line react-hooks/exhaustive-deps
   const tabs = [["ordenes", `Órdenes pendientes (${ordenes.length})`], ["prod", `Producciones (${prods.length})`], ["desp", `Despieces y mermas (${desp.length})`]];
   const card = { borderRadius: 14, border: `1px solid ${C.line}`, background: "#fff", padding: 12, display: "flex", flexDirection: "column", gap: 5 };
   const small = { fontSize: 12, color: C.muted };
@@ -449,6 +474,7 @@ export function BodegaRegistros({ isAdmin, onClose, onOpenRecipe, recipes = [] }
                 <span style={{ fontSize: 12, color: C.muted }}>Lo que se repite entre recetas ya está sumado.</span>
               </span>
               <button onClick={() => setPedido(true)} style={btn(C.navy, "#fff", { height: 38, fontSize: 13 })}>Hacer pedido (copiar / WhatsApp)</button>
+              {hojas.length > 0 && <button onClick={printHojaBodega} title="Una hoja de pesaje por cada orden, con las cantidades de la orden" style={btn(C.orange, "#fff", { height: 38, fontSize: 13 })}>Imprimir {hojas.length === 1 ? "la hoja" : `las ${hojas.length} hojas`} de pesaje</button>}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {cons.lines.map((l, i) => { const c = consLine(l); return (
@@ -462,6 +488,7 @@ export function BodegaRegistros({ isAdmin, onClose, onOpenRecipe, recipes = [] }
             {cons.sin.length > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: C.red }}>No encontré la receta de: {cons.sin.join(", ")} (no está sumada).</span>}
           </div>
         )}
+        {tab === "ordenes" && hojas.length > 0 && <BodegaPrintMulti sheets={hojas} />}
         {pedido && <PedidoModal recipeName={ordenes.length === 1 ? ordenes[0].name : `${ordenes.length} órdenes: ${ordenes.map(o => o.name).join(", ")}`} rindeTxt="" lines={cons.lines.map(consLine)} onClose={() => setPedido(false)} />}
         {ordenes.map(o => (
           <div key={o.id} style={card}>
@@ -548,22 +575,26 @@ const PAGE_W = 725, PAGE_H = 955;
 // Imprime SIEMPRE en una sola hoja: si la receta es larga, la hoja completa se reduce hasta que quepa.
 export function printHojaBodega() {
   const root = document.querySelector(".bodega-print-root");
-  const box = root?.querySelector(".bp-box"), sheet = root?.querySelector(".bp-sheet");
-  if (!root || !box || !sheet) { window.print(); return; }
+  const boxes = root ? [...root.querySelectorAll(".bp-box")] : [];
+  if (!root || !boxes.length) { window.print(); return; }
   // medir fuera de pantalla, al ancho real de la hoja
   root.style.cssText = `display:block;position:absolute;left:-10000px;top:0;width:${PAGE_W}px;visibility:hidden`;
-  box.style.cssText = ""; sheet.style.transform = ""; sheet.style.transformOrigin = "top left";
-  let s = 1;
-  for (let k = 0; k < 40; k++) {
-    sheet.style.width = `${PAGE_W / s}px`;
-    if (sheet.offsetHeight * s <= PAGE_H) break;
-    s *= 0.97;
-  }
-  const h = sheet.offsetHeight;
-  if (s < 1) { sheet.style.transform = `scale(${s})`; box.style.cssText = `width:${PAGE_W}px;height:${Math.ceil(h * s)}px;overflow:hidden`; }
-  else { sheet.style.width = ""; }
+  boxes.forEach((box, i) => {
+    const sheet = box.querySelector(".bp-sheet");
+    box.style.cssText = ""; sheet.style.transform = ""; sheet.style.transformOrigin = "top left";
+    let sc = 1;
+    for (let k = 0; k < 40; k++) {
+      sheet.style.width = `${PAGE_W / sc}px`;
+      if (sheet.offsetHeight * sc <= PAGE_H) break;
+      sc *= 0.97;
+    }
+    const h = sheet.offsetHeight;
+    const salto = i < boxes.length - 1 ? "break-after:page;page-break-after:always;" : "";
+    if (sc < 1) { sheet.style.transform = `scale(${sc})`; box.style.cssText = `width:${PAGE_W}px;height:${Math.ceil(h * sc)}px;overflow:hidden;${salto}`; }
+    else { sheet.style.width = ""; box.style.cssText = salto; }
+  });
   root.style.cssText = "";
-  const done = () => { window.removeEventListener("afterprint", done); box.style.cssText = ""; sheet.style.transform = ""; sheet.style.width = ""; };
+  const done = () => { window.removeEventListener("afterprint", done); boxes.forEach(box => { const sheet = box.querySelector(".bp-sheet"); box.style.cssText = ""; if (sheet) { sheet.style.transform = ""; sheet.style.width = ""; } }); };
   window.addEventListener("afterprint", done);
   setTimeout(() => window.print(), 60);
 }
@@ -584,12 +615,12 @@ function qtyParts(qty, unit, unitRaw) {
     if (ml >= 10000) return { main: `${k3(ml / 1000)} L`, sub: `${nf(ml, 0)} ml`, box: "L" };
     return { main: `${nf(ml, ml < 10 ? 2 : 0)} ml`, sub: `${k3(ml / 1000)} litro`, box: "ml" };
   }
-  if (U === "UNIDAD") return { main: `${nf(qty, 3)} unid.`, sub: "", box: "unid." };
+  if (U === "UNIDAD") return { main: `${nf(qty, qty >= 50 ? 0 : 2)} unid.`, sub: "", box: "unid." };
   return { main: `${nf(qty, 3)} ${String(unitRaw || unit || "").toLowerCase()}`, sub: "", box: "" };
 }
 const titleCase = (t) => String(t || "").toLowerCase().replace(/(^|[\s(·/-])([a-záéíóúñ])/g, (m, a, b) => a + b.toUpperCase());
 
-export function BodegaPrint({ recipe, rows, factor = 1, rinde, principalIdx = -1, tolPct = 5, despiece }) {
+function HojaSheet({ recipe, rows, factor = 1, rinde, principalIdx = -1, tolPct = 5, despiece }) {
   const hoy = new Date().toLocaleDateString("es-CO", { day: "2-digit", month: "2-digit", year: "numeric" });
   const lab = { fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: P.soft };
   const cap = { fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: P.label };
@@ -620,10 +651,7 @@ export function BodegaPrint({ recipe, rows, factor = 1, rinde, principalIdx = -1
     ? [<><b>Pese todo</b> lo que entra y anótelo.</>, <>Haga el despiece y <b>pese cada cosa</b> que sale; lo que va por unidades, cuéntelo.</>, <>La <b>merma</b> es lo que entró menos lo que salió. Regístrelo en la app.</>]
     : [<><b>Pese primero</b> el producto principal.</>, <>Si llegó más o menos, <b>anote el peso real</b> y recalcule en la app.</>, <>Pese cada insumo y <b>marque la casilla</b> al terminar.</>];
 
-  return createPortal(
-    <div className="bodega-print-root">
-      <style>{PRINT_CSS}</style>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  return (
       <div className="bp-box"><div className="bp-sheet" style={{ background: "#fff", color: P.ink, fontFamily: "Inter, Manrope, system-ui, sans-serif", display: "flex", flexDirection: "column", gap: dense ? 16 : 22, fontVariantNumeric: "tabular-nums" }}>
 
         {/* Encabezado */}
@@ -787,5 +815,15 @@ export function BodegaPrint({ recipe, rows, factor = 1, rinde, principalIdx = -1
           </div>
         </div>
       </div></div>
-    </div>, document.body);
+  );
 }
+const PrintRoot = ({ children }) => createPortal(
+  <div className="bodega-print-root">
+    <style>{PRINT_CSS}</style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+    {children}
+  </div>, document.body);
+// Una hoja (la receta abierta)
+export function BodegaPrint(props) { return <PrintRoot><HojaSheet {...props} /></PrintRoot>; }
+// Varias hojas, una por página (todas las órdenes pendientes)
+export function BodegaPrintMulti({ sheets }) { return <PrintRoot>{sheets.map((sh, i) => <HojaSheet key={i} {...sh} />)}</PrintRoot>; }
